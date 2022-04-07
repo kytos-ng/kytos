@@ -25,7 +25,7 @@ build:
                     - py-scrutinizer-run
         pyOthers:
             environment:
-                python: 3.6
+                python: 3.9.1
                 postgresql: false
                 redis: false
             dependencies:
