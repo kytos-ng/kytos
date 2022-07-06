@@ -13,7 +13,7 @@ from kytos.core.switch import Switch
 logging.basicConfig(level=logging.CRITICAL)
 
 
-# pylint: disable=protected-access
+# pylint: disable=protected-access,too-many-public-methods
 class TestLink(unittest.TestCase):
     """Test Links."""
 
