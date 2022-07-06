@@ -52,6 +52,7 @@ Changed
 
 - ``msg_out`` core queue now leverages a PriorityQueue instead of a FIFO Queue.
 - ``msg_in`` core queue now leverages a PriorityQueue instead of a FIFO Queue.
+- ``Link.status`` is considered ``EntityStatus.DOWN`` if ``liveness_status`` metadata is set and different than ``up``.
 
 Deprecated
 ==========
