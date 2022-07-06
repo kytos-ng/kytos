@@ -4,6 +4,7 @@ import time
 import unittest
 from unittest.mock import Mock, patch
 
+from kytos.core.common import EntityStatus
 from kytos.core.exceptions import KytosLinkCreationError
 from kytos.core.interface import Interface, TAGType
 from kytos.core.link import Link
@@ -93,6 +94,87 @@ class TestLink(unittest.TestCase):
         link1 = Link(self.iface1, self.iface2)
         link2 = Link(self.iface2, self.iface1)
         self.assertEqual(link1.id, link2.id)
+
+    def test_link_status_up(self) -> None:
+        """Test link status up."""
+        for intf in (self.iface1, self.iface2):
+            intf.enable()
+            intf.enable()
+        link = Link(self.iface1, self.iface2)
+        assert self.iface1.status == EntityStatus.UP
+        assert self.iface2.status == EntityStatus.UP
+        link.enable()
+        link.activate()
+        assert link.status == EntityStatus.UP
+
+    def test_link_status_down(self) -> None:
+        """Test link status down."""
+        for intf in (self.iface1, self.iface2):
+            intf.enable()
+            intf.activate()
+        self.iface1.deactivate()
+        link = Link(self.iface1, self.iface2)
+        assert self.iface1.status == EntityStatus.DOWN
+        assert self.iface2.status == EntityStatus.UP
+        link.enable()
+        link.activate()
+        assert link.status == EntityStatus.DOWN
+
+    def test_link_status_disable(self) -> None:
+        """Test link status down."""
+        for intf in (self.iface1, self.iface2):
+            intf.enable()
+            intf.activate()
+        self.iface1.disable()
+        link = Link(self.iface1, self.iface2)
+        assert self.iface1.status == EntityStatus.DISABLED
+        assert self.iface2.status == EntityStatus.UP
+        link.enable()
+        link.activate()
+        assert link.status == EntityStatus.DISABLED
+
+    def test_link_status_liveness_up(self) -> None:
+        """Test link status liveness up."""
+        for intf in (self.iface1, self.iface2):
+            intf.enable()
+            intf.activate()
+        link = Link(self.iface1, self.iface2)
+        assert self.iface1.status == EntityStatus.UP
+        assert self.iface2.status == EntityStatus.UP
+        link.add_metadata("liveness_status", "up")
+        link.enable()
+        link.activate()
+        assert link.status == EntityStatus.UP
+
+    def test_link_status_liveness_down(self) -> None:
+        """Test link status liveness down."""
+        for intf in (self.iface1, self.iface2):
+            intf.enable()
+            intf.activate()
+        link = Link(self.iface1, self.iface2)
+        assert self.iface1.status == EntityStatus.UP
+        assert self.iface2.status == EntityStatus.UP
+        link.add_metadata("liveness_status", "down")
+        link.enable()
+        link.activate()
+        assert link.status == EntityStatus.DOWN
+
+        # active and enable must be true, decoupled to keep protocol status
+        assert link.is_active()
+        assert link.is_enabled()
+
+    def test_link_status_liveness_init(self) -> None:
+        """Test link status liveness down."""
+        for intf in (self.iface1, self.iface2):
+            intf.enable()
+            intf.activate()
+        link = Link(self.iface1, self.iface2)
+        assert self.iface1.status == EntityStatus.UP
+        assert self.iface2.status == EntityStatus.UP
+        link.add_metadata("liveness_status", "init")
+        link.enable()
+        link.activate()
+        assert link.status == EntityStatus.DOWN
 
     def test_available_tags(self):
         """Test available_tags property."""

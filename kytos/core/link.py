@@ -8,7 +8,7 @@ import hashlib
 import json
 import random
 
-from kytos.core.common import GenericEntity
+from kytos.core.common import EntityStatus, GenericEntity
 from kytos.core.exceptions import (KytosLinkCreationError,
                                    KytosNoTagAvailableError)
 from kytos.core.interface import TAGType
@@ -35,6 +35,18 @@ class Link(GenericEntity):
 
     def __repr__(self):
         return f"Link({self.endpoint_a!r}, {self.endpoint_b!r})"
+
+    @property
+    def status(self):
+        """Return the current status of the Entity."""
+        state = super().status
+        if (
+            state == EntityStatus.UP
+            and "liveness_status" in self.metadata
+            and self.metadata["liveness_status"] != "up"
+        ):
+            return EntityStatus.DOWN
+        return state
 
     def is_enabled(self):
         """Override the is_enabled method.
