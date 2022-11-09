@@ -463,14 +463,16 @@ class Interface(GenericEntity):  # pylint: disable=too-many-instance-attributes
 class UNI:
     """Class that represents an User-to-Network Interface."""
 
-    def __init__(self, interface, user_tag=None):
+    def __init__(self, interface, sb_priority=None, user_tag=None):
         self.user_tag = user_tag
         self.interface = interface
+        self.sb_priority = sb_priority
 
     def __eq__(self, other):
         """Override the default implementation."""
         return (self.user_tag == other.user_tag and
-                self.interface == other.interface)
+                self.interface == other.interface and
+                self.sb_priority == other.sb_priority)
 
     def is_valid(self):
         """Check if TAG is possible for this interface TAG pool."""
@@ -482,14 +484,16 @@ class UNI:
         """Return a dict representating a UNI object."""
         return {
             'interface_id': self.interface.id,
-            'tag': self.user_tag.as_dict() if self.user_tag else None
+            'tag': self.user_tag.as_dict() if self.user_tag else None,
+            'sb_priority': self.sb_priority
             }
 
     @classmethod
     def from_dict(cls, uni):
         """Return a Uni instance from python dictionary."""
         return cls(uni.get('interface'),
-                   uni.get('user_tag'))
+                   uni.get('user_tag'),
+                   uni.get('sb_priority'))
 
     def as_json(self):
         """Return a json representating a UNI object."""

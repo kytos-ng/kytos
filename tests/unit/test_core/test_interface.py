@@ -305,7 +305,8 @@ class TestUNI(unittest.TestCase):
         switch.id = '00:00:00:00:00:00:00:01'
         interface = Interface('name', 1, switch)
         user_tag = TAG(1, 123)
-        self.uni = UNI(interface, user_tag)
+        sb_priority = 2000
+        self.uni = UNI(interface, sb_priority, user_tag)
 
     def test__eq__(self):
         """Test __eq__ method."""
@@ -328,11 +329,13 @@ class TestUNI(unittest.TestCase):
     def test_as_dict(self):
         """Test as_dict method."""
         expected_dict = {'interface_id': '00:00:00:00:00:00:00:01:1',
-                         'tag': {'tag_type': 1, 'value': 123}}
+                         'tag': {'tag_type': 1, 'value': 123},
+                         'sb_priority': 2000}
         self.assertEqual(self.uni.as_dict(), expected_dict)
 
     def test_as_json(self):
         """Test as_json method."""
         expected_json = '{"interface_id": "00:00:00:00:00:00:00:01:1", ' + \
-                        '"tag": {"tag_type": 1, "value": 123}}'
+                        '"tag": {"tag_type": 1, "value": 123}, ' + \
+                        '"sb_priority": 2000}'
         self.assertEqual(self.uni.as_json(), expected_json)
