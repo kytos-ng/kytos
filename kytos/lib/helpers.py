@@ -1,6 +1,8 @@
 """Module with utilities to create tests."""
 from unittest.mock import Mock, create_autospec
 
+from mongomock import MongoClient
+
 from kytos.core import Controller
 from kytos.core.buffers import KytosBuffers
 from kytos.core.config import KytosConfig
@@ -18,6 +20,8 @@ def get_controller_mock():
     controller = Controller(options)
     controller.buffers = KytosBuffers()
     controller.log = Mock()
+    controller.db_client = MongoClient()
+    controller.db = controller.db_client['napps']
     return controller
 
 

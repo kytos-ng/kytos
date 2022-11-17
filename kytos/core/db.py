@@ -119,6 +119,7 @@ def _mongo_conn_wait(mongo_client=mongo_client, retries=12,
         LOG.info("Trying to run 'hello' command on MongoDB...")
         client.db.command("hello")
         LOG.info("Ran 'hello' command on MongoDB successfully. It's ready!")
+        return client
     except (OperationFailure, AutoReconnect) as exc:
         retries -= 1
         if retries > 0:

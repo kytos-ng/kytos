@@ -154,6 +154,8 @@ class Controller:
         #: from napps.<username>.<napp_name> import ?....
         sys.path.append(os.path.join(self.options.napps, os.pardir))
         sys.excepthook = exc_handler
+        self.db_client = None
+        self.db = None
 
     def start_auth(self):
         """Initialize Auth() and its services"""
@@ -247,7 +249,8 @@ class Controller:
         """Create pidfile and call start_controller method."""
         self.enable_logs()
         if self.options.database:
-            self.db_conn_or_core_shutdown()
+            self.db_client = self.db_conn_or_core_shutdown()
+            self.db = self.db_client[os.environ.get("MONGO_DBNAME") or "napps"]
             self.start_auth()
         if self.options.apm:
             self.init_apm_or_core_shutdown()
@@ -380,7 +383,7 @@ class Controller:
     def db_conn_or_core_shutdown(self):
         """Ensure db connection or core shutdown."""
         try:
-            db_conn_wait(db_backend=self.options.database)
+            return db_conn_wait(db_backend=self.options.database)
         except KytosDBInitException as exc:
             sys.exit(f"Kytos couldn't start because of {str(exc)}")
 
