@@ -5,6 +5,7 @@ from collections import OrderedDict
 from enum import IntEnum
 from threading import Lock
 
+
 from pyof.v0x01.common.phy_port import Port as PortNo01
 from pyof.v0x01.common.phy_port import PortFeatures as PortFeatures01
 from pyof.v0x04.common.port import PortFeatures as PortFeatures04
