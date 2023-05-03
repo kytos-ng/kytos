@@ -10,6 +10,7 @@ from http import HTTPStatus
 from typing import Optional, Union
 from urllib.error import HTTPError, URLError
 from urllib.request import urlretrieve
+from janus import Queue
 
 import httpx
 from starlette.applications import Starlette
@@ -18,12 +19,15 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
 from starlette.staticfiles import StaticFiles
+from starlette.websockets import WebSocket, WebSocketDisconnect
 from uvicorn import Config as UvicornConfig
 from uvicorn import Server
 
 from kytos.core.auth import authenticated
 from kytos.core.config import KytosConfig
 from kytos.core.rest_api import JSONResponse, Request
+from kytos.core.websocket import WebSocketHandler
+from websockets.exceptions import ConnectionClosed
 
 LOG = logging.getLogger(__name__)
 
@@ -118,6 +122,25 @@ class APIServer:
                                     methods=['POST'])
 
         self.register_core_napp_services()
+        self.start_ws_logs()
+
+    def start_ws_logs(self) -> None:
+        """Start websocket logs."""
+        self.app.add_websocket_route("/ws/logs/", self.ws_logs)
+
+    async def ws_logs(self, ws: WebSocket) -> None:
+        """Websocket logs handler."""
+        await ws.accept()
+        queue = Queue()
+        WebSocketHandler.subcribe(queue)
+        try:
+            while True:
+                lines = await queue.async_q.get()
+                await ws.send_json(lines)
+        except (WebSocketDisconnect, ConnectionClosed):
+            pass
+        finally:
+            WebSocketHandler.unsubscribe(queue)
 
     def start_web_ui(self) -> None:
         """Start Web UI endpoints."""

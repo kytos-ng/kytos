@@ -4,6 +4,7 @@ from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 
 from kytos.core.apm import begin_span
+from kytos.core.websocket import WebSocketHandler
 
 
 def queue_decorator(klass):
@@ -17,6 +18,7 @@ def queue_decorator(klass):
                                           respect_handler_level=True)
             self.listener.start()
             super().addHandler(QueueHandler(self.queue))
+            # super().addHandler(WebSocketHandler.get_handler())
 
         def _change_handlers(self, *hdlrs):
             """Set the handlers of the queue listener"""

@@ -48,6 +48,7 @@ from kytos.core.napps.base import NApp
 from kytos.core.napps.manager import NAppsManager
 from kytos.core.napps.napp_dir_listener import NAppDirListener
 from kytos.core.switch import Switch
+from kytos.core.websocket import WebSocketHandler
 
 __all__ = ('Controller',)
 
@@ -176,11 +177,11 @@ class Controller:
             sys.exit(1)
         LogManager.decorate_logger_class(*decorators)
         LogManager.load_config_file(self.options.logging, self.options.debug)
-        # pylint: disable=fixme
-        # TODO issue 371 (future PR for 2023.1)
-        # LogManager.enable_websocket(self.api_server.server)
         self.log = logging.getLogger(__name__)
         self._patch_core_loggers()
+        # LogManager.enable_websocket()
+        napps = logging.getLogger("kytos.napps")
+        napps.addHandler(WebSocketHandler.get_handler())
 
     @staticmethod
     def _resolve(name):

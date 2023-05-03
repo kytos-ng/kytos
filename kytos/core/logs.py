@@ -73,17 +73,14 @@ class LogManager:
                         'logging configuration.', config_file)
 
     @classmethod
-    def enable_websocket(cls, socket):
+    def enable_websocket(cls):
         """Output logs to a web socket.
-
-        Args:
-            socket: socketio's socket.
 
         Returns:
             logging.StreamHandler: Handler with the socket as stream.
 
         """
-        handler = WebSocketHandler.get_handler(socket)
+        handler = WebSocketHandler.get_handler()
         cls.add_handler(handler)
         return handler
 

@@ -1,21 +1,19 @@
 """WebSocket abstraction."""
 import logging
+from janus import Queue
 
-__all__ = ('WebSocketHandler', )
+__all__ = ("WebSocketHandler",)
 
 
 class WebSocketHandler:
     """Log handler that logs to web socket."""
 
-    @classmethod
-    def get_handler(cls, socket):
-        """Output logs to a web socket, filtering unwanted messages.
+    queues: list[Queue] = []
 
-        Args:
-            socket: socketio socket.
-            stream: Object that supports ``write()`` and ``flush()``.
-        """
-        stream = WebSocketStream(socket)
+    @classmethod
+    def get_handler(cls):
+        """Output logs to a web socket, filtering unwanted messages."""
+        stream = WebSocketQueueStream()
         handler = logging.StreamHandler(stream)
         handler.addFilter(cls._filter_web_requests)
         return handler
@@ -27,16 +25,40 @@ class WebSocketHandler:
         Do not print web requests (INFO level) to avoid infinite loop when
         printing the logs in the web interface with long-polling mode.
         """
-        return record.name != 'werkzeug' or record.levelno > logging.INFO
+        # print(f"fox name: {record.name}")
+        # TODO
+        return True
+        if record.name.startswith("uvicorn") and  \
+           record.levelno >= logging.INFO:
+            return False
+        return True
+
+    @classmethod
+    def subcribe(cls, queue: Queue) -> None:
+        """Subcribe a queue."""
+        cls.queues.append(queue)
+
+    @classmethod
+    def unsubscribe(cls, queue: Queue) -> None:
+        """Unsubscribe a queue."""
+        try:
+            cls.queues.remove(queue)
+        except ValueError:
+            pass
+
+    @classmethod
+    def publish(cls, lines: list[str]) -> None:
+        """Publish to consumer queues."""
+        for queue in cls.queues:
+            queue.sync_q.put_nowait(lines)
 
 
-class WebSocketStream:
-    """Make loggers write to web socket."""
+class WebSocketQueueStream:
+    """WebSocketQueueStream."""
 
-    def __init__(self, socketio):
-        """Receive the socket to write to."""
-        self._io = socketio
-        self._content = ''
+    def __init__(self):
+        """Constructor."""
+        self._content = ""
 
     def write(self, content):
         """Store a new line."""
@@ -44,6 +66,6 @@ class WebSocketStream:
 
     def flush(self):
         """Send lines and reset the content."""
-        lines = self._content.split('\n')[:-1]
-        self._content = ''
-        self._io.emit('show logs', lines, room='log')
+        lines = self._content.split("\n")[:-1]
+        self._content = ""
+        WebSocketHandler.publish(lines)
