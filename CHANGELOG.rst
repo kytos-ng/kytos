@@ -6,6 +6,13 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2022.3.2]  2023-06-19
+**********************
+
+Fixed
+=====
+- pinned ``typing-extensions==4.5.0`` to be compatible with ``pydantic``
+
 [2022.3.1]  2023-02-17
 **********************
 
