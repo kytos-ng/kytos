@@ -5,7 +5,7 @@
     - Italo Valcy <idasilva AT fiu DOT edu>
 
 :Created: 2023-06-27
-:Updated: 2023-06-27
+:Updated: 2023-07-02
 :Kytos-Version: 2023.2
 :Status: Draft
 
@@ -16,7 +16,7 @@ EP38 - Improving security to coloring application to switches
 Abstract
 ========
 
-Here it will be explained the vulnerability of coloring implementation along with some of the issues that these problems could have in a deployed topology. Also, it is going to be explained how these vulnerabilities could be removed.
+Here it will be explained the vulnerability of **coloring** implementation related ot its broad match field. Also, it is going to be explained how these vulnerabilities could be solved.
 
 Motivation
 ==========
@@ -25,16 +25,20 @@ The NApp **coloring** installs flows according to a switch neighbors (switches c
 
   1. The matching criteria has one field, **"dl_src"** which has the same standard as a **MAC** address; ie. **ee:ee:ee:ee:ee:02**.
   2. The received packet is send to the controller.
-  3. They have the highest priority.
+  3. These flows have the highest priority.
 
-A customer connection with a certain **MAC** address could send packets indefinitely overloading the controller and interrupting other flows in the switch. Finally the currently used switch could disconnect.
+**coloring** flows are meant to only accept packets from NNIs previously discovered NNI but having only one match field **dl_src** does not assure it. Any connected interface with a matched **MAC** address can dangerously send loads of packets that could cause:
+
+  - Overload to the switch
+  - Overload to the controller
+  - Interruption to other flows of the affected switch
 
 Solution
 ========
 
-We need to ensure that the packets that **coloring** is interested in, come from inside the topology and drop anything else. Adding the following should suffice:
+We need to ensure that the packets that **coloring** is interested in, come from an NNI and drop anything else. Adding the following should suffice:
 
-  - Adding **"in_port"** as matching criteria to the created flow. The proper port could be obtained from the connection of switches neighbors.
+  - Adding **"in_port"** as matching criteria to the created flow. **coloring** recognizes only discovered NNIs. Their ports can be utilize to specify the matching.
   - Add an extra flow without **"in_port"** so it matches what is left. The matched packets need to be dropped to avoid further inturreptions with other flows.
 
 Diagram on how the solution would look like:
@@ -44,18 +48,18 @@ Diagram on how the solution would look like:
                                                    +------------------------+ 
                                                    |        Switch 1        | 
                              Port 0         Port 0 |       (in_port=3       |  Port 3          Port 2  +-------------------------+ 
-    +--------------------+    /|     attack    |\  |dl_src=ee:ee:ee:ee:ee:02|   /|                |\   |         Switch 2        | 
-    |      Customer       |  / |---------------| \ |  actions=CONTROLLER)   |  / |----------------| \  |        (in_port=2       | 
-    |MAC=ee:ee:ee:ee:ee:02|  \ |---------------| / |                        |  \ |----------------| /  | dl_src=ee:ee:ee:ee:ee:01| 
-    +---------------------+   \|    packets->  |/  |           (            |   \|                |/   |   actions=CONTROLLER)   | 
-                                                   |dl_src=ee:ee:ee:ee:ee:02|                          +-------------------------+ 
-                                                   |      actions=drop)     | 
-                                                   +------------------------+ 
+    +---------------------+   /|     attack    |\  |dl_src=ee:ee:ee:ee:ee:02|   /|      NNI       |\   |         Switch 2        |
+    |  Unknown component  |  / |---------------| \ |  actions=CONTROLLER)   |  / |----------------| \  |        (in_port=2       |
+    |MAC=ee:ee:ee:ee:ee:02|  \ |---------------| / |                        |  \ |----------------| /  | dl_src=ee:ee:ee:ee:ee:01|
+    +---------------------+   \|    packets->  |/  |           (            |   \|                |/   |   actions=CONTROLLER)   |
+                                                   |dl_src=ee:ee:ee:ee:ee:02|                          +-------------------------+
+                                                   |      actions=drop)     |
+                                                   +------------------------+
 
 Priority
 ~~~~~~~~
 
-This solution is not going to stop loads of packets comming from the customer but just manage them. In order to not drop a necessary packet and free the rest of the flows from these attacks, the priorities need to be adjusted.
+This solution is not going to stop loads of packets comming from not NNIs but just manage them. In order to not drop a necessary packet and free the rest of the flows from these attacks, the priorities need to be adjusted.
 
 - Leave the priority **50 000** for the **coloring** flow entries with **"in_port"** match in them
 - The flow entries that drop packet should have a higher priority than **mef_eline** entries (max. **20 000**) and lower than **of_lldp** entries (currently as of writting **1 000**)
