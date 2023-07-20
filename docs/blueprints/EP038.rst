@@ -27,9 +27,9 @@ The NApp **coloring** installs flows according to a switch neighbors (NNI linked
   2. The received packet is send to the controller.
   3. These flows have the highest priority.
 
-    .. image:: https://photos.app.goo.gl/URMk6CDpJiKw214x9
+Current implementation of **coloring** flows
 
-      Current implementation of **coloring** flows
+  .. image:: https://drive.google.com/uc?export=view&id=1G014OIYfxCuEYs_OEztaL9W9Rv80ZSWq
 
 **coloring** flows are meant to only accept packets from previously discovered NNIs but having only one match field **dl_src** does not assure it. Any connected interface with a matched **MAC** address can dangerously send loads of packets that could cause:
 
@@ -47,10 +47,7 @@ We need to ensure that the packets that **coloring** is interested in, come from
 
 Diagram on how the solution would look like:
 
-  .. image:: https://photos.app.goo.gl/nUSSabAU9gmrYTGb6
-    
-    Representation of solution applied.
-
+.. image:: https://drive.google.com/uc?export=view&id=1Wmlr-u4Tgw4YWNe46M2CZcRvXk_MCnlZ
 
 Priority
 ~~~~~~~~
