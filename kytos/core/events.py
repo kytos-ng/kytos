@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from kytos.core.helpers import now
 
 
-@dataclass(slots=True)
+@dataclass
 class KytosEvent:
     """Base Event class.
 
