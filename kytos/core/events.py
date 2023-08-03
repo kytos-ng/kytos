@@ -1,11 +1,13 @@
 """Module with Kytos Events."""
 import json
+from dataclasses import dataclass, field
 from datetime import datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from kytos.core.helpers import now
 
 
+@dataclass(slots=True)
 class KytosEvent:
     """Base Event class.
 
@@ -13,30 +15,14 @@ class KytosEvent:
     dictionary.
     """
 
-    def __init__(self, name=None, content=None, trace_parent=None, priority=0):
-        """Create an event to be published.
+    name: str
+    content: dict = field(default_factory=dict)
+    trace_parent: object = field(default=None)
+    priority: int = field(default=0)
 
-        Args:
-            name (string): The name of the event. You should prepend it with
-                           the name of the napp.
-            content (dict): Dictionary with any extra data for the event.
-            trace_parent (object): APM TraceParent for distributed tracing,
-                                   if you have APM enabled, @listen_to will
-                                   set the root parent, and then you have to
-                                   pass the trace_parent to subsequent
-                                   correlated KytosEvent(s).
-            priority (int): Priority of this event if a PriorityQueue is being
-                            used, the lower the number the higher the priority.
-        """
-        self.name = name
-        self.content = content if content is not None else {}
-        self.timestamp = now()
-        self.reinjections = 0
-        self.priority = priority
-
-        # pylint: disable=invalid-name
-        self.id = uuid4()
-        self.trace_parent = trace_parent
+    id: UUID = field(default_factory=uuid4)
+    timestamp: datetime = field(default_factory=now)
+    reinjections: int = field(default=0)
 
     def __str__(self):
         return self.name

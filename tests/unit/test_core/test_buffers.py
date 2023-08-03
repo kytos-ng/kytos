@@ -16,7 +16,7 @@ async def test_priority_queues(queue_name):
     prios = [-10, 10, 0, -20]
     for prio in prios:
         queue = getattr(buffers, queue_name)
-        await queue.aput(KytosEvent(priority=prio))
+        await queue.aput(KytosEvent('test', priority=prio))
     for prio in sorted(prios):
         event = await queue.aget()
         assert event.priority == prio
