@@ -20,7 +20,9 @@ class KytosEvent:
     trace_parent: object = field(default=None)
     priority: int = field(default=0)
 
+    # pylint: disable=invalid-name
     id: UUID = field(default_factory=uuid4)
+    # pylint: enable=invalid-name
     timestamp: datetime = field(default_factory=now)
     reinjections: int = field(default=0)
 

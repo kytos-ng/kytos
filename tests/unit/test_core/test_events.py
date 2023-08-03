@@ -64,7 +64,9 @@ class TestKytosEvent(TestCase):
     def test_init_attrs(self):
         """Test init attrs."""
         assert self.event.name == "kytos/core.any"
+        # pylint: disable=use-implicit-booleaness-not-comparison
         assert self.event.content == {}
+        # pylint: enable=use-implicit-booleaness-not-comparison
         assert self.event.timestamp <= datetime.now(timezone.utc)
         assert self.event.id and isinstance(self.event.id, UUID)
         assert self.event.reinjections == 0
