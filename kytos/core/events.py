@@ -1,8 +1,9 @@
 """Module with Kytos Events."""
 import json
-from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID, uuid4
+
+from pydantic.dataclasses import Field, dataclass
 
 from kytos.core.helpers import now
 
@@ -16,15 +17,15 @@ class KytosEvent:
     """
 
     name: str
-    content: dict = field(default_factory=dict)
-    trace_parent: object = field(default=None)
-    priority: int = field(default=0)
+    content: dict = Field(default_factory=dict)
+    trace_parent: object = Field(default=None)
+    priority: int = Field(default=0)
 
     # pylint: disable=invalid-name
-    id: UUID = field(default_factory=uuid4)
+    id: UUID = Field(default_factory=uuid4)
     # pylint: enable=invalid-name
-    timestamp: datetime = field(default_factory=now)
-    reinjections: int = field(default=0)
+    timestamp: datetime = Field(default_factory=now)
+    reinjections: int = Field(default=0)
 
     def __str__(self):
         return self.name
