@@ -12,8 +12,24 @@ from kytos.core.helpers import now
 class KytosEvent:
     """Base Event class.
 
-    The event data will be passed in the `content` attribute, which should be a
-    dictionary.
+    Args:
+        `name`:
+            The name of the event. You should prepend it with
+            the name of the napp.
+
+        `content`:
+            Dictionary with any extra data for the event.
+
+        `trace_parent`:
+            APM TraceParent for distributed tracing,
+            if you have APM enabled, `@listen_to` will
+            set the root parent, and then you have to
+            pass the trace_parent to subsequent
+            correlated KytosEvent(s).
+
+        `priority`:
+            Priority of this event if a `PriorityQueue` is being
+            used, the lower the number the higher the priority.
     """
 
     name: str
