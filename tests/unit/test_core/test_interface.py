@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, Mock
 from pyof.v0x04.common.port import PortFeatures
 
 from kytos.core.common import EntityStatus
+from kytos.core.events import KytosEvent
 from kytos.core.interface import TAG, UNI, Interface, TAGType
 from kytos.core.switch import Switch
 
@@ -286,6 +287,19 @@ class TestInterface(unittest.TestCase):
 
         self.assertEqual(self.iface.link, link)
         self.assertEqual(interface.link, link)
+
+    def test_notify_link_available_tags(self):
+        """Test notify_link_available_tags"""
+        controller = MagicMock()
+        name = "kytos/core.link_available_tags"
+        link = "mocked_link"
+        src_func = "mocked_src_func"
+        content = {"link": link, "src_func": src_func}
+        event = KytosEvent(name=name, content=content)
+        self.iface.notify_link_available_tags(controller, link, src_func)
+        args = controller.buffers.app.put.call_args[0]
+        assert args[0].name == event.name
+        assert args[0].content == event.content
 
     @staticmethod
     def test_pickleable_id() -> None:

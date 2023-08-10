@@ -13,6 +13,7 @@ from pyof.v0x04.common.port import PortFeatures as PortFeatures04
 from pyof.v0x04.common.port import PortNo as PortNo04
 
 from kytos.core.common import EntityStatus, GenericEntity
+from kytos.core.events import KytosEvent
 from kytos.core.helpers import now
 from kytos.core.id import InterfaceID
 
@@ -504,6 +505,17 @@ class Interface(GenericEntity):  # pylint: disable=too-many-instance-attributes
 
         """
         return json.dumps(self.as_dict())
+
+    @staticmethod
+    def notify_link_available_tags(controller, link, src_func=None):
+        """Notify link available tags"""
+        name = "kytos/core.link_available_tags"
+        content = {
+            "link": link,
+            "src_func": src_func
+        }
+        event = KytosEvent(name=name, content=content)
+        controller.buffers.app.put(event)
 
 
 class UNI:
