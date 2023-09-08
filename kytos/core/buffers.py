@@ -1,7 +1,11 @@
 """Kytos Buffer Classes, based on Python Queue."""
+import asyncio
 import logging
+import time
+from typing import Callable, Hashable, Iterable
 
 from janus import PriorityQueue, Queue
+import limits
 
 from kytos.core.events import KytosEvent
 from kytos.core.helpers import get_thread_pool_max_workers
@@ -123,6 +127,33 @@ class KytosEventBuffer:
         return self._queue.sync_q.full()
 
 
+class RateLimitedBuffer(KytosEventBuffer):
+
+    def __init__(self, *args,
+                 strategy: limits.strategies.RateLimiter,
+                 limit: limits.RateLimitItem,
+                 gen_identifiers: Callable[[KytosEvent], Iterable[Hashable]], **kwargs):
+        super().__init__(*args, **kwargs)
+        self.strategy = strategy
+        self.limit = limit
+        self.gen_identifiers = gen_identifiers
+
+    def get(self):
+        val = super().get()
+        identifiers = self.limit, *self.gen_identifiers(val)
+        while not self.strategy.hit(*identifiers):
+            window_reset, _ = self.strategy.get_window_stats(*identifiers)
+            time.sleep(window_reset - time.time())
+        return val
+
+    async def aget(self):
+        val = await super().aget()
+        identifiers = self.limit, *self.gen_identifiers(val)
+        while not self.strategy.hit(*identifiers):
+            window_reset, _ = self.strategy.get_window_stats(*identifiers)
+            await asyncio.sleep(window_reset - time.time())
+        return val
+
 class KytosBuffers:
     """Set of KytosEventBuffer used in Kytos."""
 
@@ -150,9 +181,14 @@ class KytosBuffers:
         self.msg_in = KytosEventBuffer("msg_in",
                                        maxsize=self._get_maxsize("sb"),
                                        queue_cls=PriorityQueue)
-        self.msg_out = KytosEventBuffer("msg_out",
-                                        maxsize=self._get_maxsize("sb"),
-                                        queue_cls=PriorityQueue)
+        self.msg_out = RateLimitedBuffer(
+            "msg_out",
+            maxsize=self._get_maxsize("sb"),
+            queue_cls=PriorityQueue,
+            strategy=limits.strategies.MovingWindowRateLimiter(limits.storage.MemoryStorage()),
+            limit=limits.RateLimitItemPerSecond(100,1),
+            gen_identifiers=lambda event: getattr(event.destination, 'id', ('unknown',)),
+        )
         self.app = KytosEventBuffer("app", maxsize=self._get_maxsize("app"))
 
     def get_all_buffers(self):
