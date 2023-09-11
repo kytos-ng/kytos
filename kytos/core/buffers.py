@@ -4,8 +4,8 @@ import logging
 import time
 from typing import Callable, Hashable, Iterable
 
-from janus import PriorityQueue, Queue
 import limits
+from janus import PriorityQueue, Queue
 
 from kytos.core.events import KytosEvent
 from kytos.core.helpers import get_thread_pool_max_workers
@@ -128,11 +128,16 @@ class KytosEventBuffer:
 
 
 class RateLimitedBuffer(KytosEventBuffer):
-
-    def __init__(self, *args,
-                 strategy: limits.strategies.RateLimiter,
-                 limit: limits.RateLimitItem,
-                 gen_identifiers: Callable[[KytosEvent], Iterable[Hashable]], **kwargs):
+    """
+    Extension of KytosEventBuffer with ratelimiting capabilities.
+    """
+    def __init__(
+        self, *args,
+        strategy: limits.strategies.RateLimiter,
+        limit: limits.RateLimitItem,
+        gen_identifiers: Callable[[KytosEvent], Iterable[Hashable]],
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.strategy = strategy
         self.limit = limit
@@ -153,6 +158,7 @@ class RateLimitedBuffer(KytosEventBuffer):
             window_reset, _ = self.strategy.get_window_stats(*identifiers)
             await asyncio.sleep(window_reset - time.time())
         return val
+
 
 class KytosBuffers:
     """Set of KytosEventBuffer used in Kytos."""
@@ -181,13 +187,17 @@ class KytosBuffers:
         self.msg_in = KytosEventBuffer("msg_in",
                                        maxsize=self._get_maxsize("sb"),
                                        queue_cls=PriorityQueue)
+        strategy = limits.strategies.MovingWindowRateLimiter(
+            limits.storage.MemoryStorage()
+        )
         self.msg_out = RateLimitedBuffer(
             "msg_out",
             maxsize=self._get_maxsize("sb"),
             queue_cls=PriorityQueue,
-            strategy=limits.strategies.MovingWindowRateLimiter(limits.storage.MemoryStorage()),
-            limit=limits.RateLimitItemPerSecond(100,1),
-            gen_identifiers=lambda event: getattr(event.destination, 'id', ('unknown',)),
+            strategy=strategy,
+            limit=limits.RateLimitItemPerSecond(100, 1),
+            gen_identifiers=lambda event:
+                getattr(event.destination, 'id', ('unknown',)),
         )
         self.app = KytosEventBuffer("app", maxsize=self._get_maxsize("app"))
 
