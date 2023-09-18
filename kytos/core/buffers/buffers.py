@@ -5,12 +5,9 @@ import time
 from typing import Callable, Hashable, Iterable
 
 import limits
-from janus import PriorityQueue, Queue
+from janus import Queue
 
 from kytos.core.events import KytosEvent
-from kytos.core.helpers import get_thread_pool_max_workers
-
-__all__ = ('KytosBuffers', )
 
 LOG = logging.getLogger(__name__)
 
@@ -158,64 +155,3 @@ class RateLimitedBuffer(KytosEventBuffer):
             window_reset, _ = self.strategy.get_window_stats(*identifiers)
             await asyncio.sleep(window_reset - time.time())
         return val
-
-
-class KytosBuffers:
-    """Set of KytosEventBuffer used in Kytos."""
-
-    def __init__(self):
-        """Build four KytosEventBuffers.
-
-        :attr:`conn`: :class:`~kytos.core.buffers.KytosEventBuffer` with events
-        received from connection events.
-
-        :attr:`raw`: :class:`~kytos.core.buffers.KytosEventBuffer` with events
-        received from network.
-
-        :attr:`msg_in`: :class:`~kytos.core.buffers.KytosEventBuffer` with
-        events to be received.
-
-        :attr:`msg_out`: :class:`~kytos.core.buffers.KytosEventBuffer` with
-        events to be sent.
-
-        :attr:`app`: :class:`~kytos.core.buffers.KytosEventBuffer` with events
-        sent to NApps.
-        """
-        self._pool_max_workers = get_thread_pool_max_workers()
-        self.conn = KytosEventBuffer("conn")
-        self.raw = KytosEventBuffer("raw", maxsize=self._get_maxsize("sb"))
-        self.msg_in = KytosEventBuffer("msg_in",
-                                       maxsize=self._get_maxsize("sb"),
-                                       queue_cls=PriorityQueue)
-        strategy = limits.strategies.MovingWindowRateLimiter(
-            limits.storage.MemoryStorage()
-        )
-        self.msg_out = RateLimitedBuffer(
-            "msg_out",
-            maxsize=self._get_maxsize("sb"),
-            queue_cls=PriorityQueue,
-            strategy=strategy,
-            limit=limits.RateLimitItemPerSecond(100, 1),
-            gen_identifiers=lambda event:
-                getattr(event.destination, 'id', ('unknown',)),
-        )
-        self.app = KytosEventBuffer("app", maxsize=self._get_maxsize("app"))
-
-    def get_all_buffers(self):
-        """Get all KytosEventBuffer instances."""
-        return [
-            event_buffer for event_buffer in self.__dict__.values()
-            if isinstance(event_buffer, KytosEventBuffer)
-        ]
-
-    def _get_maxsize(self, queue_name):
-        """Get queue maxsize if it's been set."""
-        return self._pool_max_workers.get(queue_name, 0)
-
-    def send_stop_signal(self):
-        """Send a ``kytos/core.shutdown`` event to each buffer."""
-        LOG.info('Stop signal received by Kytos buffers.')
-        LOG.info('Sending KytosShutdownEvent to all apps.')
-        event = KytosEvent(name='kytos/core.shutdown')
-        for buffer in self.get_all_buffers():
-            buffer.put(event)

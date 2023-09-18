@@ -125,33 +125,71 @@ class KytosConfig():
                         'debug': False}
 
         """
-        defaults = {'pidfile': os.path.join(BASE_ENV,
-                                            'var/run/kytos/kytosd.pid'),
-                    'workdir': os.path.join(BASE_ENV, 'var/lib/kytos'),
-                    'napps': os.path.join(BASE_ENV, 'var/lib/kytos/napps/'),
-                    'napps_repositories': "['https://napps.kytos.io/repo/']",
-                    'installed_napps': os.path.join(BASE_ENV,
-                                                    'var/lib/kytos/napps/',
-                                                    '.installed'),
-                    'conf': os.path.join(BASE_ENV, 'etc/kytos/kytos.conf'),
-                    'logging': os.path.join(BASE_ENV, 'etc/kytos/logging.ini'),
-                    'logger_decorators':
-                        ["kytos.core.logger_decorators.queue_decorator"],
-                    'listen': '0.0.0.0',
-                    'port': 6653,
-                    'api_traceback_on_500': True,
-                    'foreground': False,
-                    'protocol_name': '',
-                    'enable_entities_by_default': False,
-                    'napps_pre_installed': [],
-                    'authenticate_urls': [],
-                    'vlan_pool': {},
-                    'token_expiration_minutes': 180,
-                    'thread_pool_max_workers': {},
-                    'database': '',
-                    'apm': '',
-                    'connection_timeout': 130,
-                    'debug': False}
+        defaults = {
+            'pidfile': os.path.join(
+                BASE_ENV,
+                'var/run/kytos/kytosd.pid'
+            ),
+            'workdir': os.path.join(
+                BASE_ENV,
+                'var/lib/kytos'
+            ),
+            'napps': os.path.join(
+                BASE_ENV,
+                'var/lib/kytos/napps/'
+            ),
+            'napps_repositories': [
+                'https://napps.kytos.io/repo/'
+            ],
+            'installed_napps': os.path.join(
+                BASE_ENV,
+                'var/lib/kytos/napps/',
+                '.installed'
+            ),
+            'conf': os.path.join(
+                BASE_ENV,
+                'etc/kytos/kytos.conf'
+            ),
+            'logging': os.path.join(
+                BASE_ENV,
+                'etc/kytos/logging.ini'
+            ),
+            'logger_decorators':
+                ["kytos.core.logger_decorators.queue_decorator"],
+            'listen': '0.0.0.0',
+            'port': 6653,
+            'api_traceback_on_500': True,
+            'foreground': False,
+            'protocol_name': '',
+            'enable_entities_by_default': False,
+            'napps_pre_installed': [],
+            'authenticate_urls': [],
+            'vlan_pool': {},
+            'token_expiration_minutes': 180,
+            'thread_pool_max_workers': {},
+            'database': '',
+            'apm': '',
+            'connection_timeout': 130,
+            'debug': False,
+            'event_buffer_conf': {
+                'msg_out': {
+                    'type': 'rate_limited',
+                    'queue': 'priority',
+                    'strategy': {
+                        'type': 'moving_window',
+                        'storage': {
+                            'type': 'memory',
+                        },
+                    },
+                    'limit': '100/second',
+                    'identifier': 'destination.id',
+                },
+                'msg_in': {
+                    'type': 'default',
+                    'queue': 'priority',
+                },
+            },
+        }
 
         options, argv = self.conf_parser.parse_known_args()
 
@@ -185,7 +223,6 @@ class KytosConfig():
         options, unknown = self.parser.parse_known_args(argv)
         if unknown:
             warnings.warn(f"Unknown arguments: {unknown}")
-        options.napps_repositories = json.loads(options.napps_repositories)
         options.debug = options.debug in ['True', True]
         options.daemon = options.daemon in ['True', True]
         options.port = int(options.port)
@@ -204,12 +241,14 @@ class KytosConfig():
                 return json.loads(value)
             return value
 
+        options.napps_repositories = _parse_json(options.napps_repositories)
         options.logger_decorators = _parse_json(options.logger_decorators)
         options.napps_pre_installed = _parse_json(options.napps_pre_installed)
         options.vlan_pool = _parse_json(options.vlan_pool)
         options.authenticate_urls = _parse_json(options.authenticate_urls)
         thread_pool_max_workers = options.thread_pool_max_workers
         options.thread_pool_max_workers = _parse_json(thread_pool_max_workers)
+        options.event_buffer_conf = _parse_json(options.event_buffer_conf)
 
         return options
 

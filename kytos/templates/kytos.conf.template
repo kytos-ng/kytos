@@ -56,8 +56,9 @@ api_traceback_on_500 = True
 # This directory has both core napps and user installed napps.
 napps = {{ prefix }}/var/lib/kytos/napps
 
-napps_repositories = [
-    "https://napps.kytos.io/repo/"
+napps_repositories =
+    [
+        "https://napps.kytos.io/repo/"
     ]
 
 # Pre installed napps. List of Napps to be pre-installed and enabled.
@@ -78,6 +79,9 @@ vlan_pool = {}
 # The jwt_secret parameter is responsible for signing JSON Web Tokens.
 jwt_secret = {{ jwt_secret }}
 
+# Time to expire authentication token in minutes
+token_expiration_minutes = 180
+
 # Maximum number of thread workers in a thread pool, if it's set as empty dict {} no thread pools will be used.
 # The following pools are available by default to be used in the listen_to decorator:
 # - sb: it's used automatically by kytos/of_core.* events, it's meant for southbound related messages
@@ -85,8 +89,26 @@ jwt_secret = {{ jwt_secret }}
 # - db: it can be used by for higher priority db related tasks (need to be parametrized on decorator)
 thread_pool_max_workers = {"sb": 256, "db": 256, "app": 512}
 
-# Time to expire authentication token in minutes
-token_expiration_minutes = 180
+# Type of event buffer configuration
+event_buffer_conf =
+    {
+        "msg_out": {
+            "type": "rate_limited",
+            "queue": "priority",
+            "strategy": {
+                "type": "moving_window",
+                "storage": {
+                    "type": "memory"
+                }
+            },
+            "limit": "100/second",
+            "identifier": "destination.id"
+        },
+        "msg_in": {
+            "type": "default",
+            "queue": "priority"
+        }
+    }
 
 # NApps database. Supported values: mongodb (don't use quotes in the string)
 database =
