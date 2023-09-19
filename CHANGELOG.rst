@@ -6,6 +6,12 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Added
+=====
+
+- Added ``RateLimitedBuffer``, an alternative to ``KytosEventBuffer``
+- New configuration parameters for ``KytosEventBuffers``, accessible through the ``event_buffer_conf`` parameter.
+
 [2023.1.0] - 2023-06-05
 ***********************
 
