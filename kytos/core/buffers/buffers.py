@@ -145,7 +145,9 @@ class RateLimitedBuffer(KytosEventBuffer):
         identifiers = self.limit, *self.gen_identifiers(val)
         while not self.strategy.hit(*identifiers):
             window_reset, _ = self.strategy.get_window_stats(*identifiers)
-            time.sleep(window_reset - time.time())
+            sleep_time = window_reset - time.time()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
         return val
 
     async def aget(self):
@@ -153,5 +155,7 @@ class RateLimitedBuffer(KytosEventBuffer):
         identifiers = self.limit, *self.gen_identifiers(val)
         while not self.strategy.hit(*identifiers):
             window_reset, _ = self.strategy.get_window_stats(*identifiers)
-            await asyncio.sleep(window_reset - time.time())
+            sleep_time = window_reset - time.time()
+            if sleep_time > 0:
+                await asyncio.sleep(sleep_time)
         return val
