@@ -182,7 +182,7 @@ class KytosConfig():
                         },
                     },
                     'limit': '100/second',
-                    'identifier': 'destination.id',
+                    'identifier': ['destination.id'],
                 },
                 'msg_in': {
                     'type': 'default',

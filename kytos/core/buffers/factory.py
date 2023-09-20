@@ -9,7 +9,7 @@ from janus import PriorityQueue, Queue
 from .buffers import KytosEventBuffer, RateLimitedBuffer
 
 
-def process_default(config):
+def process_default(config: dict):
     """
     Create a default KytosEventBuffer from a given config dict
     """
@@ -26,7 +26,7 @@ def process_default(config):
     }
 
 
-def process_storage(config):
+def process_storage(config: dict):
     """
     Create a rate limit storage from a given config dict
     """
@@ -36,7 +36,7 @@ def process_storage(config):
     return storages[config.get('type', 'memory')]()
 
 
-def process_strategy(config):
+def process_strategy(config: dict):
     """
     Create a rate limit strategy from a given config dict
     """
@@ -53,7 +53,7 @@ def process_strategy(config):
     )
 
 
-def process_rate_limited(config):
+def process_rate_limited(config: dict):
     """
     Create a rate limited KytosEventBuffer from a given config dict
     """
@@ -62,15 +62,22 @@ def process_rate_limited(config):
     args = processed['buffer_args']
     args['strategy'] = process_strategy(config.get('strategy', {}))
     args['limit'] = limits.parse(config.get('limit', '100/second'))
-    args['gen_identifiers'] = lambda event: reduce(
-        lambda ev, attr: getattr(ev, attr, ('unknown',)),
-        config.get('identifier', 'connection.id').split('.'),
-        event
-    )
+    identifiers = [
+        identifier.split('.')
+        for identifier in config.get('identifier', [])
+    ]
+    args['gen_identifiers'] = lambda event: [
+        reduce(
+            lambda ev, attr: getattr(ev, attr, ('unknown',)),
+            identifier,
+            event
+        )
+        for identifier in identifiers
+    ]
     return processed
 
 
-def buffer_from_config(name, config: dict) -> KytosEventBuffer:
+def buffer_from_config(name: str, config: dict) -> KytosEventBuffer:
     """
     Create a KytosEventBuffer from a given config dict
     """
