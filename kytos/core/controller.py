@@ -22,6 +22,7 @@ import os
 import re
 import sys
 import threading
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from importlib import reload as reload_module
@@ -261,9 +262,10 @@ class Controller:
                 self.create_pidfile()
             self.start_controller()
         except Exception as exc:
-            message = f"Kytos couldn't start because of {str(exc)}"
-            self.log.exception(message, exc_info=True)
-            sys.exit(message)
+            exc_fmt = traceback.format_exc(chain=True)
+            message = f"Kytos couldn't start because of {str(exc)} {exc_fmt}"
+            print(message)
+            sys.exit(1)
 
     def create_pidfile(self):
         """Create a pidfile."""
@@ -885,10 +887,8 @@ class Controller:
         try:
             napp = napp_module.Main(controller=self)
         except Exception as exc:  # noqa pylint: disable=bare-except
-            self.log.critical("NApp initialization failed: %s/%s",
-                              username, napp_name, exc_info=True)
             msg = f"NApp {username}/{napp_name} exception {str(exc)} "
-            raise KytosNAppSetupException(msg)
+            raise KytosNAppSetupException(msg) from exc
 
         self.napps[(username, napp_name)] = napp
 
