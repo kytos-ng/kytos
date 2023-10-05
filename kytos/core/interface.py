@@ -740,6 +740,8 @@ class Interface(GenericEntity):  # pylint: disable=too-many-instance-attributes
             'status': self.status.value,
             'status_reason': sorted(self.status_reason),
             'link': self.link.id if self.link else "",
+            'available_tags': self.available_tags,
+            'tag_ranges': self.tag_ranges,
         }
         if self.stats:
             iface_dict['stats'] = self.stats.as_dict()
