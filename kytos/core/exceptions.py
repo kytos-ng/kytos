@@ -77,8 +77,16 @@ class KytosNoTagAvailableError(Exception):
         return msg
 
 
+class KytosSetTagRangeError(Exception):
+    """Exception raised when available_tag cannot be resized"""
+
+
 class KytosLinkCreationError(Exception):
     """Exception thrown when the link has an empty endpoint."""
+
+
+class KytosTagtypeNotSupported(Exception):
+    """Exception thronw when a not supported tag type is not supported"""
 
 
 # Exceptions related  to NApps
@@ -99,6 +107,17 @@ class KytosNAppException(Exception):
     def __str__(self):
         """Return the message from KytosNAppException."""
         return self.message
+
+
+class KytosNAppSetupException(KytosNAppException):
+    """KytosNAppSetupException. """
+
+    def __init__(self, message="KytosNAppSetupException") -> None:
+        """KytosNAppSetupException."""
+        super().__init__(message=message)
+
+    def __str__(self):
+        return f"KytosNAppSetupException: {self.message}"
 
 
 class KytosNAppMissingInitArgument(KytosNAppException):

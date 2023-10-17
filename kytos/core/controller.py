@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import threading
+import traceback
 from asyncio import AbstractEventLoop
 from importlib import import_module
 from importlib import reload as reload_module
@@ -40,9 +41,9 @@ from kytos.core.connection import ConnectionState
 from kytos.core.db import db_conn_wait
 from kytos.core.dead_letter import DeadLetter
 from kytos.core.events import KytosEvent
-from kytos.core.exceptions import KytosAPMInitException, KytosDBInitException
+from kytos.core.exceptions import (KytosAPMInitException, KytosDBInitException,
+                                   KytosNAppSetupException)
 from kytos.core.helpers import executors, now
-from kytos.core.interface import Interface
 from kytos.core.logs import LogManager
 from kytos.core.napps.base import NApp
 from kytos.core.napps.manager import NAppsManager
@@ -251,14 +252,25 @@ class Controller:
     def start(self, restart=False):
         """Create pidfile and call start_controller method."""
         self.enable_logs()
-        if self.options.database:
-            self.db_conn_or_core_shutdown()
-            self.start_auth()
-        if self.options.apm:
-            self.init_apm_or_core_shutdown()
-        if not restart:
-            self.create_pidfile()
-        self.start_controller()
+        # pylint: disable=broad-except
+        try:
+            if self.options.database:
+                db_conn_wait(db_backend=self.options.database)
+                self.start_auth()
+            if self.options.apm:
+                init_apm(self.options.apm, app=self.api_server.app)
+            if not restart:
+                self.create_pidfile()
+            self.start_controller()
+        except (KytosDBInitException, KytosAPMInitException) as exc:
+            message = f"Kytos couldn't start because of {str(exc)}"
+            print(message)
+            sys.exit(message)
+        except Exception as exc:
+            exc_fmt = traceback.format_exc(chain=True)
+            message = f"Kytos couldn't start because of {str(exc)} {exc_fmt}"
+            print(message)
+            sys.exit(message)
 
     def create_pidfile(self):
         """Create a pidfile."""
@@ -364,22 +376,6 @@ class Controller:
         self._tasks.append(task)
 
         self.started_at = now()
-
-    def db_conn_or_core_shutdown(self):
-        """Ensure db connection or core shutdown."""
-        try:
-            db_conn_wait(db_backend=self.options.database)
-        except KytosDBInitException as exc:
-            sys.exit(f"Kytos couldn't start because of {str(exc)}")
-
-    def init_apm_or_core_shutdown(self, **kwargs):
-        """Init APM instrumentation or core shutdown."""
-        if not self.options.apm:
-            return
-        try:
-            init_apm(self.options.apm, app=self.api_server.app, **kwargs)
-        except KytosAPMInitException as exc:
-            sys.exit(f"Kytos couldn't start because of {str(exc)}")
 
     def _register_endpoints(self):
         """Register all rest endpoint served by kytos.
@@ -678,8 +674,6 @@ class Controller:
                 event_name += 'new'
             else:
                 event_name += 'reconnected'
-
-            self.set_switch_options(dpid=dpid)
             event = KytosEvent(name=event_name, content={'switch': switch})
 
             if connection:
@@ -692,37 +686,6 @@ class Controller:
             self.buffers.app.put(event)
 
             return switch
-
-    def set_switch_options(self, dpid):
-        """Update the switch settings based on kytos.conf options.
-
-        Args:
-            dpid (str): dpid used to identify a switch.
-
-        """
-        switch = self.switches.get(dpid)
-        if not switch:
-            return
-
-        vlan_pool = {}
-        vlan_pool = self.options.vlan_pool
-        if not vlan_pool:
-            return
-
-        if vlan_pool.get(dpid):
-            self.log.info("Loading vlan_pool configuration for dpid %s", dpid)
-            for intf_num, port_list in vlan_pool[dpid].items():
-                if not switch.interfaces.get((intf_num)):
-                    vlan_ids = set()
-                    for vlan_range in port_list:
-                        (vlan_begin, vlan_end) = (vlan_range[0:2])
-                        for vlan_id in range(vlan_begin, vlan_end):
-                            vlan_ids.add(vlan_id)
-                    intf_num = int(intf_num)
-                    intf = Interface(name=intf_num, port_number=intf_num,
-                                     switch=switch)
-                    intf.set_available_tags(vlan_ids)
-                    switch.update_interface(intf)
 
     def create_or_update_connection(self, connection):
         """Update a connection.
@@ -852,10 +815,9 @@ class Controller:
 
         try:
             napp = napp_module.Main(controller=self)
-        except:  # noqa pylint: disable=bare-except
-            self.log.critical("NApp initialization failed: %s/%s",
-                              username, napp_name, exc_info=True)
-            return
+        except Exception as exc:  # noqa pylint: disable=bare-except
+            msg = f"NApp {username}/{napp_name} exception {str(exc)} "
+            raise KytosNAppSetupException(msg) from exc
 
         self.napps[(username, napp_name)] = napp
 
@@ -891,6 +853,8 @@ class Controller:
             except FileNotFoundError as exception:
                 self.log.error("Could not load NApp %s: %s",
                                napp.id, exception)
+                msg = f"NApp {napp.id} exception {str(exception)}"
+                raise KytosNAppSetupException(msg) from exception
 
     def unload_napp(self, username, napp_name):
         """Unload a specific NApp.
