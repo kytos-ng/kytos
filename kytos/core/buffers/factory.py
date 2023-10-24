@@ -2,8 +2,8 @@
 from functools import reduce
 
 import limits
-import limits.storage as lstorage
-import limits.strategies as lstrategies
+import limits.aio.storage as lstorage
+import limits.aio.strategies as lstrategies
 from janus import PriorityQueue, Queue
 
 from .buffers import KytosEventBuffer, RateLimitedBuffer

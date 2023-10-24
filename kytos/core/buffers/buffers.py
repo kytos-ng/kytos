@@ -5,6 +5,7 @@ import time
 from typing import Callable, Hashable, Iterable
 
 import limits
+import limits.aio.strategies as lstrategies
 from janus import Queue
 
 from kytos.core.events import KytosEvent
@@ -130,7 +131,7 @@ class RateLimitedBuffer(KytosEventBuffer):
     """
     def __init__(
         self, *args,
-        strategy: limits.strategies.RateLimiter,
+        strategy: lstrategies.RateLimiter,
         limit: limits.RateLimitItem,
         gen_identifiers: Callable[[KytosEvent], Iterable[Hashable]],
         **kwargs
@@ -140,21 +141,11 @@ class RateLimitedBuffer(KytosEventBuffer):
         self.limit = limit
         self.gen_identifiers = gen_identifiers
 
-    def get(self):
-        val = super().get()
-        identifiers = self.limit, *self.gen_identifiers(val)
-        while not self.strategy.hit(*identifiers):
-            window_reset, _ = self.strategy.get_window_stats(*identifiers)
-            sleep_time = window_reset - time.time()
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-        return val
-
     async def aget(self):
         val = await super().aget()
         identifiers = self.limit, *self.gen_identifiers(val)
-        while not self.strategy.hit(*identifiers):
-            window_reset, _ = self.strategy.get_window_stats(*identifiers)
+        while not await self.strategy.hit(*identifiers):
+            window_reset, _ = await self.strategy.get_window_stats(*identifiers)
             sleep_time = window_reset - time.time()
             if sleep_time > 0:
                 await asyncio.sleep(sleep_time)
