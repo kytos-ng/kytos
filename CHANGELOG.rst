@@ -9,7 +9,7 @@ UNRELEASED - Under development
 Added
 =====
 
-- Added ``RateLimitedBuffer``, an alternative to ``KytosEventBuffer``
+- Added optional rate limiting mixins for ``KytosEventBuffer``
 - New configuration parameters for ``KytosEventBuffers``, accessible through the ``event_buffer_conf`` parameter.
 - Added ``Interface.tag_ranges`` as ``dict[str, list[list[int]]]`` as replacement for ``vlan_pool`` settings.
 - Added ``kytos/core.interface_tags`` event publication to notify any modification of ``Interface.tag_ranges`` or ``Interface.available_tags``.

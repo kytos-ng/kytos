@@ -1,7 +1,7 @@
 """Kytos Buffer Classes, based on Python Queue."""
 import logging
 
-from janus import PriorityQueue
+from janus import PriorityQueue, Queue
 
 from kytos.core.config import KytosConfig
 from kytos.core.events import KytosEvent
@@ -38,20 +38,21 @@ class KytosBuffers:
         self._pool_max_workers = get_thread_pool_max_workers()
 
         self.conn = KytosEventBuffer("conn")
-        self.raw = KytosEventBuffer("raw", maxsize=self._get_maxsize("sb"))
+        self.raw = KytosEventBuffer(
+            "raw",
+            queue=Queue(maxsize=self._get_maxsize("sb"))
+        )
         self.msg_in = KytosEventBuffer(
             "msg_in",
-            maxsize=self._get_maxsize("sb"),
-            queue_cls=PriorityQueue,
+            queue=PriorityQueue(maxsize=self._get_maxsize("sb")),
         )
         self.msg_out = KytosEventBuffer(
             "msg_out",
-            maxsize=self._get_maxsize("sb"),
-            queue_cls=PriorityQueue,
+            queue=PriorityQueue(maxsize=self._get_maxsize("sb")),
         )
         self.app = KytosEventBuffer(
             "app",
-            maxsize=self._get_maxsize("app")
+            queue=Queue(maxsize=self._get_maxsize("app")),
         )
 
         buffer_conf = KytosConfig().options['daemon'].event_buffer_conf

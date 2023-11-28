@@ -80,27 +80,48 @@ thread_pool_max_workers = {"sb": 256, "db": 256, "app": 512}
 
 # Configuration for KytosEventBuffers
 # Valid event buffers are "msg_in", "msg_out", "app", "conn", and "raw".
-# Valid buffer types are:
-#  - "default": Use KytosEventBuffer. Has one optional parameter "queue", which determines the type of queue to use, either "default" for a standard queue or "priority" for a priority queue.
-# - "rate_limited": Use RateLimitedBuffer. This extends "default", and inherits the options from that. It has two options "strategy" and "limit". "strategy" determines the "type" of rate limiting strategy to use and what "storage" to use for the rate limiting data. Valid "type"s of strategy are "moving_window", "fixed_window", and "elasitc_window". Only one "type" of storage is supported "memory". "limit" sets the limit on how fast messages may be processed after they have been received by the event buffer.
+# Valid queue types are:
+# - queue: Default queue class provided by janus
+# - priority: PriorityQueue class provided by janus
+# Valid Mixins are:
+# - put_rate_limit: Sets the rate limit on async put requests into the buffer
+# - get_rate_limit: Sets the rate limit on async get requests from the buffer
+# For rate limit mixins, there are a few configurable parameters:
+# - strategy: Strategy to use for rate limiting
+# - limit: the amount of requests allowed for a given time period.
+# - identifier: list of identifiers to use for determining rate limit
+# Available strategies include:
+# - moving_window
+# - fixed_window
+# - elastic window
+# Available rate limit storage types:
+# - memory
 
 event_buffer_conf =
     {
         "msg_out": {
-            "type": "rate_limited",
-            "queue": "priority",
-            "strategy": {
-                "type": "moving_window",
-                "storage": {
-                    "type": "memory"
-                }
+            "queue": {
+                "type": "priority",
+                "maxsize": "threadpool_sb"
             },
-            "limit": "100/second",
-            "identifier": ["destination.id"]
+            "mixins": {
+                "put_rate_limit": {
+                    "strategy": {
+                        "type": "moving_window",
+                        "storage": {
+                            "type": "memory"
+                        }
+                    },
+                    "limit": "100/second",
+                    "identifier": ["destination.id"]
+                }
+            }
         },
         "msg_in": {
-            "type": "default",
-            "queue": "priority"
+            "queue": {
+                "type": "priority",
+                "maxsize": "threadpool_sb"
+            }
         }
     }
 

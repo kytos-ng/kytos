@@ -1,14 +1,7 @@
 """Kytos Buffer Classes, based on Python Queue."""
-import asyncio
 import logging
-import time
-from typing import Callable, Hashable, Iterable
 
-import limits
-import limits.aio.strategies as lstrategies
 from janus import Queue
-
-from kytos.core.events import KytosEvent
 
 LOG = logging.getLogger(__name__)
 
@@ -16,8 +9,7 @@ LOG = logging.getLogger(__name__)
 class KytosEventBuffer:
     """KytosEventBuffer represents a queue to store a set of KytosEvents."""
 
-    def __init__(self, name, event_base_class=None, maxsize=0,
-                 queue_cls=Queue):
+    def __init__(self, name, queue: Queue = None):
         """Contructor of KytosEventBuffer receive the parameters below.
 
         Args:
@@ -27,8 +19,7 @@ class KytosEventBuffer:
             queue_cls (class): queue class from janus
         """
         self.name = name
-        self._event_base_class = event_base_class
-        self._queue = queue_cls(maxsize=maxsize)
+        self._queue = queue if queue is not None else Queue()
         self._reject_new_events = False
 
     def put(self, event):
@@ -123,30 +114,3 @@ class KytosEventBuffer:
     def full(self):
         """Return True if KytosEventBuffer is full of KytosEvent."""
         return self._queue.sync_q.full()
-
-
-class RateLimitedBuffer(KytosEventBuffer):
-    """
-    Extension of KytosEventBuffer with ratelimiting capabilities.
-    """
-    def __init__(
-        self, *args,
-        strategy: lstrategies.RateLimiter,
-        limit: limits.RateLimitItem,
-        gen_identifiers: Callable[[KytosEvent], Iterable[Hashable]],
-        **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        self.strategy = strategy
-        self.limit = limit
-        self.gen_identifiers = gen_identifiers
-
-    async def aget(self):
-        val = await super().aget()
-        identifiers = self.limit, *self.gen_identifiers(val)
-        while not await self.strategy.hit(*identifiers):
-            window_reset, _ = await self.strategy.get_window_stats(*identifiers)
-            sleep_time = window_reset - time.time()
-            if sleep_time > 0:
-                await asyncio.sleep(sleep_time)
-        return val

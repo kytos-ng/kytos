@@ -173,19 +173,29 @@ class KytosConfig():
             'event_buffer_conf': {
                 'msg_out': {
                     'type': 'rate_limited',
-                    'queue': 'priority',
-                    'strategy': {
-                        'type': 'moving_window',
-                        'storage': {
-                            'type': 'memory',
+                    'queue': {
+                        'type': 'priority',
+                        'maxsize': 'threadpool_sb',
+                    },
+                    'mixins': {
+                        'put_rate_limit': {
+                            'strategy': {
+                                'type': 'moving_window',
+                                'storage': {
+                                    'type': 'memory',
+                                },
+                            },
+                            'limit': '100/second',
+                            'identifier': ['destination.id'],
                         },
                     },
-                    'limit': '100/second',
-                    'identifier': ['destination.id'],
                 },
                 'msg_in': {
                     'type': 'default',
-                    'queue': 'priority',
+                    'queue': {
+                        'type': 'priority',
+                        'maxsize': 'threadpool_sb',
+                    },
                 },
             },
         }
