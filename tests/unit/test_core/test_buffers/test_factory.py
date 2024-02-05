@@ -41,6 +41,8 @@ class TestBufferFromConfig:
         buffer_cls_mock.assert_called_once_with(
             name,
             queue=queue_mock,
+            get_rate_limiters=[],
+            put_rate_limiters=[],
         )
         process_queue_mock.assert_called_once_with(
             {}
@@ -130,6 +132,8 @@ class TestBufferFromConfig:
         buffer_cls_mock.assert_called_once_with(
             name,
             queue=queue_mock,
+            get_rate_limiters=[],
+            put_rate_limiters=[],
         )
         process_queue_mock.assert_called_once_with(
             {}
@@ -169,6 +173,8 @@ class TestBufferFromConfig:
         buffer_cls_mock.assert_called_once_with(
             name,
             queue=queue_mock,
+            get_rate_limiters=[],
+            put_rate_limiters=[],
         )
         process_queue_mock.assert_called_once_with(
             'Unique value 2'
