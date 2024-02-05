@@ -19,3 +19,4 @@ httpx==0.24.0
 starlette[full]==0.26.0
 uvicorn[standard]==0.21.1
 asgiref==3.6.0
+limits==3.7.0
