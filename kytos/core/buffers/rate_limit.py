@@ -32,3 +32,15 @@ class EventRateLimiter:
             sleep_time = window_reset - time.time()
             # Negative time is already checked by asyncio sleep
             await asyncio.sleep(sleep_time)
+
+
+class ConditionalRateLimiter(EventRateLimiter):
+    """
+    Only rate limit if given condition is satisfied
+    """
+    condition: Callable[[KytosEvent], bool]
+
+    async def __call__(self, event: KytosEvent):
+        """Conditionally check event against rate limit"""
+        if self.condition(event):
+            return await super().__call__(event)

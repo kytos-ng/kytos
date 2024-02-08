@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from kytos.core.buffers import factory
+from kytos.core.buffers.factory import buffers
 
 
 class TestBufferFromConfig:
@@ -23,19 +23,19 @@ class TestBufferFromConfig:
         process_queue_mock.return_value = queue_mock
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.KytosEventBuffer",
+            "kytos.core.buffers.factory.buffers.KytosEventBuffer",
             buffer_cls_mock
         )
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.process_queue",
+            "kytos.core.buffers.factory.buffers.process_queue",
             process_queue_mock
         )
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.extension_processors",
+            "kytos.core.buffers.factory.buffers.extension_processors",
             {}
         )
 
-        result_buffer = factory.buffer_from_config(name, input_config)
+        result_buffer = buffers.buffer_from_config(name, input_config)
 
         assert result_buffer == buffer_mock
         buffer_cls_mock.assert_called_once_with(
@@ -69,20 +69,20 @@ class TestBufferFromConfig:
         process_queue_mock.return_value = queue_mock
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.KytosEventBuffer",
+            "kytos.core.buffers.factory.buffers.KytosEventBuffer",
             buffer_cls_mock
         )
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.process_queue",
+            "kytos.core.buffers.factory.buffers.process_queue",
             process_queue_mock
         )
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.extension_processors",
+            "kytos.core.buffers.factory.buffers.extension_processors",
             {}
         )
 
         with pytest.raises(KeyError):
-            factory.buffer_from_config(name, input_config)
+            buffers.buffer_from_config(name, input_config)
 
     async def test_good_extension(self, monkeypatch):
         """Tests creating a buffer with an valid extension"""
@@ -110,19 +110,19 @@ class TestBufferFromConfig:
         extension_processor_mock.return_value = extended_instance_mock
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.KytosEventBuffer",
+            "kytos.core.buffers.factory.buffers.KytosEventBuffer",
             buffer_cls_mock
         )
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.process_queue",
+            "kytos.core.buffers.factory.buffers.process_queue",
             process_queue_mock
         )
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.extension_processors",
+            "kytos.core.buffers.factory.buffers.extension_processors",
             {'existant': extension_processor_mock}
         )
 
-        result_buffer = factory.buffer_from_config(name, input_config)
+        result_buffer = buffers.buffer_from_config(name, input_config)
 
         assert result_buffer == extended_instance_mock
         extension_processor_mock.assert_called_once_with(
@@ -155,19 +155,19 @@ class TestBufferFromConfig:
         process_queue_mock.return_value = queue_mock
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.KytosEventBuffer",
+            "kytos.core.buffers.factory.buffers.KytosEventBuffer",
             buffer_cls_mock
         )
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.process_queue",
+            "kytos.core.buffers.factory.buffers.process_queue",
             process_queue_mock
         )
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.extension_processors",
+            "kytos.core.buffers.factory.buffers.extension_processors",
             {}
         )
 
-        result_buffer = factory.buffer_from_config(name, input_config)
+        result_buffer = buffers.buffer_from_config(name, input_config)
 
         assert result_buffer == buffer_mock
         buffer_cls_mock.assert_called_once_with(
@@ -197,14 +197,14 @@ class TestProcessQueue:
         mock_priority_queue_cls.return_value = mock_priority_queue
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.queue_classes",
+            "kytos.core.buffers.factory.buffers.queue_classes",
             {
                 "queue": mock_queue_cls,
                 "priority": mock_priority_queue_cls,
             }
         )
 
-        result_queue = factory.process_queue(input_config)
+        result_queue = buffers.process_queue(input_config)
 
         assert result_queue == mock_queue
 
@@ -225,14 +225,14 @@ class TestProcessQueue:
         mock_priority_queue_cls.return_value = mock_priority_queue
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.queue_classes",
+            "kytos.core.buffers.factory.buffers.queue_classes",
             {
                 "queue": mock_queue_cls,
                 "priority": mock_priority_queue_cls,
             }
         )
 
-        result_queue = factory.process_queue(input_config)
+        result_queue = buffers.process_queue(input_config)
 
         assert result_queue == mock_priority_queue
 
@@ -254,14 +254,14 @@ class TestProcessQueue:
         mock_priority_queue_cls.return_value = mock_priority_queue
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.queue_classes",
+            "kytos.core.buffers.factory.buffers.queue_classes",
             {
                 "queue": mock_queue_cls,
                 "priority": mock_priority_queue_cls,
             }
         )
 
-        result_queue = factory.process_queue(input_config)
+        result_queue = buffers.process_queue(input_config)
 
         assert result_queue == mock_queue
 
@@ -289,7 +289,7 @@ class TestProcessQueue:
         }
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.queue_classes",
+            "kytos.core.buffers.factory.buffers.queue_classes",
             {
                 "queue": mock_queue_cls,
                 "priority": mock_priority_queue_cls,
@@ -297,11 +297,11 @@ class TestProcessQueue:
         )
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.get_thread_pool_max_workers",
+            "kytos.core.buffers.factory.buffers.get_thread_pool_max_workers",
             mock_get_threadpool_max
         )
 
-        result_queue = factory.process_queue(input_config)
+        result_queue = buffers.process_queue(input_config)
 
         assert result_queue == mock_queue
 
@@ -329,7 +329,7 @@ class TestProcessQueue:
         }
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.queue_classes",
+            "kytos.core.buffers.factory.buffers.queue_classes",
             {
                 "queue": mock_queue_cls,
                 "priority": mock_priority_queue_cls,
@@ -337,11 +337,11 @@ class TestProcessQueue:
         )
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.get_thread_pool_max_workers",
+            "kytos.core.buffers.factory.buffers.get_thread_pool_max_workers",
             mock_get_threadpool_max
         )
 
-        result_queue = factory.process_queue(input_config)
+        result_queue = buffers.process_queue(input_config)
 
         assert result_queue == mock_queue
 
@@ -366,7 +366,7 @@ class TestProcessQueue:
         mock_get_threadpool_max.return_value = {}
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.queue_classes",
+            "kytos.core.buffers.factory.buffers.queue_classes",
             {
                 "queue": mock_queue_cls,
                 "priority": mock_priority_queue_cls,
@@ -374,9 +374,9 @@ class TestProcessQueue:
         )
 
         monkeypatch.setattr(
-            "kytos.core.buffers.factory.get_thread_pool_max_workers",
+            "kytos.core.buffers.factory.buffers.get_thread_pool_max_workers",
             mock_get_threadpool_max
         )
 
         with pytest.raises(TypeError):
-            factory.process_queue(input_config)
+            buffers.process_queue(input_config)
