@@ -24,13 +24,13 @@ class ChainExtractor:
     Callable for extracting a value through a series of getattrs
     and key lookups.
     """
-    extractors: tuple[tuple[ExtractDirective, str], ...]
+    directives: tuple[tuple[ExtractDirective, str], ...]
     default_val: Any
 
     def __call__(self, item):
         try:
             result = item
-            for directive, key in self.extractors:
+            for directive, key in self.directives:
                 if directive == ExtractDirective.FROM_DICT:
                     result = result[key]
                 elif directive == ExtractDirective.FROM_ATTR:
@@ -42,6 +42,18 @@ class ChainExtractor:
             return self.default_val
         except AttributeError:
             return self.default_val
+
+@dataclass
+class IdentifierGenerator:
+    """
+    Callable for getting a tuple of values from a given KytosEvent
+    """
+    extractors: tuple[Callable[[KytosEvent], Any], ...]
+
+    def __call__(self, event: KytosEvent):
+        return (
+            extractor(event) for extractor in self.extractors
+        )
 
 
 TOKEN_SPEC = (
@@ -61,34 +73,45 @@ TOKEN_REGEX = re.compile(
 def tokens_to_directives_iter(tokens: list[tuple[str, str]]):
     """Generate a series of directives for the ChainExtractor"""
     position = 0
-    while position < len(tokens):
-        curr_kind, _ = tokens[position]
-        next_kind, next_value = tokens[position + 1]
-        further_kind, _ = tokens[position + 2]
-        if curr_kind in {'NEXT_ATTR', 'START'}:
-            next_kind, next_value = tokens[position + 1]
-            if next_kind == 'WORD':
-                yield (ExtractDirective.FROM_ATTR, next_value)
-                position += 2
-                continue
-        if curr_kind == 'BRACKET_START':
-            if next_kind == 'WORD' and further_kind == 'BRACKET_END':
-                yield (ExtractDirective.FROM_DICT, next_value)
-                position += 3
-        if curr_kind == 'START':
-            if next_kind == 'BRACKET_START':
-                position += 1
-                continue
-        raise ValueError('Unexpected token while parsing.')
+    try:
+        while position < len(tokens):
+            curr_kind, _, _, _ = tokens[position]
+            if curr_kind in {'NEXT_ATTR', 'START'}:
+                next_kind, next_value, _, _ = tokens[position + 1]
+                if next_kind == 'WORD':
+                    yield (ExtractDirective.FROM_ATTR, next_value)
+                    position += 2
+                    continue
+            if curr_kind == 'BRACKET_START':
+                next_kind, next_value, _, _ = tokens[position + 1]
+                further_kind, _, _, _ = tokens[position + 2]
+                if next_kind == 'WORD' and further_kind == 'BRACKET_END':
+                    yield (ExtractDirective.FROM_DICT, next_value)
+                    position += 3
+                    continue
+            if curr_kind == 'START':
+                next_kind, next_value, _, _ = tokens[position + 1]
+                if next_kind == 'BRACKET_START':
+                    position += 1
+                    continue
+            raise ValueError(
+                f'Unexpected token while parsing. '
+                f'Remaining tokens are {tokens[position:]}'
+            )
+    except IndexError as exc:
+        raise ValueError(
+            f'Expected more tokens to process than available. '
+            f'Remaining tokens are {tokens[position:]}'
+        ) from exc
 
 
 def process_value_extractor(config: str):
     """Evaluate a string into a ChainExtractor"""
 
     tokens = [
-        ('START', ''),
+        ('START', '', None, config),
         *(
-            (mo.lastgroup, mo.group())
+            (mo.lastgroup, mo.group(), mo.start(), config)
             for mo in TOKEN_REGEX.finditer(config)
         )
     ]
@@ -267,21 +290,18 @@ def process_conditional(
     config: dict
 ) -> Callable[[KytosEvent], bool]:
     """Create conditional for event."""
-
     return tests[config['type']](config)
 
 
 def process_gen_identifiers(
-    identifiers: list[Union[dict, str]]
+    identifiers: list[str]
 ) -> Callable[[KytosEvent], tuple]:
     """
     Generate a func for getting a tuple of hashable parameters from an event
     """
-    attr_extractors = [
+    attr_extractors = (
         process_value_extractor(identifier)
         for identifier in identifiers
-    ]
-    return lambda event: (
-        extractor(event)
-        for extractor in attr_extractors
     )
+
+    return IdentifierGenerator(attr_extractors)
