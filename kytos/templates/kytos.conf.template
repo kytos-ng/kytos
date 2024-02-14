@@ -87,7 +87,22 @@ event_buffer_conf =
                 "type": "priority",
                 "maxsize": "threadpool_sb",
                 "maxsize_multiplier": 2
-            }
+            },
+            "get_rate_limiters": [
+                {
+                    "type": "default",
+                    "strategy": {
+                        "type": "fixed_window",
+                        "storage": {
+                            "type": "memory"
+                        }
+                    },
+                    "limit": "100/second",
+                    "gen_identifiers": [
+                        "content[destination].id"
+                    ]
+                }
+            ]
         },
         "msg_in": {
             "queue": {
