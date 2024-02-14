@@ -59,7 +59,7 @@ def process_default_rate_limit(limiter_cls, config: dict):
         )
     )
     args['gen_identifiers'] = process_gen_identifiers(
-        config.get('identifier', [])
+        config.get('gen_identifiers', [])
     )
 
     return limiter_cls(**args)
