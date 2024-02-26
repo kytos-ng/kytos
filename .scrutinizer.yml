@@ -4,7 +4,7 @@ checks:
         duplicate_code: true
 build:
     environment:
-        python: 3.11.2
+        python: 3.11
         postgresql: false
         redis: false
     dependencies:
