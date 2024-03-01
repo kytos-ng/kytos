@@ -38,7 +38,7 @@ from kytos.core.atcp_server import KytosServer, KytosServerProtocol
 from kytos.core.auth import Auth
 from kytos.core.buffers import KytosBuffers
 from kytos.core.config import KytosConfig
-from kytos.core.connection import ConnectionState
+from kytos.core.connection import Connection, ConnectionState
 from kytos.core.db import db_conn_wait
 from kytos.core.dead_letter import DeadLetter
 from kytos.core.events import KytosEvent
@@ -107,7 +107,7 @@ class Controller:
         #: This dict stores all connections between the controller and the
         #: switches. The key for this dict is a tuple (ip, port). The content
         #: is a Connection
-        self.connections = {}
+        self.connections: dict[tuple, Connection] = {}
         #: dict: mapping of events and event listeners.
         #:
         #: The key of the dict is a KytosEvent (or a string that represent a

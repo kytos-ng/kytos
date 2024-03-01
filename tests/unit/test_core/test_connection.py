@@ -1,5 +1,4 @@
 """Test kytos.core.connection module."""
-from socket import error as SocketError
 from unittest.mock import MagicMock
 
 import pytest
@@ -51,16 +50,14 @@ class TestConnection:
         """Test send method."""
         self.connection.send(b'data')
 
-        self.connection.socket.sendall.assert_called_with(b'data')
+        self.connection.transport.write.assert_called_with(b'data')
 
     def test_send_error(self):
         """Test send method to error case."""
-        self.connection.socket.sendall.side_effect = SocketError
+        self.connection.transport.write.side_effect = OSError
 
-        with pytest.raises(SocketError):
+        with pytest.raises(OSError):
             self.connection.send(b'data')
-
-        assert self.connection.socket is None
 
     def test_close(self):
         """Test close method."""

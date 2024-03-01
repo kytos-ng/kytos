@@ -77,7 +77,7 @@ def start_shell(controller=None):
 
     # Avoiding sqlite3.ProgrammingError when trying to save command history
     # on Kytos shutdown
-    cfg.HistoryAccessor.enabled = False
+    cfg.HistoryAccessor.enabled = True
 
     ipshell = InteractiveShellEmbed(config=cfg,
                                     banner1=banner1,
