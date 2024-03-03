@@ -100,7 +100,7 @@ class Connection:
         try:
             if self.is_alive():
                 self.transport.write(buffer)
-        except OSError as exception:
+        except (OSError, TypeError) as exception:
             LOG.debug('Could not send packet. Exception: %s', exception)
             self.close()
             raise

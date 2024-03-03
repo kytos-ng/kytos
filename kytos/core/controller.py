@@ -28,7 +28,6 @@ from importlib import import_module
 from importlib import reload as reload_module
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from socket import error as SocketError
 
 from pyof.foundation.exceptions import PackException
 
@@ -626,7 +625,7 @@ class Controller:
                                    message.header.xid,
                                    packet.hex())
                     self.notify_listeners(triggered_event)
-            except (OSError, SocketError):
+            except (OSError, TypeError):
                 await self.publish_connection_error(triggered_event)
                 self.log.info("connection closed. Cannot send message")
             except PackException as err:

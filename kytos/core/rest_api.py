@@ -6,17 +6,9 @@ from asyncio import AbstractEventLoop
 from datetime import datetime
 from typing import Any, Optional
 
-from openapi_core.contrib.starlette import \
-    StarletteOpenAPIRequest as _StarletteOpenAPIRequest
-from openapi_core.validation.request.datatypes import RequestParameters
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse as StarletteJSONResponse
-from starlette.responses import Response
-
-Request = Request
-Response = Response
-HTTPException = HTTPException
 
 
 def _json_serializer(obj):
@@ -99,53 +91,3 @@ class JSONResponse(StarletteJSONResponse):
             separators=(",", ":"),
             default=_json_serializer,
         ).encode("utf-8")
-
-
-# pylint: disable=super-init-not-called
-class AStarletteOpenAPIRequest(_StarletteOpenAPIRequest):
-    """Async StarletteOpenAPIRequest."""
-
-    def __init__(self, request: Request, body: bytes) -> None:
-        """Constructor of AsycnStarletteOpenAPIRequest.
-
-        This constructor doesn't call super().__init__() to keep it async
-        """
-        self.request = request
-        self.parameters = RequestParameters(
-            query=self.request.query_params,
-            header=self.request.headers,
-            cookie=self.request.cookies,
-        )
-        self._body = body
-
-    @property
-    def body(self) -> Optional[str]:
-        body = self._body
-        if body is None:
-            return None
-        return body.decode("utf-8")
-
-
-# pylint: disable=super-init-not-called
-class StarletteOpenAPIRequest(_StarletteOpenAPIRequest):
-    """Sync StarletteOpenAPIRequest."""
-
-    def __init__(self, request: Request, body: bytes) -> None:
-        """Constructor of AsycnStarletteOpenAPIRequest.
-
-        This constructor doesn't call super().__init__() to keep it async
-        """
-        self.request = request
-        self.parameters = RequestParameters(
-            query=self.request.query_params,
-            header=self.request.headers,
-            cookie=self.request.cookies,
-        )
-        self._body = body
-
-    @property
-    def body(self) -> Optional[str]:
-        body = self._body
-        if body is None:
-            return None
-        return body.decode("utf-8")

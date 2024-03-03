@@ -33,12 +33,13 @@ asttokens==2.4.1
     #   -r requirements/run.txt
     #   kytos
     #   stack-data
-attrs==21.4.0
+attrs==23.2.0
     # via
     #   -r requirements/run.txt
     #   jsonschema
     #   kytos
     #   pytest
+    #   referencing
 babel==2.9.0
     # via sphinx
 black==23.3.0
@@ -53,8 +54,11 @@ certifi==2024.2.2
     #   httpx
     #   kytos
     #   requests
-charset-normalizer==2.0.10
-    # via requests
+charset-normalizer==3.3.2
+    # via
+    #   -r requirements/run.txt
+    #   kytos
+    #   requests
 click==8.1.7
     # via
     #   -r requirements/run.txt
@@ -178,19 +182,25 @@ jinja2==3.1.3
     #   kytos
     #   sphinx
     #   starlette
-jsonschema==4.17.3
+jsonschema==4.21.1
     # via
     #   -r requirements/run.txt
-    #   jsonschema-spec
     #   kytos
+    #   openapi-core
     #   openapi-schema-validator
     #   openapi-spec-validator
-jsonschema-spec==0.1.4
+jsonschema-path==0.3.2
     # via
     #   -r requirements/run.txt
     #   kytos
     #   openapi-core
     #   openapi-spec-validator
+jsonschema-specifications==2023.12.1
+    # via
+    #   -r requirements/run.txt
+    #   jsonschema
+    #   kytos
+    #   openapi-schema-validator
 lazy-object-proxy==1.7.1
     # via
     #   -r requirements/run.txt
@@ -223,17 +233,17 @@ more-itertools==8.12.0
     #   openapi-core
 mypy-extensions==1.0.0
     # via black
-openapi-core==0.16.6
+openapi-core==0.19.0
     # via
     #   -r requirements/run.txt
     #   kytos
-openapi-schema-validator==0.4.4
+openapi-schema-validator==0.6.2
     # via
     #   -r requirements/run.txt
     #   kytos
     #   openapi-core
     #   openapi-spec-validator
-openapi-spec-validator==0.5.6
+openapi-spec-validator==0.7.1
     # via
     #   -r requirements/run.txt
     #   kytos
@@ -258,9 +268,8 @@ parso==0.8.3
 pathable==0.4.3
     # via
     #   -r requirements/run.txt
-    #   jsonschema-spec
+    #   jsonschema-path
     #   kytos
-    #   openapi-core
 pathspec==0.11.1
     # via black
 pexpect==4.9.0
@@ -324,11 +333,6 @@ pymongo==4.6.2
     #   kytos
 pyproject-hooks==1.0.0
     # via build
-pyrsistent==0.18.0
-    # via
-    #   -r requirements/run.txt
-    #   jsonschema
-    #   kytos
 pytest==7.2.1
     # via
     #   kytos
@@ -357,17 +361,34 @@ pytz==2021.3
 pyyaml==6.0
     # via
     #   -r requirements/run.txt
-    #   jsonschema-spec
+    #   jsonschema-path
     #   kytos
     #   starlette
     #   uvicorn
-requests==2.27.0
-    # via sphinx
+referencing==0.31.1
+    # via
+    #   -r requirements/run.txt
+    #   jsonschema
+    #   jsonschema-path
+    #   jsonschema-specifications
+    #   kytos
+requests==2.31.0
+    # via
+    #   -r requirements/run.txt
+    #   jsonschema-path
+    #   kytos
+    #   sphinx
 rfc3339-validator==0.1.4
     # via
     #   -r requirements/run.txt
     #   kytos
     #   openapi-schema-validator
+rpds-py==0.18.0
+    # via
+    #   -r requirements/run.txt
+    #   jsonschema
+    #   kytos
+    #   referencing
 six==1.16.0
     # via
     #   -r requirements/run.txt
@@ -432,9 +453,7 @@ typing-extensions==4.5.0
     # via
     #   -r requirements/run.txt
     #   janus
-    #   jsonschema-spec
     #   kytos
-    #   openapi-core
     #   pydantic
 urllib3==1.26.18
     # via
