@@ -4,6 +4,8 @@
 #
 #    pip-compile --output-file=requirements/run.txt requirements/run.in
 #
+annotated-types==0.6.0
+    # via pydantic
 anyio==4.3.0
     # via
     #   httpx
@@ -40,7 +42,7 @@ ecs-logging==2.1.0
     # via elastic-apm
 elastic-apm==6.20.0
     # via -r requirements/run.in
-email-validator==1.3.0
+email-validator==2.1.1
     # via -r requirements/run.in
 executing==2.0.1
     # via stack-data
@@ -123,15 +125,17 @@ ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.2
     # via stack-data
-pydantic==1.9.0
+pydantic==2.6.3
     # via -r requirements/run.in
+pydantic-core==2.16.3
+    # via pydantic
 pygments==2.17.2
     # via ipython
 pyjwt==2.8.0
     # via -r requirements/run.in
 pymongo==4.6.2
     # via -r requirements/run.in
-python-daemon==2.3.1
+python-daemon==3.0.1
     # via -r requirements/run.in
 python-dotenv==1.0.1
     # via uvicorn
@@ -176,10 +180,11 @@ traitlets==5.14.1
     # via
     #   ipython
     #   matplotlib-inline
-typing-extensions==4.5.0
+typing-extensions==4.10.0
     # via
     #   janus
     #   pydantic
+    #   pydantic-core
 urllib3==1.26.18
     # via
     #   elastic-apm

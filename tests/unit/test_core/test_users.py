@@ -6,7 +6,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from kytos.core.user import DocumentBaseModel, HashSubDoc, UserDoc
+from kytos.core.user import DocumentBaseModel, HashSubDoc, UserDoc, hashing
 
 
 def test_document_base_model_dict():
@@ -98,6 +98,6 @@ class TestUserDoc:
     def test_user_doc_hashing(self):
         """Test UserDoc hashing of password"""
         user_doc = UserDoc(**self.user_data).dict()
-        pwd_hashed = UserDoc.hashing("Password123".encode(),
-                                     user_doc["hash"])
+        pwd_hashed = hashing("Password123".encode(),
+                             user_doc["hash"])
         assert user_doc["password"] == pwd_hashed

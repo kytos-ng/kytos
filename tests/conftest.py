@@ -1,6 +1,8 @@
 """Unit test fixtures."""
 # pylint: disable=redefined-outer-name
 
+from unittest import mock
+
 import pytest
 from httpx import AsyncClient
 
@@ -52,3 +54,14 @@ def minimal_openapi_spec_dict():
             }
         },
     }
+
+
+@pytest.fixture(scope='session', autouse=True)
+def mock_hashing():
+    """Mock hasinh method from user.py"""
+    def new_hashing(password: bytes, _hash) -> str:
+        if password == b"password":
+            return "some_hash"
+        return "wrong_hash"
+    with mock.patch("kytos.core.auth.hashing", wraps=new_hashing) as mock_all:
+        yield mock_all

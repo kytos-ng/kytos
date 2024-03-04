@@ -15,6 +15,11 @@
     #   kytos
 alabaster==0.7.12
     # via sphinx
+annotated-types==0.6.0
+    # via
+    #   -r requirements/run.txt
+    #   kytos
+    #   pydantic
 anyio==4.3.0
     # via
     #   -r requirements/run.txt
@@ -102,7 +107,7 @@ elastic-apm==6.20.0
     # via
     #   -r requirements/run.txt
     #   kytos
-email-validator==1.3.0
+email-validator==2.1.1
     # via
     #   -r requirements/run.txt
     #   kytos
@@ -309,10 +314,15 @@ pycodestyle==2.10.0
     # via
     #   kytos
     #   yala
-pydantic==1.9.0
+pydantic==2.6.3
     # via
     #   -r requirements/run.txt
     #   kytos
+pydantic-core==2.16.3
+    # via
+    #   -r requirements/run.txt
+    #   kytos
+    #   pydantic
 pygments==2.17.2
     # via
     #   -r requirements/run.txt
@@ -342,7 +352,7 @@ pytest-asyncio==0.20.3
     # via kytos
 pytest-cov==4.0.0
     # via kytos
-python-daemon==2.3.1
+python-daemon==3.0.1
     # via
     #   -r requirements/run.txt
     #   kytos
@@ -449,12 +459,13 @@ traitlets==5.14.1
     #   ipython
     #   kytos
     #   matplotlib-inline
-typing-extensions==4.5.0
+typing-extensions==4.10.0
     # via
     #   -r requirements/run.txt
     #   janus
     #   kytos
     #   pydantic
+    #   pydantic-core
 urllib3==1.26.18
     # via
     #   -r requirements/run.txt

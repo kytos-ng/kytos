@@ -96,7 +96,7 @@ class TestUserController:
         db_base = self.user.db
         db_base.users.find_one_and_update.side_effect = DuplicateKeyError(0)
         with pytest.raises(DuplicateKeyError):
-            self.user.update_user({}, {})
+            self.user.update_user({}, {"username": "mock"})
 
     def test_get_user(self):
         """Test get_user"""

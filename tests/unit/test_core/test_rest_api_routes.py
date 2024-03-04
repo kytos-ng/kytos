@@ -92,9 +92,9 @@ async def test_error_msg():
     with pytest.raises(ValidationError) as err:
         user.create_user(user_data)
     actual_msg = error_msg(err.value.errors())
-    expected_msg = 'password: value should contain minimun 8 characters, ' \
-                   'at least one upper case character, at least 1 ' \
-                   'numeric character [0-9]'
+    expected_msg = 'password: Value error, value should contain minimun 8 ' \
+                   'characters, at least one upper case character, at ' \
+                   'least 1 numeric character [0-9]'
     assert actual_msg == expected_msg
 
 

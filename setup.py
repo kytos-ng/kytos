@@ -233,7 +233,7 @@ setup(name='kytos',
           'yala==3.2.0',
           'tox==3.28.0',
           'virtualenv==20.21.0',
-          'typing-extensions==4.5.0'
+          'typing-extensions==4.10.0'
       ]},
       cmdclass={
           'clean': Cleaner,

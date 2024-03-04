@@ -4,12 +4,11 @@ import base64
 import pytest
 from httpx import AsyncClient
 # pylint: disable=no-name-in-module
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError
 
 from kytos.core.auth import Auth
 from kytos.core.rest_api import HTTPException
-from kytos.core.user import UserDoc
 
 
 # pylint: disable=unused-argument
@@ -18,11 +17,6 @@ class TestAuth:
 
     def setup_method(self):
         """Instantiate a controller and an Auth."""
-        def hashing(password: bytes, _hash) -> str:
-            if password == b"password":
-                return "some_hash"
-            return "wrong_hash"
-        UserDoc.hashing = hashing
         self.username, self.password = ("test", "password")
         self.user_data = {
             "username": "authtempuser",
@@ -184,7 +178,7 @@ class TestAuth:
                                               event_loop):
         """Test auth update user endpoint"""
         auth.controller.loop = event_loop
-        exc = ValidationError('', BaseModel)
+        exc = ValidationError.from_exception_data('', [])
         auth.user_controller.update_user.side_effect = exc
         endpoint = "kytos/core/auth/users/user5"
         headers = await self.auth_headers(auth, api_client)
