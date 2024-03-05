@@ -125,6 +125,7 @@ def new_handshaked_client(options=None):
     return do_handshake(client)
 
 
+# pylint: disable=broad-exception-raised
 def test_concurrently(times):
     """
     Decorator to test concurrently many times.

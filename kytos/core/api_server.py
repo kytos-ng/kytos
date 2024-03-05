@@ -404,8 +404,7 @@ class APIServer:
                     and isinstance(pub_attr.route_index, int)
                 ):
                     callables.append(pub_attr)
-        for pub_attr in sorted(callables, key=lambda f: f.route_index):
-            yield pub_attr
+        yield from sorted(callables, key=lambda f: f.route_index)
 
     @classmethod
     def get_absolute_rule(cls, rule, napp):

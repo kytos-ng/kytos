@@ -74,6 +74,7 @@ class Connection:
     @state.setter
     def state(self, new_state):
         if new_state not in ConnectionState:
+            # pylint: disable=broad-exception-raised
             raise Exception('Unknown State', new_state)
         # pylint: disable=attribute-defined-outside-init
         self._state = new_state

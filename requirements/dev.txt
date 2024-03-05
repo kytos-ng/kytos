@@ -31,7 +31,7 @@ asgiref==3.7.2
     # via
     #   -r requirements/run.txt
     #   kytos
-astroid==2.13.5
+astroid==3.1.0
     # via pylint
 asttokens==2.4.1
     # via
@@ -43,14 +43,15 @@ attrs==23.2.0
     #   -r requirements/run.txt
     #   jsonschema
     #   kytos
-    #   pytest
     #   referencing
 babel==2.9.0
     # via sphinx
-black==23.3.0
+black==24.2.0
     # via kytos
 build==0.10.0
     # via pip-tools
+cachetools==5.3.3
+    # via tox
 certifi==2024.2.2
     # via
     #   -r requirements/run.txt
@@ -59,6 +60,8 @@ certifi==2024.2.2
     #   httpx
     #   kytos
     #   requests
+chardet==5.2.0
+    # via tox
 charset-normalizer==3.3.2
     # via
     #   -r requirements/run.txt
@@ -72,7 +75,9 @@ click==8.1.7
     #   pip-tools
     #   uvicorn
 colorama==0.4.6
-    # via sphinx-autobuild
+    # via
+    #   sphinx-autobuild
+    #   tox
 coverage[toml]==7.2.2
     # via pytest-cov
 decorator==5.1.1
@@ -80,9 +85,9 @@ decorator==5.1.1
     #   -r requirements/run.txt
     #   ipython
     #   kytos
-dill==0.3.4
+dill==0.3.8
     # via pylint
-distlib==0.3.6
+distlib==0.3.8
     # via virtualenv
 dnspython==2.6.1
     # via
@@ -116,7 +121,7 @@ executing==2.0.1
     #   -r requirements/run.txt
     #   kytos
     #   stack-data
-filelock==3.10.7
+filelock==3.13.1
     # via
     #   tox
     #   virtualenv
@@ -162,7 +167,7 @@ isodate==0.6.1
     #   -r requirements/run.txt
     #   kytos
     #   openapi-core
-isort==5.12.0
+isort==5.13.2
     # via
     #   kytos
     #   pylint
@@ -209,7 +214,6 @@ jsonschema-specifications==2023.12.1
 lazy-object-proxy==1.7.1
     # via
     #   -r requirements/run.txt
-    #   astroid
     #   kytos
     #   openapi-spec-validator
 livereload==2.6.3
@@ -253,10 +257,11 @@ openapi-spec-validator==0.7.1
     #   -r requirements/run.txt
     #   kytos
     #   openapi-core
-packaging==23.0
+packaging==23.2
     # via
     #   black
     #   build
+    #   pyproject-api
     #   pytest
     #   sphinx
     #   tox
@@ -284,12 +289,13 @@ pexpect==4.9.0
     #   kytos
 pip-tools==6.12.3
     # via kytos
-platformdirs==3.2.0
+platformdirs==4.2.0
     # via
     #   black
     #   pylint
+    #   tox
     #   virtualenv
-pluggy==1.0.0
+pluggy==1.4.0
     # via
     #   pytest
     #   tox
@@ -308,9 +314,7 @@ pure-eval==0.2.2
     #   -r requirements/run.txt
     #   kytos
     #   stack-data
-py==1.11.0
-    # via tox
-pycodestyle==2.10.0
+pycodestyle==2.11.1
     # via
     #   kytos
     #   yala
@@ -333,7 +337,7 @@ pyjwt==2.8.0
     # via
     #   -r requirements/run.txt
     #   kytos
-pylint==2.15.0
+pylint==3.1.0
     # via
     #   kytos
     #   yala
@@ -341,16 +345,18 @@ pymongo==4.6.2
     # via
     #   -r requirements/run.txt
     #   kytos
+pyproject-api==1.6.1
+    # via tox
 pyproject-hooks==1.0.0
     # via build
-pytest==7.2.1
+pytest==8.0.1
     # via
     #   kytos
     #   pytest-asyncio
     #   pytest-cov
-pytest-asyncio==0.20.3
+pytest-asyncio==0.23.5
     # via kytos
-pytest-cov==4.0.0
+pytest-cov==4.1.0
     # via kytos
 python-daemon==3.0.1
     # via
@@ -407,7 +413,6 @@ six==1.16.0
     #   kytos
     #   livereload
     #   rfc3339-validator
-    #   tox
 sniffio==1.3.0
     # via
     #   -r requirements/run.txt
@@ -451,7 +456,7 @@ tomlkit==0.11.7
     # via pylint
 tornado==6.2
     # via livereload
-tox==3.28.0
+tox==4.13.0
     # via kytos
 traitlets==5.14.1
     # via
@@ -481,7 +486,7 @@ uvloop==0.19.0
     #   -r requirements/run.txt
     #   kytos
     #   uvicorn
-virtualenv==20.21.0
+virtualenv==20.25.1
     # via
     #   kytos
     #   tox
@@ -514,7 +519,6 @@ wheel==0.40.0
 wrapt==1.14.1
     # via
     #   -r requirements/run.txt
-    #   astroid
     #   elastic-apm
     #   kytos
 yala==3.2.0

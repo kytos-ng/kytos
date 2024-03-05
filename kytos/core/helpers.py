@@ -177,7 +177,7 @@ def listen_to(event, *events, pool=None):
         handler_func, kwargs = handler_context, {}
         if get_apm_name() == "es":
             handler_func = handler_context_apm
-            kwargs = dict(apm_client=ElasticAPM.get_client())
+            kwargs = {"apm_client": ElasticAPM.get_client()}
 
         def get_executor(pool, event, default_pool="app", handler=handler):
             """Get executor."""
@@ -267,7 +267,7 @@ def alisten_to(event, *events):
         handler_func, kwargs = handler_context, {}
         if get_apm_name() == "es":
             handler_func = handler_context_apm
-            kwargs = dict(apm_client=ElasticAPM.get_client())
+            kwargs = {"apm_client": ElasticAPM.get_client()}
 
         async def inner(*args):
             """Inner decorated with events attribute."""
