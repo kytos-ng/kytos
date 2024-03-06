@@ -9,6 +9,11 @@ from typing import Any, Optional
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse as StarletteJSONResponse
+from starlette.responses import Response
+
+Request = Request
+Response = Response
+HTTPException = HTTPException
 
 
 def _json_serializer(obj):
