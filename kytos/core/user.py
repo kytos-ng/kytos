@@ -18,9 +18,9 @@ class DocumentBaseModel(BaseModel):
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
 
-    def dict(self, **kwargs) -> dict:
+    def model_dump(self, **kwargs) -> dict:
         """Model to dict."""
-        values = super().dict(**kwargs)
+        values = super().model_dump(**kwargs)
         if "id" in values and values["id"]:
             values["_id"] = values["id"]
         if "exclude" in kwargs and "_id" in kwargs["exclude"]:
@@ -48,7 +48,7 @@ def validate_password(password: str, values: ValidationInfo):
         if char.islower():
             lower = True
         if number and upper and lower:
-            return hashing(password.encode(), values.data['hash'].dict())
+            return hashing(password.encode(), values.data['hash'].model_dump())
     raise ValueError('value should contain ' +
                      'minimun 8 characters, ' +
                      'at least one upper case character, ' +

@@ -110,7 +110,7 @@ class UserController:
                 "email": user_data.get('email'),
                 "inserted_at": utc_now,
                 "updated_at": utc_now,
-            }).dict())
+            }).model_dump())
         except DuplicateKeyError as err:
             raise err
         except ValidationError as err:
@@ -142,7 +142,7 @@ class UserController:
                     "$set": UserDocUpdate(**{
                         **data,
                         **{"updated_at": utc_now}
-                    }).dict(exclude_none=True)
+                    }).model_dump(exclude_none=True)
                 },
                 return_document=ReturnDocument.AFTER
             )
