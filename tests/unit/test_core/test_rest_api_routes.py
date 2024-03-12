@@ -61,10 +61,10 @@ def test_api_500_traceback_by_default() -> None:
     assert KytosConfig().options["daemon"].api_traceback_on_500
 
 
-async def test_get_json_or_400(controller, api_client, event_loop) -> None:
+async def test_get_json_or_400(controller, api_client) -> None:
     """Test get_json_or_400."""
 
-    controller.loop = event_loop
+    controller.loop = asyncio.get_running_loop()
 
     def handler(request: Request) -> JSONResponse:
         body = get_json_or_400(request, controller.loop)
@@ -98,9 +98,9 @@ async def test_error_msg():
     assert actual_msg == expected_msg
 
 
-async def test_get_body(controller, api_client, event_loop) -> None:
+async def test_get_body(controller, api_client) -> None:
     """Test get_body (low level-ish usage for validators)."""
-    controller.loop = event_loop
+    controller.loop = asyncio.get_running_loop()
 
     def handler(request: Request) -> JSONResponse:
         body_bytes = get_body(request, controller.loop)

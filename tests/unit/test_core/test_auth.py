@@ -1,4 +1,5 @@
 """Test kytos.core.auth module."""
+import asyncio
 import base64
 
 import pytest
@@ -97,9 +98,9 @@ class TestAuth:
         resp = await api_client.get(endpoint, headers=invalid_header)
         assert resp.status_code == 401
 
-    async def test_03_create_user_request(self, auth, api_client, event_loop):
+    async def test_03_create_user_request(self, auth, api_client):
         """Test auth create user endpoint."""
-        auth.controller.loop = event_loop
+        auth.controller.loop = asyncio.get_running_loop()
         endpoint = "kytos/core/auth/users"
         headers = await self.auth_headers(auth, api_client)
         resp = await api_client.post(endpoint, json=self.user_data,
@@ -108,10 +109,10 @@ class TestAuth:
         assert "User successfully created" in resp.json()
 
     async def test_03_create_user_request_conflict(
-        self, auth, api_client, event_loop
+        self, auth, api_client
     ):
         """Test auth create user endpoint."""
-        auth.controller.loop = event_loop
+        auth.controller.loop = asyncio.get_running_loop()
         endpoint = "kytos/core/auth/users"
         auth.user_controller.create_user.side_effect = DuplicateKeyError("0")
         headers = await self.auth_headers(auth, api_client)
@@ -121,10 +122,10 @@ class TestAuth:
         assert "already exists" in resp.json()["description"]
 
     async def test_03_create_user_request_bad(
-        self, auth, api_client, event_loop
+        self, auth, api_client
     ):
         """Test auth create user endpoint."""
-        auth.controller.loop = event_loop
+        auth.controller.loop = asyncio.get_running_loop()
         data = "wrong_json"
         endpoint = "kytos/core/auth/users"
         headers = await self.auth_headers(auth, api_client)
@@ -151,9 +152,9 @@ class TestAuth:
         assert resp.status_code == 404
         assert "not found" in resp.json()["description"]
 
-    async def test_05_update_user_request(self, auth, api_client, event_loop):
+    async def test_05_update_user_request(self, auth, api_client):
         """Test auth update user endpoint."""
-        auth.controller.loop = event_loop
+        auth.controller.loop = asyncio.get_running_loop()
         data = {"email": "newemail_tempuser@kytos.io"}
         endpoint = f"kytos/core/auth/users/{self.user_data['username']}"
         headers = await self.auth_headers(auth, api_client)
@@ -161,10 +162,9 @@ class TestAuth:
                                       headers=headers)
         assert resp.status_code == 200
 
-    async def test_05_update_user_request_not_found(self, auth, api_client,
-                                                    event_loop):
+    async def test_05_update_user_request_not_found(self, auth, api_client):
         """Test auth update user endpoint."""
-        auth.controller.loop = event_loop
+        auth.controller.loop = asyncio.get_running_loop()
         data = {"email": "newemail_tempuser@kytos.io"}
         auth.user_controller.update_user.return_value = {}
         endpoint = "kytos/core/auth/users/user5"
@@ -174,10 +174,9 @@ class TestAuth:
         assert resp.status_code == 404
         assert "not found" in resp.json()["description"]
 
-    async def test_05_update_user_request_bad(self, auth, api_client,
-                                              event_loop):
+    async def test_05_update_user_request_bad(self, auth, api_client):
         """Test auth update user endpoint"""
-        auth.controller.loop = event_loop
+        auth.controller.loop = asyncio.get_running_loop()
         exc = ValidationError.from_exception_data('', [])
         auth.user_controller.update_user.side_effect = exc
         endpoint = "kytos/core/auth/users/user5"
@@ -186,10 +185,9 @@ class TestAuth:
                                       headers=headers)
         assert resp.status_code == 400
 
-    async def test_05_update_user_request_conflict(self, auth, api_client,
-                                                   event_loop):
+    async def test_05_update_user_request_conflict(self, auth, api_client):
         """Test auth update user endpoint"""
-        auth.controller.loop = event_loop
+        auth.controller.loop = asyncio.get_running_loop()
         auth.user_controller.update_user.side_effect = DuplicateKeyError("0")
         endpoint = "kytos/core/auth/users/user5"
         headers = await self.auth_headers(auth, api_client)

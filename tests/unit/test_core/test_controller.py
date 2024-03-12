@@ -182,6 +182,7 @@ class TestController:
         mock_start_controller.assert_called()
         mock_db_conn_wait.assert_not_called()
         mock_init_apm.assert_not_called()
+        assert self.controller.apm is None
 
     @patch('kytos.core.controller.sys')
     @patch('kytos.core.controller.init_apm')
@@ -223,6 +224,7 @@ class TestController:
         mock_start_controller.assert_called()
         mock_db_conn_wait.assert_called()
         mock_init_apm.assert_called()
+        assert self.controller.apm is not None
 
     @patch('kytos.core.controller.sys.exit')
     @patch('kytos.core.controller.Controller.create_pidfile')
@@ -749,9 +751,10 @@ class TestControllerAsync:
         controller.api_server = api_server
         controller.napp_dir_listener = napp_dir_listener
         controller.stop_queue_monitors = MagicMock()
+        controller.apm = MagicMock()
 
         controller.stop_controller()
-
+        controller.apm.close.assert_called()
         controller.buffers.send_stop_signal.assert_called()
         api_server.stop.assert_called()
         napp_dir_listener.stop.assert_called()

@@ -154,6 +154,9 @@ class Controller:
         self._alisten_tasks = set()
         self.qmonitors: list[QueueMonitorWindow] = []
 
+        #: APM client in memory to be closed when necessary
+        self.apm = None
+
         self._register_endpoints()
         #: Adding the napps 'enabled' directory into the PATH
         #: Now you can access the enabled napps with:
@@ -258,7 +261,7 @@ class Controller:
                 db_conn_wait(db_backend=self.options.database)
                 self.start_auth()
             if self.options.apm:
-                init_apm(self.options.apm, app=self.api_server.app)
+                self.apm = init_apm(self.options.apm, app=self.api_server.app)
             if not restart:
                 self.create_pidfile()
             self.start_controller()
@@ -508,6 +511,9 @@ class Controller:
         # self.server.server_close()
 
         self.stop_queue_monitors()
+        if self.apm:
+            self.log.info("Stopping APM server...")
+            self.apm.close()
         self.log.info("Stopping API Server...")
         self.api_server.stop()
         self.log.info("Stopped API Server")
