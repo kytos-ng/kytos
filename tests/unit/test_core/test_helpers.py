@@ -1,6 +1,7 @@
 """Test kytos.core.helpers module."""
 from unittest.mock import MagicMock, patch
 
+from kytos.core import helpers
 from kytos.core.helpers import (alisten_to, ds_executors, executors,
                                 get_thread_pool_max_workers, get_time,
                                 listen_to, load_spec, run_on_thread)
@@ -23,11 +24,12 @@ async def test_alisten_to():
     assert result == "some_response"
 
 
-@patch('kytos.core.helpers.OpenAPI')
-def test_load_spec(mock_open) -> None:
+def test_load_spec(monkeypatch, minimal_openapi_spec_dict) -> None:
     """Test load spec."""
-    load_spec("mocked_path")
-    assert mock_open.from_file_path.call_count == 1
+    monkeypatch.setattr(helpers, "_read_from_filename",
+                        lambda x: minimal_openapi_spec_dict)
+    spec = load_spec("mocked_path")
+    assert spec.accessor.lookup == minimal_openapi_spec_dict
 
 
 class TestHelpers:

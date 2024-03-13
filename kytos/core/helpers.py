@@ -9,13 +9,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import Thread
 
-from openapi_core import OpenAPI
-from openapi_core.contrib.starlette import StarletteOpenAPIRequest
-from openapi_core.unmarshalling.request.datatypes import RequestUnmarshalResult
+from openapi_core import Spec, unmarshal_request
+from openapi_core.exceptions import OpenAPIError
+from openapi_spec_validator import validate
+from openapi_spec_validator.readers import read_from_filename
 
 from kytos.core.apm import ElasticAPM
 from kytos.core.config import KytosConfig
-from kytos.core.rest_api import (HTTPException, Request,
+from kytos.core.rest_api import (AStarletteOpenAPIRequest, HTTPException,
+                                 Request, StarletteOpenAPIRequest,
                                  content_type_json_or_415, get_body)
 
 __all__ = ['listen_to', 'now', 'run_on_thread', 'get_time']
@@ -347,44 +349,35 @@ def get_time(data=None):
     return date.replace(tzinfo=timezone.utc)
 
 
+def _read_from_filename(yml_file_path: Path) -> dict:
+    """Read from yml filename."""
+    spec_dict, _ = read_from_filename(yml_file_path)
+    return spec_dict
+
+
 def load_spec(yml_file_path: Path):
     """Load and validate spec object given a yml file path."""
-    return OpenAPI.from_file_path(yml_file_path)
+    spec = _read_from_filename(yml_file_path)
+    validate(spec)
+    return Spec.from_dict(spec)
 
 
-def _request_validation_result_or_400(result: RequestUnmarshalResult) -> None:
-    """Request validation result or raise HTTP 400."""
-    if not result.errors:
-        return
-    error_response = (
-        "The request body contains invalid API data."
-    )
-    errors = result.errors[0]
+def _request_validation_result_or_400(errors: OpenAPIError) -> None:
+    """Raise HTTP 400."""
+    error_response = "The request body contains invalid API data."
     if not errors.__cause__:
         error_response = str(errors)
-    elif hasattr(errors.__cause__, "schema_errors"):
-        errors = errors.__cause__
-        schema_errors = errors.schema_errors[0]
-        error_log = {
-            "error_message": schema_errors.message,
-            "error_validator": schema_errors.validator,
-            "error_validator_value": schema_errors.validator_value,
-            "error_path": list(schema_errors.path),
-            "error_schema": schema_errors.schema,
-            "error_schema_path": list(schema_errors.schema_path),
-        }
-        LOG.debug(f"Invalid request (API schema): {error_log}")
-        error_response += f" {schema_errors.message} for field"
-        error_response += (
-            f" {'/'.join(map(str,schema_errors.path))}."
-        )
-    else:
-        error_response = str(errors.__cause__)
+    elif (hasattr(errors.__cause__, "schema_errors") and
+            errors.__cause__.schema_errors):
+        schema_errors = errors.__cause__.schema_errors
+        error_response += f" {schema_errors[0].message}"
+        for error in schema_errors[1:]:
+            error_response += f", {error.message}"
     raise HTTPException(400, detail=error_response)
 
 
 def validate_openapi_request(
-    spec: OpenAPI, request: Request, loop: AbstractEventLoop
+    spec: Spec, request: Request, loop: AbstractEventLoop
 ) -> bytes:
     """Validate a Request given an OpenAPI spec.
 
@@ -396,13 +389,15 @@ def validate_openapi_request(
     if body:
         content_type_json_or_415(request)
     openapi_request = StarletteOpenAPIRequest(request, body)
-    result = spec.unmarshal_request(openapi_request)
-    _request_validation_result_or_400(result)
+    try:
+        unmarshal_request(openapi_request, spec)
+    except OpenAPIError as err:
+        _request_validation_result_or_400(err)
     return body
 
 
 async def avalidate_openapi_request(
-        spec: OpenAPI,
+        spec: Spec,
         request: Request,
 ) -> bytes:
     """Async validate_openapi_request.
@@ -420,9 +415,11 @@ async def avalidate_openapi_request(
     body = await request.body()
     if body:
         content_type_json_or_415(request)
-    openapi_request = StarletteOpenAPIRequest(request, body)
-    result = spec.unmarshal_request(openapi_request)
-    _request_validation_result_or_400(result)
+    openapi_request = AStarletteOpenAPIRequest(request, body)
+    try:
+        unmarshal_request(openapi_request, spec)
+    except OpenAPIError as err:
+        _request_validation_result_or_400(err)
     return body
 
 
