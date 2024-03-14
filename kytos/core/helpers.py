@@ -11,7 +11,7 @@ from threading import Thread
 
 from openapi_core import Spec, unmarshal_request
 from openapi_core.exceptions import OpenAPIError
-from openapi_spec_validator import validate
+from openapi_spec_validator import validate_spec
 from openapi_spec_validator.readers import read_from_filename
 
 from kytos.core.apm import ElasticAPM
@@ -358,7 +358,7 @@ def _read_from_filename(yml_file_path: Path) -> dict:
 def load_spec(yml_file_path: Path):
     """Load and validate spec object given a yml file path."""
     spec = _read_from_filename(yml_file_path)
-    validate(spec)
+    validate_spec(spec)
     return Spec.from_dict(spec)
 
 
