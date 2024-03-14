@@ -145,7 +145,7 @@ class StarletteOpenAPIRequest(_StarletteOpenAPIRequest):
         if body is None:
             return None
         return body.decode("utf-8")
-    
+
     @property
     def mimetype(self) -> str:
         return (
