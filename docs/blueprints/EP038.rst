@@ -1,0 +1,151 @@
+:EP: 38
+:Title: Broadcasting events
+:Authors:
+- Luis;
+- Italo;
+- Vinicius;
+- Jeronimo Bezerra jbezerra@fiu.edu;
+:Issued Date: to be defined
+:Status: Pending
+:Type: Standards Track
+
+EP03X - Broadcasting events
+
+########
+Abstract
+########
+
+This blueprint details how Kytos should export/broadcast its events
+to external applications in a safe and scalable way.
+
+##########
+Motivation
+##########
+
+With Kytos running in production, we learned that Kytos events can be
+leveraged for multiple purposes, from capacity planning to topology evaluation,
+from troubleshooting to accounting. However, creating Kytos napps to only monitor the environment should be avoided to minimize possible impacts on running the kytos instance. Moreover, this napp has the potential to expedite the prototyping of new applications and frameworks that need an understanding of the
+network topology and control plane, such as the AtlanticWave-SDX project.
+
+##########
+Requirements
+##########
+
+This napp should not be named after or delegate part of its functions to the message broker system
+This napp has to be an event broadcaster only. No input via message_bus should be supported/allowed.
+This napp has to support multiple queues: one queue per napp and a queue for all napps (verbose_queue)
+This napp is optional, meaning if there is any issue with it, kytos shouldn’t be impacted
+This napp must use async.io for all asynchronous calls, for instance, alister_to instead of listen_to
+This napp has to keep consistency after reloading (re-read settings.py again, close and open rabbitmq sessions, with tests for these functionalities)
+This napp must support filtering specific REGEX messages via settings.py (a list of regex)
+
+The Broadcasting Events Napp (application) must be able to utilize any replaceable message transportation system. This requirement underscores the necessity for flexibility and adaptability in the system's architecture. Consequently, the Broadcasting Events Napp and the Events Consumer Napp should be isolated into microservices napps, distinct from the Message Queue Producer and Consumer Napps. This architectural decision offers several benefits:
+
+########
+Modularity and Scalability
+########
+
+Microservices allow for modular design, enabling each component to be developed, deployed, and scaled independently. This modularity facilitates easier management and scaling of the system as a whole.
+Technology Agnosticism:
+
+By isolating the Broadcasting Events Napp and the Events Consumer Napp, the system becomes agnostic to the specific message transportation system. This means that the choice of a message queue or transportation system can be easily swapped out or upgraded without affecting the core functionality of the microservices.
+
+##########################
+Ease of Maintenance and Updates
+##########################
+
+Separating the microservices reduces the complexity of each component, making maintenance and updates more straightforward. Changes to one microservice can be made without impacting the others, allowing for faster iteration and deployment cycles.
+
+######################
+Resilience and Fault Isolation
+######################
+
+Isolating microservices enhances fault isolation. If one microservice experiences issues or failures, they are less likely to impact the overall system's performance, ensuring greater resilience and stability of the application.
+Scalability and Performance Optimization:
+
+Microservices architecture facilitates resource optimization by allowing individual components to be scaled independently based on demand. This scalability ensures optimal performance even during peak loads.
+Enhanced Security:
+
+Isolating components into microservices can enhance security by reducing the attack surface area. Each microservice can have its security measures, such as access controls and authentication mechanisms, ensuring that security breaches are contained and mitigated effectively.
+
+The message queue operates by receiving messages from the events originating application and distributing them to one or more recipient applications in a first-in-first-out (FIFO) manner. This architecture facilitates communication between different parts of a system without direct coupling.
+
+Events Napp can establish separate message queues for SDX Napp and BAPM Napp to disseminate updates or commands. Events Napp would then dispatch distinct messages to each queue, and the relevant applications would retrieve messages from their designated queues.
+
+Upon retrieval, the system removes messages from the queue to ensure each message is processed exactly once.
+
+Message queues decouple components within the system. Events Napp can transmit updates without the continuous availability of SDX Napp or BAPM applications. Moreover, the persistent nature of message queues ensures that if any application experiences a restart, it can seamlessly resume processing messages from its designated queue once it is back online.
+
+This approach enhances scalability and fault tolerance in applications by reducing dependencies between interconnected systems. Additionally, it facilitates better handling of system failures or temporary unavailability, thereby strengthening the overall robustness of the architecture.
+
+AMQP 0.9.1, a highly efficient and versatile protocol, empowers RabbitMQ, a widely acclaimed message broker, to communicate seamlessly across various systems. This robust combination ensures reliable communication between different components of a distributed system.
+
+aio-pika is an asynchronous AMQP client library designed for Python applications. It enables asynchronous and efficient interaction with RabbitMQ, making it well-suited for high-performance applications or systems that require non-blocking I/O operations.
+
+By leveraging the power of aio-pika, we can seamlessly integrate RabbitMQ's robust messaging capabilities into our Kytos Napps. This potent combination of RabbitMQ's strength and aio-pika's asynchronous nature inspires the creation of scalable and responsive distributed systems, fueling our projects' potential.
+
+#######
+Benefits
+#######
+
+Real-time monitoring of interdomain link status.
+
+Scalable solution with dynamically created queues.
+
+Fault-tolerant design ensures persistent handling of link-down events.
+
+Flexibility in queue management, allowing for dynamic addition or configuration based on settings.
+
+Overall, this use case demonstrates how message queues can be effectively utilized for monitoring and managing interdomain link status changes in an SDX network infrastructure, ensuring timely detection and response to connectivity issues.
+
+In conclusion, isolating the Broadcasting Events Napp and the Events Consumer Napp into separate microservices from the Message Queue Producer and Consumer Napps promotes flexibility, modularity, scalability, and resilience in the system's architecture. This design approach enables the system to adapt to changing requirements and technologies while maintaining robustness and efficiency in event broadcasting and consumption.
+
+#####################################
+Use Case: Interdomain Link Up/Down Monitoring
+#####################################
+
+Scenario:
+
+In SDX, monitoring the status of interdomain links for connectivity and reliability is crucial. This use case involves setting up a system to detect link status changes (up/down) and notify consumers about these events through message queues.
+
+Components:
+
+Producer: Generates events based on link status changes.
+
+Consumer: Monitors link status by consuming messages from the appropriate queues.
+
+Implementation:
+
+Link Status Queue Initialization:
+
+Each interdomain link has its dedicated queue.
+
+Queues are either dynamically created or configured based on settings.
+
+Producer Functionality:
+
+Upon detecting a link-down event:
+
+If the link-down event is persistent:
+The producer checks if the corresponding queue is empty.
+
+If empty, it adds a new message "[Link Down]" to the unique element link status queue.
+
+If the link-down event is not persistent:
+The producer keeps checking until the consumer reads and deletes the message.
+
+Upon detecting a link-up event:
+The producer sends a message "[Link Up]" to override the existing message in the link status queue.
+
+Consumer Functionality:
+
+Consumers must be aware of the queues they need to monitor for link status changes.
+
+Consumers continuously monitor the designated queues for new messages indicating link status changes.
+
+Upon receiving a message:
+
+If the message is "[Link Down]," the consumer processes the link down event.
+
+If the message is "[Link Up]", the consumer processes the link-up event.
+
