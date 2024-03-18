@@ -6,6 +6,9 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2023.2.0] - 2024-02-16
+***********************
+
 Added
 =====
 - Added ``Interface.tag_ranges`` as ``dict[str, list[list[int]]]`` as replacement for ``vlan_pool`` settings.
