@@ -1,9 +1,8 @@
 """Module with main classes related to Connections."""
 import logging
-from asyncio import Transport, trsock
+from asyncio import Transport
 from enum import Enum
 from errno import EBADF, ENOTCONN
-from socket import SHUT_RDWR
 
 __all__ = ('Connection', 'ConnectionProtocol', 'ConnectionState')
 
@@ -37,7 +36,6 @@ class Connection:
         self,
         address: str,
         port: int,
-        socket: trsock.TransportSocket,
         transport: Transport,
         switch=None
     ):
@@ -52,7 +50,6 @@ class Connection:
         """
         self.address = address
         self.port = port
-        self.socket = socket
         self.switch = switch
         self.transport = transport
         self.state = ConnectionState.NEW
@@ -64,7 +61,7 @@ class Connection:
 
     def __repr__(self):
         return f"Connection({self.address!r}, {self.port!r}," + \
-               f" {self.socket!r}, {self.switch!r}, {self.state!r})"
+               f" {self.transport!r}, {self.switch!r}, {self.state!r})"
 
     @property
     def state(self):
@@ -101,7 +98,7 @@ class Connection:
         try:
             if self.is_alive():
                 self.transport.write(buffer)
-        except (OSError, TypeError) as exception:
+        except OSError as exception:
             LOG.debug('Could not send packet. Exception: %s', exception)
             self.close()
             raise
@@ -112,9 +109,8 @@ class Connection:
         LOG.debug('Shutting down Connection %s', self.id)
 
         try:
-            self.socket.shutdown(SHUT_RDWR)
             self.transport.close()
-            self.socket = None
+            self.transport = None
             LOG.debug('Connection Closed: %s', self.id)
         except OSError as exception:
             if exception.errno not in (ENOTCONN, EBADF):
@@ -124,7 +120,7 @@ class Connection:
 
     def is_alive(self):
         """Return True if the connection socket is alive. False otherwise."""
-        return self.socket is not None and self.state not in (
+        return self.transport is not None and self.state not in (
             ConnectionState.FINISHED, ConnectionState.FAILED)
 
     def is_new(self):

@@ -1,6 +1,7 @@
 """Test kytos.core.auth module."""
 import asyncio
 import base64
+from unittest import mock
 
 import pytest
 from httpx import AsyncClient
@@ -25,12 +26,21 @@ class TestAuth:
             "password": "password",
         }
 
+    @staticmethod
+    def new_hashing(password: bytes, _hash) -> str:
+        """Use this method to mock auth.hashing."""
+        if password == b"password":
+            return "some_hash"
+        return "wrong_hash"
+
     async def auth_headers(self, auth: Auth, api_client: AsyncClient) -> dict:
         """Get Authorization headers with token."""
+        # pylint: disable=no-value-for-parameter
         token = await self._get_token(auth, api_client)
         return {"Authorization": f"Bearer {token}"}
 
-    async def _get_token(self, auth: Auth, api_client: AsyncClient) -> str:
+    @mock.patch("kytos.core.auth.hashing", wraps=new_hashing)
+    async def _get_token(self, auth: Auth, api_client: AsyncClient, _) -> str:
         """Make a request to get a token to be used in tests."""
         valid_header = {
             "Authorization": "Basic "
@@ -55,7 +65,8 @@ class TestAuth:
                 return False
         return True
 
-    async def test_01_login_request(self, auth, api_client, monkeypatch):
+    @mock.patch("kytos.core.auth.hashing", wraps=new_hashing)
+    async def test_01_login_request(self, _, auth, api_client, monkeypatch):
         """Test auth login endpoint."""
         valid_header = {
             "Authorization": "Basic "

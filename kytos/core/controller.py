@@ -631,7 +631,7 @@ class Controller:
                                    message.header.xid,
                                    packet.hex())
                     self.notify_listeners(triggered_event)
-            except (OSError, TypeError):
+            except OSError:
                 await self.publish_connection_error(triggered_event)
                 self.log.info("connection closed. Cannot send message")
             except PackException as err:

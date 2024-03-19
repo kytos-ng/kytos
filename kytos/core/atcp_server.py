@@ -126,11 +126,10 @@ class KytosServerProtocol(asyncio.Protocol):
 
         addr, port = transport.get_extra_info('peername')
         _, server_port = transport.get_extra_info('sockname')
-        socket = transport.get_extra_info('socket')
 
         LOG.info("New connection from %s:%s", addr, port)
 
-        self.connection = Connection(addr, port, socket, transport)
+        self.connection = Connection(addr, port, transport)
 
         # This allows someone to inherit from KytosServer and start a server
         # on another port to handle a different protocol.
