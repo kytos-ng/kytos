@@ -370,9 +370,9 @@ def _request_validation_result_or_400(errors: OpenAPIError) -> None:
     elif (hasattr(errors.__cause__, "schema_errors") and
             errors.__cause__.schema_errors):
         schema_errors = errors.__cause__.schema_errors
-        error_response += f" {schema_errors[0].message}"
-        for error in schema_errors[1:]:
-            error_response += f", {error.message}"
+        for error in schema_errors:
+            error_response += f", {error.message} for field"
+            error_response += f" {'/'.join(map(str,error.path))}."
     raise HTTPException(400, detail=error_response)
 
 
