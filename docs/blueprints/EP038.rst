@@ -35,7 +35,7 @@ This napp should not be named after or delegate part of its functions to the mes
 This napp has to be an event broadcaster only. No input via message_bus should be supported/allowed.
 This napp has to support multiple queues: one queue per napp and a queue for all napps (verbose_queue)
 This napp is optional, meaning if there is any issue with it, kytos shouldn’t be impacted
-This napp must use async.io for all asynchronous calls, for instance, alister_to instead of listen_to
+This napp must use ``asyncio`` for all asynchronous calls, for instance, ``@alisten_to`` instead of ``@listen_to``
 This napp has to keep consistency after reloading (re-read settings.py again, close and open rabbitmq sessions, with tests for these functionalities)
 This napp must support filtering specific REGEX messages via settings.py (a list of regex)
 
