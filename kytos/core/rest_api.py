@@ -145,3 +145,11 @@ class StarletteOpenAPIRequest(_StarletteOpenAPIRequest):
         if body is None:
             return None
         return body.decode("utf-8")
+
+    @property
+    def mimetype(self) -> str:
+        content_type = self.request.headers.get("Content-Type")
+        if content_type:
+            return content_type.partition(";")[0]
+
+        return "application/octet-stream"
