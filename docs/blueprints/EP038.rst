@@ -1,151 +1,186 @@
 :EP: 38
 :Title: Broadcasting events
 :Authors:
-- Luis;
-- Italo;
-- Vinicius;
-- Jeronimo Bezerra jbezerra@fiu.edu;
+    - Luis;
+    - Italo;
+    - Vinicius;
+    - Jeronimo Bezerra jbezerra@fiu.edu;
 :Issued Date: to be defined
 :Status: Pending
 :Type: Standards Track
 
+*****************************************
 EP03X - Broadcasting events
+*****************************************
 
 ########
 Abstract
 ########
 
 This blueprint details how Kytos should export/broadcast its events
-to external applications in a safe and scalable way.
+to external applications in a safe and scalable way. 
 
 ##########
 Motivation
 ##########
 
 With Kytos running in production, we learned that Kytos events can be
-leveraged for multiple purposes, from capacity planning to topology evaluation,
-from troubleshooting to accounting. However, creating Kytos napps to only monitor the environment should be avoided to minimize possible impacts on running the kytos instance. Moreover, this napp has the potential to expedite the prototyping of new applications and frameworks that need an understanding of the
+leveraged for multiple purposes, from capacity planning to topology evaluation, 
+from troubleshooting to accounting. However, creating Kytos napps to only monitor the environment should be avoided to minimize possible impacts on running the kytos instance. Moreover, this napp has the potential to expedite the prototyping of new applications and frameworks that need an understanding of the 
 network topology and control plane, such as the AtlanticWave-SDX project.
 
 ##########
 Requirements
 ##########
 
-This napp should not be named after or delegate part of its functions to the message broker system
 This napp has to be an event broadcaster only. No input via message_bus should be supported/allowed.
 This napp has to support multiple queues: one queue per napp and a queue for all napps (verbose_queue)
 This napp is optional, meaning if there is any issue with it, kytos shouldn’t be impacted
-This napp must use ``asyncio`` for all asynchronous calls, for instance, ``@alisten_to`` instead of ``@listen_to``
+This napp must use async.io for all asynchronous calls, for instance, alister_to instead of listen_to
 This napp has to keep consistency after reloading (re-read settings.py again, close and open rabbitmq sessions, with tests for these functionalities)
 This napp must support filtering specific REGEX messages via settings.py (a list of regex)
 
-The Broadcasting Events Napp (application) must be able to utilize any replaceable message transportation system. This requirement underscores the necessity for flexibility and adaptability in the system's architecture. Consequently, the Broadcasting Events Napp and the Events Consumer Napp should be isolated into microservices napps, distinct from the Message Queue Producer and Consumer Napps. This architectural decision offers several benefits:
+Separating the message broker interaction into two distinct NApps makes the system architecture more modular and easier to manage. We can develop, deploy, and scale each NApp independently, providing flexibility and adaptability.
+Additionally, isolating the message broker functionality enhances fault tolerance. If one NApp experiences issues or failures, it does not directly impact the other NApp or the message broker. This isolation improves the overall robustness and reliability of the system.
+Creating two NApps to isolate the message broker simplifies the system architecture, enhances modularity, and improves fault tolerance, making developing, deploying, and maintaining messaging functionality easier.
 
-########
-Modularity and Scalability
-########
+The topology_events NApp is responsible for two key functions:
 
-Microservices allow for modular design, enabling each component to be developed, deployed, and scaled independently. This modularity facilitates easier management and scaling of the system as a whole.
-Technology Agnosticism:
+Publishing Serialized KytosEvents to a Message Broker:
 
-By isolating the Broadcasting Events Napp and the Events Consumer Napp, the system becomes agnostic to the specific message transportation system. This means that the choice of a message queue or transportation system can be easily swapped out or upgraded without affecting the core functionality of the microservices.
+The primary responsibility of this NApp is to publish serialized KytosEvents to a message broker. Serialized KytosEvents contain structured data representing events within the Kytos topology.
+This involves converting KytosEvents into a serialized format compatible with the message broker's communication protocol.
+The NApp ensures the reliable delivery of these serialized events to the message broker, handling any necessary error handling or retry mechanisms.
 
-##########################
-Ease of Maintenance and Updates
-##########################
+Filtering KytosEvents for Publication:
 
-Separating the microservices reduces the complexity of each component, making maintenance and updates more straightforward. Changes to one microservice can be made without impacting the others, allowing for faster iteration and deployment cycles.
+Additionally, this NApp is responsible for filtering KytosEvents before publishing them to the message broker.
+Filtering may involve selecting specific types of events, applying rules or criteria to determine which events are relevant for publication, or transforming events into a different format as downstream consumers require.
+The NApp optimizes communication by only transmitting relevant data to the message broker by filtering events, reducing unnecessary network traffic and processing overhead.
 
-######################
-Resilience and Fault Isolation
-######################
+Overall, this NApp acts as a bridge between Kytos' internal message bus and the message broker, facilitating the exchange of events between the internal network infrastructure and external systems. It guarantees the serialization, filtering, and reliable transmission of relevant events to the message broker for downstream applications or service consumption.
 
-Isolating microservices enhances fault isolation. If one microservice experiences issues or failures, they are less likely to impact the overall system's performance, ensuring greater resilience and stability of the application.
-Scalability and Performance Optimization:
+The Broadcasting Events Napp (topology_events) must be able to utilize any replaceable message transportation system. This requirement underscores the necessity for flexibility and adaptability in the system's architecture. Consequently, the Broadcasting Events Napp and the Events Consumer Napp should be isolated into microservices napps, distinct from the Message Queue Producer and Consumer Napps. This architectural decision offers several benefits:
 
-Microservices architecture facilitates resource optimization by allowing individual components to be scaled independently based on demand. This scalability ensures optimal performance even during peak loads.
-Enhanced Security:
-
-Isolating components into microservices can enhance security by reducing the attack surface area. Each microservice can have its security measures, such as access controls and authentication mechanisms, ensuring that security breaches are contained and mitigated effectively.
-
-The message queue operates by receiving messages from the events originating application and distributing them to one or more recipient applications in a first-in-first-out (FIFO) manner. This architecture facilitates communication between different parts of a system without direct coupling.
-
-Events Napp can establish separate message queues for SDX Napp and BAPM Napp to disseminate updates or commands. Events Napp would then dispatch distinct messages to each queue, and the relevant applications would retrieve messages from their designated queues.
-
-Upon retrieval, the system removes messages from the queue to ensure each message is processed exactly once.
-
-Message queues decouple components within the system. Events Napp can transmit updates without the continuous availability of SDX Napp or BAPM applications. Moreover, the persistent nature of message queues ensures that if any application experiences a restart, it can seamlessly resume processing messages from its designated queue once it is back online.
+Message queues decouple components within the system. topology_events Napp can transmit updates without the continuous availability of SDX Napp or BAPM applications. Moreover, the persistent nature of message queues ensures that if any application experiences a restart, it can seamlessly resume processing messages from its designated queue once it is back online.
 
 This approach enhances scalability and fault tolerance in applications by reducing dependencies between interconnected systems. Additionally, it facilitates better handling of system failures or temporary unavailability, thereby strengthening the overall robustness of the architecture.
 
+The NApp detects topology changes in real-time, disregards historical data, and may not require a cluster connection. In this scenario, we should design the NApp to manage real-time events effectively, eliminating the need for persistent storage or cluster connectivity and delivering a robust, high-performing solution.
+
+If the message broker isn't available but the NApp needs to publish a message, the NApp should implement a robust retry mechanism. Designed to ensure message delivery, this mechanism regularly reconnects to the broker and retries publishing the message once the connection reestablishes. We carefully choose the retry interval, a configurable setting, to balance the need for timely message delivery and minimize unnecessary network traffic.
+
+Handling of events when the broker isn't available:
+
+Retry MechanismThe NApp should retry publishing messages when the broker isn't available, according to a predefined retry strategy. This guarantees the eventual delivery of messages once the broker regains accessibility.
+
+Restarting from the Real-Time Point: As the events are about real-time topology changes and historical data is irrelevant, the NApp should efficiently restart and resume from the real-time point in the event of a restart. It should promptly discard any buffered or stored events related to previous topology changes and begin processing new events as they occur, ensuring optimal performance.
+
+Handling Dead Letter Queue: The NApp should support the dead letter queue functionality provided by event_topology NApp. An event handler can move an event to the dead letter queue for further inspection if it fails to process it. However, since historical data is irrelevant, the NApp can confidently discard events from the dead letter queue, as there is no need to reinject them into the system, ensuring data management safety.
+
+The NApp needs to prioritize real-time event processing and be able to retry message delivery in case of failure. Additionally, it must guarantee the preservation of all data even if the broker is unavailable. The NApp should discard historical data and restart from a real-time point to focus on current topology changes.
+
+Secret/Auth parameterization:
+
+Authorization through Environment Variables:
+
+Implementing MQ authorization through environment variables is a common and practical approach. This approach enables the secure storage of credentials or authentication tokens beyond the codebase, thereby mitigating the risk of exposure.
+
+During runtime, the NApp can retrieve these credentials from environment variables, ensuring the confidentiality of sensitive information.
+
+Restarting from a Real-Time Point:
+
+Since historical data is irrelevant, the NApp should be designed to restart and resume from the current real-time point in case of a restart or failure.
+Upon restart, the NApp should discard any buffered or cached data related to previous events and begin processing new events as they occur.
+This keeps the NApp's attention on real-time data processing, free from needless historical data.
+
+By implementing authentication through environment variables and ensuring that the NApp can seamlessly restart and resume from the real-time point, it can effectively handle topology changes in real-time without the need for cluster connectivity or historical data persistence. This reliability feature ensures that the NApp never misses a beat, even in the face of unexpected events.
+
+The "topology_event" Napp will communicate with the topic exchange within the "mq_producer" Napp. This topic exchange operates similarly to a direct exchange but introduces a more adaptable routing mechanism based on routing patterns. Unlike direct exchanges, which rely on fixed routing keys, topic exchanges utilize wildcards for message routing, enhancing flexibility.
+
+Here's a breakdown of its operation:
+
+Instead of depending on specific routing keys, topic exchanges route messages by comparing a message's routing key with predefined patterns.
+
+This comparison determines the routing of messages to one or more queues based on their correspondence with the specified patterns.
+
+The routing key consists of a series of words separated by periods (".").
+In summary, the topic exchange facilitates nuanced and dynamic message routing through wildcard patterns, offering increased flexibility and versatility in distributing messages within the messaging system.
+
+The mq_producer  NApp should support parameterizing the exchange and routing key for publishing a given set of events. This capability allows for precise control over the distribution of events in the message broker's infrastructure.
+
+Exchange Configuration: An exchange is a routing mechanism that receives messages from producers and routes them to queues based on routing rules. The mq_producer NApp enables the exchange specification to publish the events.
+
+Exchange Existence Check:
+
+Before publishing messages, the mq_proucer NApp should verify whether the target exchange exists within the message broker.
+This check ensures that only legitimate exchanges receive messages, avoiding potential errors from non-existent exchanges.
+Exchange Creation if Non-existent:
+
+If the exchange does not exist, the mq_producer NApp should include logic to create the exchange dynamically.
+Even if the exchange wasn't previously defined, this dynamic creation ensures it's ready for message publishing.
+Error Handling for Exchange Creation:
+
+We should implement proper error handling to address scenarios where exchange creation fails.
+The NApp should handle exceptions gracefully and potentially log relevant error messages for troubleshooting purposes.
+By incorporating these specifications, the producer NApp can manage the target exchange effectively, ensuring reliable message publishing and providing resilience in scenarios where dynamic exchange creation is required.
+
+The mq_producer Napp can tailor the message routing behavior by parameterizing the exchange to suit the application's needs.
+
+Routing Key Specification: The mq_producer NApp supports parameterizing the routing keys associated with each set of events. The message broker uses a routing key as a message attribute to route messages to the appropriate queues.
+
+The mq_producer Napp defines custom routing keys based on event characteristics or metadata, allowing targeted messages to be delivered to specific queues.
+
+Dynamic Configuration: The mq_producer NApp supports the dynamic configuration of exchange and routing key parameters, allowing the modification of these settings at runtime without requiring application restarts.
+
+A Dynamic configuration empowers mq_producer Napp to adapt message routing behavior in real time based on changing application requirements or working conditions.
+
+This NApp offers enhanced flexibility and is configurable in event publishing workflows by supporting the parameterization of exchange and routing key settings. It tailors message routing behavior to align with specific use cases and optimizes message delivery and consumption within the message broker's ecosystem.
+
+
 AMQP 0.9.1, a highly efficient and versatile protocol, empowers RabbitMQ, a widely acclaimed message broker, to communicate seamlessly across various systems. This robust combination ensures reliable communication between different components of a distributed system.
 
-aio-pika is an asynchronous AMQP client library designed for Python applications. It enables asynchronous and efficient interaction with RabbitMQ, making it well-suited for high-performance applications or systems that require non-blocking I/O operations.
+By implementing future optional asynchronous I/O, we can significantly improve our system's efficiency. This powerful feature will allow us to simultaneously handle multiple input/output operations, resulting in a faster and more responsive system overall."
+
+We will evaluate aio-pika an asynchronous AMQP client library designed for Python applications. It enables asynchronous and efficient interaction with RabbitMQ, making it well-suited for high-performance applications or systems that require non-blocking I/O operations.
 
 By leveraging the power of aio-pika, we can seamlessly integrate RabbitMQ's robust messaging capabilities into our Kytos Napps. This potent combination of RabbitMQ's strength and aio-pika's asynchronous nature inspires the creation of scalable and responsive distributed systems, fueling our projects' potential.
 
-#######
-Benefits
-#######
-
-Real-time monitoring of interdomain link status.
-
-Scalable solution with dynamically created queues.
-
-Fault-tolerant design ensures persistent handling of link-down events.
-
-Flexibility in queue management, allowing for dynamic addition or configuration based on settings.
-
-Overall, this use case demonstrates how message queues can be effectively utilized for monitoring and managing interdomain link status changes in an SDX network infrastructure, ensuring timely detection and response to connectivity issues.
-
 In conclusion, isolating the Broadcasting Events Napp and the Events Consumer Napp into separate microservices from the Message Queue Producer and Consumer Napps promotes flexibility, modularity, scalability, and resilience in the system's architecture. This design approach enables the system to adapt to changing requirements and technologies while maintaining robustness and efficiency in event broadcasting and consumption.
 
-#####################################
 Use Case: Interdomain Link Up/Down Monitoring
-#####################################
 
-Scenario:
-
-In SDX, monitoring the status of interdomain links for connectivity and reliability is crucial. This use case involves setting up a system to detect link status changes (up/down) and notify consumers about these events through message queues.
+Scenario: In SDX, monitoring the status of interdomain links for connectivity and reliability is crucial. This use case involves setting up a system to detect link status changes (up/down) and notify consumers about these events through message queues.
 
 Components:
-
 Producer: Generates events based on link status changes.
-
 Consumer: Monitors link status by consuming messages from the appropriate queues.
 
 Implementation:
-
+    
 Link Status Queue Initialization:
-
+    
 Each interdomain link has its dedicated queue.
-
 Queues are either dynamically created or configured based on settings.
 
-Producer Functionality:
+Benefits:
+Real-time monitoring of interdomain link status.
+Scalable solution with dynamically created queues.
+Fault-tolerant design ensures persistent handling of link-down events.
+Flexibility in queue management allows dynamic addition or configuration based on settings.
 
-Upon detecting a link-down event:
+With its efficient producer-consumer relationship, the system orchestrates message handling for specific link-down events. This design ensures smooth communication, preventing message flooding and instilling confidence in its performance. Here's how it operates:
 
-If the link-down event is persistent:
-The producer checks if the corresponding queue is empty.
+Producer Advertises Link Down: When a link-down event occurs, the producer publishes a message indicating the link's status change to down.
 
-If empty, it adds a new message "[Link Down]" to the unique element link status queue.
+Consumer's Crucial Role in Link Status Monitoring: The consumer, a key player, diligently monitors the message queue for link-down events. However, if the consumer has not yet read the message or the link status hasn't changed, the producer refrains from continuously writing messages of the same status to the queue.
 
-If the link-down event is not persistent:
-The producer keeps checking until the consumer reads and deletes the message.
+Preventing Message Flooding: To prevent message flooding and conserve system resources, the producer only writes messages to the queue if the consumer has consumed the previous message or the link status has changed.
 
-Upon detecting a link-up event:
-The producer sends a message "[Link Up]" to override the existing message in the link status queue.
+Message continuity is based on consumer activity; if the consumer has not acknowledged or processed the previous message, the producer waits for them to read it before publishing another message with the same status. In the same way, if the link status changes, the producer updates the message accordingly. 
 
-Consumer Functionality:
+Publisher confirmations play a vital role in ensuring the reliability of message delivery. The mq_producer NApp gains confidence in successfully processing and routing a message upon receiving acknowledgment from the message broker, which prevents the mq_producer from continuously adding redundant messages to the queue. This acknowledgment mechanism ensures the reliable processing and routing of messages. 
 
-Consumers must be aware of the queues they need to monitor for link status changes.
+In summary, while ensuring the existence of the target exchange and setting the mandatory bit when publishing messages are essential considerations for message routing, publisher confirmation adds an extra layer of assurance for message delivery reliability. 
 
-Consumers continuously monitor the designated queues for new messages indicating link status changes.
-
-Upon receiving a message:
-
-If the message is "[Link Down]," the consumer processes the link down event.
-
-If the message is "[Link Up]", the consumer processes the link-up event.
-
+Overall, this use case demonstrates how message queues can be effectively utilized for monitoring and managing interdomain link status changes in an SDX network infrastructure, ensuring timely detection and response to connectivity issues.
