@@ -50,7 +50,7 @@ sure that you're using ``python3.11`` and dependencies:
 
 .. code-block:: shell
 
-   $ apt install python3.11-dev python3.11-venv
+   $ apt install python3.11 python3.11-dev python3.11-venv
 
 Then, the first step is to clone *kytos* repository:
 
