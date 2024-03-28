@@ -1,9 +1,8 @@
 """Module with main classes related to Connections."""
 import logging
+from asyncio import Transport
 from enum import Enum
 from errno import EBADF, ENOTCONN
-from socket import SHUT_RDWR
-from socket import error as SocketError
 
 __all__ = ('Connection', 'ConnectionProtocol', 'ConnectionState')
 
@@ -33,19 +32,25 @@ class ConnectionProtocol:
 class Connection:
     """Connection class to abstract a network connections."""
 
-    def __init__(self, address, port, socket, switch=None):
+    def __init__(
+        self,
+        address: str,
+        port: int,
+        transport: Transport,
+        switch=None
+    ):
         """Assign parameters to instance variables.
 
         Args:
             address (|hw_address|): Source address.
             port (int): Port number.
-            socket (socket): socket.
+            transport (Transport): transport.
             switch (:class:`~.Switch`): switch with this connection.
         """
         self.address = address
         self.port = port
-        self.socket = socket
         self.switch = switch
+        self.transport = transport
         self.state = ConnectionState.NEW
         self.protocol = ConnectionProtocol()
         self.remaining_data = b''
@@ -55,7 +60,7 @@ class Connection:
 
     def __repr__(self):
         return f"Connection({self.address!r}, {self.port!r}," + \
-               f" {self.socket!r}, {self.switch!r}, {self.state!r})"
+               f" {self.transport!r}, {self.switch!r}, {self.state!r})"
 
     @property
     def state(self):
@@ -65,6 +70,7 @@ class Connection:
     @state.setter
     def state(self, new_state):
         if new_state not in ConnectionState:
+            # pylint: disable=broad-exception-raised
             raise Exception('Unknown State', new_state)
         # pylint: disable=attribute-defined-outside-init
         self._state = new_state
@@ -90,8 +96,8 @@ class Connection:
         """
         try:
             if self.is_alive():
-                self.socket.sendall(buffer)
-        except (OSError, SocketError) as exception:
+                self.transport.write(buffer)
+        except OSError as exception:
             LOG.debug('Could not send packet. Exception: %s', exception)
             self.close()
             raise
@@ -102,9 +108,8 @@ class Connection:
         LOG.debug('Shutting down Connection %s', self.id)
 
         try:
-            self.socket.shutdown(SHUT_RDWR)
-            self.socket.close()
-            self.socket = None
+            self.transport.close()
+            self.transport = None
             LOG.debug('Connection Closed: %s', self.id)
         except OSError as exception:
             if exception.errno not in (ENOTCONN, EBADF):
@@ -114,7 +119,7 @@ class Connection:
 
     def is_alive(self):
         """Return True if the connection socket is alive. False otherwise."""
-        return self.socket is not None and self.state not in (
+        return self.transport is not None and self.state not in (
             ConnectionState.FINISHED, ConnectionState.FAILED)
 
     def is_new(self):

@@ -1,5 +1,5 @@
 """Rest API utilities module."""
-# pylint: disable=self-assigning-variable
+# pylint: disable=self-assigning-variable, super-init-not-called
 import asyncio
 import json
 from asyncio import AbstractEventLoop
@@ -101,13 +101,11 @@ class JSONResponse(StarletteJSONResponse):
         ).encode("utf-8")
 
 
-# pylint: disable=super-init-not-called
 class AStarletteOpenAPIRequest(_StarletteOpenAPIRequest):
     """Async StarletteOpenAPIRequest."""
 
     def __init__(self, request: Request, body: bytes) -> None:
         """Constructor of AsycnStarletteOpenAPIRequest.
-
         This constructor doesn't call super().__init__() to keep it async
         """
         self.request = request
@@ -126,13 +124,11 @@ class AStarletteOpenAPIRequest(_StarletteOpenAPIRequest):
         return body.decode("utf-8")
 
 
-# pylint: disable=super-init-not-called
 class StarletteOpenAPIRequest(_StarletteOpenAPIRequest):
     """Sync StarletteOpenAPIRequest."""
 
     def __init__(self, request: Request, body: bytes) -> None:
         """Constructor of AsycnStarletteOpenAPIRequest.
-
         This constructor doesn't call super().__init__() to keep it async
         """
         self.request = request
@@ -149,3 +145,11 @@ class StarletteOpenAPIRequest(_StarletteOpenAPIRequest):
         if body is None:
             return None
         return body.decode("utf-8")
+
+    @property
+    def mimetype(self) -> str:
+        content_type = self.request.headers.get("Content-Type")
+        if content_type:
+            return content_type.partition(";")[0]
+
+        return "application/octet-stream"

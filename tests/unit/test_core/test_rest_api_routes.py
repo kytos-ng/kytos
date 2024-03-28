@@ -61,10 +61,10 @@ def test_api_500_traceback_by_default() -> None:
     assert KytosConfig().options["daemon"].api_traceback_on_500
 
 
-async def test_get_json_or_400(controller, api_client, event_loop) -> None:
+async def test_get_json_or_400(controller, api_client) -> None:
     """Test get_json_or_400."""
 
-    controller.loop = event_loop
+    controller.loop = asyncio.get_running_loop()
 
     def handler(request: Request) -> JSONResponse:
         body = get_json_or_400(request, controller.loop)
@@ -92,15 +92,15 @@ async def test_error_msg():
     with pytest.raises(ValidationError) as err:
         user.create_user(user_data)
     actual_msg = error_msg(err.value.errors())
-    expected_msg = 'password: value should contain minimun 8 characters, ' \
-                   'at least one upper case character, at least 1 ' \
-                   'numeric character [0-9]'
+    expected_msg = 'password: Value error, value should contain minimun 8 ' \
+                   'characters, at least one upper case character, at ' \
+                   'least 1 numeric character [0-9]'
     assert actual_msg == expected_msg
 
 
-async def test_get_body(controller, api_client, event_loop) -> None:
+async def test_get_body(controller, api_client) -> None:
     """Test get_body (low level-ish usage for validators)."""
-    controller.loop = event_loop
+    controller.loop = asyncio.get_running_loop()
 
     def handler(request: Request) -> JSONResponse:
         body_bytes = get_body(request, controller.loop)

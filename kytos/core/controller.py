@@ -28,7 +28,6 @@ from importlib import import_module
 from importlib import reload as reload_module
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from socket import error as SocketError
 
 from pyof.foundation.exceptions import PackException
 
@@ -38,7 +37,7 @@ from kytos.core.atcp_server import KytosServer, KytosServerProtocol
 from kytos.core.auth import Auth
 from kytos.core.buffers import KytosBuffers
 from kytos.core.config import KytosConfig
-from kytos.core.connection import ConnectionState
+from kytos.core.connection import Connection, ConnectionState
 from kytos.core.db import db_conn_wait
 from kytos.core.dead_letter import DeadLetter
 from kytos.core.events import KytosEvent
@@ -107,7 +106,7 @@ class Controller:
         #: This dict stores all connections between the controller and the
         #: switches. The key for this dict is a tuple (ip, port). The content
         #: is a Connection
-        self.connections = {}
+        self.connections: dict[tuple, Connection] = {}
         #: dict: mapping of events and event listeners.
         #:
         #: The key of the dict is a KytosEvent (or a string that represent a
@@ -154,6 +153,9 @@ class Controller:
         self.dead_letter = DeadLetter(self)
         self._alisten_tasks = set()
         self.qmonitors: list[QueueMonitorWindow] = []
+
+        #: APM client in memory to be closed when necessary
+        self.apm = None
 
         self._register_endpoints()
         #: Adding the napps 'enabled' directory into the PATH
@@ -259,7 +261,7 @@ class Controller:
                 db_conn_wait(db_backend=self.options.database)
                 self.start_auth()
             if self.options.apm:
-                init_apm(self.options.apm, app=self.api_server.app)
+                self.apm = init_apm(self.options.apm, app=self.api_server.app)
             if not restart:
                 self.create_pidfile()
             self.start_controller()
@@ -509,6 +511,9 @@ class Controller:
         # self.server.server_close()
 
         self.stop_queue_monitors()
+        if self.apm:
+            self.log.info("Stopping APM server...")
+            self.apm.close()
         self.log.info("Stopping API Server...")
         self.api_server.stop()
         self.log.info("Stopped API Server")
@@ -626,7 +631,7 @@ class Controller:
                                    message.header.xid,
                                    packet.hex())
                     self.notify_listeners(triggered_event)
-            except (OSError, SocketError):
+            except OSError:
                 await self.publish_connection_error(triggered_event)
                 self.log.info("connection closed. Cannot send message")
             except PackException as err:

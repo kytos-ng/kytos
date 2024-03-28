@@ -1,5 +1,4 @@
 """Test kytos.core.connection module."""
-from socket import error as SocketError
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,10 +23,10 @@ class TestConnection:
 
     def test__repr__(self):
         """Test __repr__ method."""
-        self.connection.socket = 'socket'
+        self.connection.transport = 'transport'
         self.connection.switch = 'switch'
 
-        expected = "Connection('addr', 123, 'socket', 'switch', " + \
+        expected = "Connection('addr', 123, 'transport', 'switch', " + \
                    "<ConnectionState.NEW: 0>)"
         assert repr(self.connection) == expected
 
@@ -51,40 +50,38 @@ class TestConnection:
         """Test send method."""
         self.connection.send(b'data')
 
-        self.connection.socket.sendall.assert_called_with(b'data')
+        self.connection.transport.write.assert_called_with(b'data')
 
     def test_send_error(self):
         """Test send method to error case."""
-        self.connection.socket.sendall.side_effect = SocketError
+        self.connection.transport.write.side_effect = OSError
 
-        with pytest.raises(SocketError):
+        with pytest.raises(OSError):
             self.connection.send(b'data')
-
-        assert self.connection.socket is None
 
     def test_close(self):
         """Test close method."""
         self.connection.close()
 
-        assert self.connection.socket is None
+        assert self.connection.transport is None
         assert self.connection is not None
 
     def test_close__os_error(self):
         """Test close method to OSError case."""
-        self.connection.socket.shutdown.side_effect = OSError
+        self.connection.transport.close.side_effect = OSError
 
         with pytest.raises(OSError):
             self.connection.close()
 
-        assert self.connection.socket is not None
+        assert self.connection.transport is not None
 
     def test_close__attribute_error(self):
         """Test close method to AttributeError case."""
-        self.connection.socket = None
+        self.connection.transport = None
 
         self.connection.close()
 
-        assert self.connection.socket is None
+        assert self.connection.transport is None
 
     def test_is_alive(self):
         """Test is_alive method to True and False returns."""

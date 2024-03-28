@@ -5,7 +5,7 @@ from enum import Enum
 from typing import List
 
 # pylint: disable=no-name-in-module,invalid-name
-from pydantic import BaseModel, ValidationError, constr
+from pydantic import BaseModel, Field, ValidationError
 
 # pylint: enable=no-name-in-module
 from kytos.core.rest_api import (HTTPException, JSONResponse, Request,
@@ -22,7 +22,7 @@ class KytosQueueBufferNames(str, Enum):
 class DeadLetterDeletePayload(BaseModel):
     """DeadLetterDeletePayload."""
 
-    event_name: constr(min_length=1)
+    event_name: str = Field(min_length=1)
     ids: List[str] = []
 
 

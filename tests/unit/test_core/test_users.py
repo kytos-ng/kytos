@@ -6,17 +6,17 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from kytos.core.user import DocumentBaseModel, HashSubDoc, UserDoc
+from kytos.core.user import DocumentBaseModel, HashSubDoc, UserDoc, hashing
 
 
 def test_document_base_model_dict():
-    """Test DocumentBaseModel.dict()"""
+    """Test DocumentBaseModel.model_dump()"""
     _id = "random_id"
     utc_now = datetime.utcnow()
     payload = {"_id": _id, "inserted_at": utc_now, "updated_at": utc_now}
     model = DocumentBaseModel(**payload)
-    assert model.dict(exclude_none=True) == {**payload, **{"id": _id}}
-    assert "_id" not in model.dict(exclude={"_id"})
+    assert model.model_dump(exclude_none=True) == {**payload, **{"id": _id}}
+    assert "_id" not in model.model_dump(exclude={"_id"})
 
 
 class TestUserDoc:
@@ -32,13 +32,13 @@ class TestUserDoc:
         }
 
     def test_user_doc_dict(self):
-        """Test UserDocModel.dict()"""
+        """Test UserDocModel.model_dump()"""
         correct_hash = {
             "n": 8192,
             "r": 8,
             "p": 1
         }
-        user_doc = UserDoc(**self.user_data).dict()
+        user_doc = UserDoc(**self.user_data).model_dump()
         user_hash = user_doc["hash"]
         assert user_doc["username"] == self.user_data["username"]
         assert user_doc["email"] == self.user_data["email"]
@@ -97,7 +97,7 @@ class TestUserDoc:
 
     def test_user_doc_hashing(self):
         """Test UserDoc hashing of password"""
-        user_doc = UserDoc(**self.user_data).dict()
-        pwd_hashed = UserDoc.hashing("Password123".encode(),
-                                     user_doc["hash"])
+        user_doc = UserDoc(**self.user_data).model_dump()
+        pwd_hashed = hashing("Password123".encode(),
+                             user_doc["hash"])
         assert user_doc["password"] == pwd_hashed

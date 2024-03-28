@@ -116,7 +116,7 @@ class KytosServerProtocol(asyncio.Protocol):
         if not self.server:
             raise ValueError("server instance must be assigned before init")
 
-    def connection_made(self, transport):
+    def connection_made(self, transport: asyncio.Transport):
         """Handle new client connection, passing it to the controller.
 
         Build a new Kytos `Connection` and send a ``kytos/core.connection.new``
@@ -126,11 +126,10 @@ class KytosServerProtocol(asyncio.Protocol):
 
         addr, port = transport.get_extra_info('peername')
         _, server_port = transport.get_extra_info('sockname')
-        socket = transport.get_extra_info('socket')
 
         LOG.info("New connection from %s:%s", addr, port)
 
-        self.connection = Connection(addr, port, socket)
+        self.connection = Connection(addr, port, transport)
 
         # This allows someone to inherit from KytosServer and start a server
         # on another port to handle a different protocol.

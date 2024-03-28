@@ -25,7 +25,7 @@ from kytos.core.rest_api import (HTTPException, JSONResponse, Request,
                                  content_type_json_or_415, error_msg,
                                  get_json_or_400)
 from kytos.core.retry import before_sleep, for_all_methods, retries
-from kytos.core.user import HashSubDoc, UserDoc, UserDocUpdate
+from kytos.core.user import HashSubDoc, UserDoc, UserDocUpdate, hashing
 
 __all__ = ['authenticated']
 
@@ -110,7 +110,7 @@ class UserController:
                 "email": user_data.get('email'),
                 "inserted_at": utc_now,
                 "updated_at": utc_now,
-            }).dict())
+            }).model_dump())
         except DuplicateKeyError as err:
             raise err
         except ValidationError as err:
@@ -142,7 +142,7 @@ class UserController:
                     "$set": UserDocUpdate(**{
                         **data,
                         **{"updated_at": utc_now}
-                    }).dict(exclude_none=True)
+                    }).model_dump(exclude_none=True)
                 },
                 return_document=ReturnDocument.AFTER
             )
@@ -307,7 +307,7 @@ class Auth:
         user = self._find_user(username)
         if user["state"] != 'active':
             raise HTTPException(401, detail='This user is not active')
-        password_hashed = UserDoc.hashing(password, user["hash"])
+        password_hashed = hashing(password, user["hash"])
         if user["password"] != password_hashed:
             raise HTTPException(401, detail="Incorrect password")
         time_exp = datetime.datetime.utcnow() + datetime.timedelta(

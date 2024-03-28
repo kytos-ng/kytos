@@ -9,10 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import Thread
 
-from openapi_core.spec import Spec
-from openapi_core.spec.shortcuts import create_spec
-from openapi_core.validation.request import openapi_request_validator
-from openapi_core.validation.request.datatypes import RequestValidationResult
+from openapi_core import Spec, unmarshal_request
+from openapi_core.exceptions import OpenAPIError
 from openapi_spec_validator import validate_spec
 from openapi_spec_validator.readers import read_from_filename
 
@@ -181,7 +179,7 @@ def listen_to(event, *events, pool=None):
         handler_func, kwargs = handler_context, {}
         if get_apm_name() == "es":
             handler_func = handler_context_apm
-            kwargs = dict(apm_client=ElasticAPM.get_client())
+            kwargs = {"apm_client": ElasticAPM.get_client()}
 
         def get_executor(pool, event, default_pool="app", handler=handler):
             """Get executor."""
@@ -271,7 +269,7 @@ def alisten_to(event, *events):
         handler_func, kwargs = handler_context, {}
         if get_apm_name() == "es":
             handler_func = handler_context_apm
-            kwargs = dict(apm_client=ElasticAPM.get_client())
+            kwargs = {"apm_client": ElasticAPM.get_client()}
 
         async def inner(*args):
             """Inner decorated with events attribute."""
@@ -359,36 +357,22 @@ def _read_from_filename(yml_file_path: Path) -> dict:
 
 def load_spec(yml_file_path: Path):
     """Load and validate spec object given a yml file path."""
-    spec_dict = _read_from_filename(yml_file_path)
-    validate_spec(spec_dict)
-    return create_spec(spec_dict)
+    spec = _read_from_filename(yml_file_path)
+    validate_spec(spec)
+    return Spec.from_dict(spec)
 
 
-def _request_validation_result_or_400(result: RequestValidationResult) -> None:
-    """Request validation result or raise HTTP 400."""
-    if not result.errors:
-        return
-    error_response = (
-        "The request body contains invalid API data."
-    )
-    errors = result.errors[0]
-    if hasattr(errors, "schema_errors"):
-        schema_errors = errors.schema_errors[0]
-        error_log = {
-            "error_message": schema_errors.message,
-            "error_validator": schema_errors.validator,
-            "error_validator_value": schema_errors.validator_value,
-            "error_path": list(schema_errors.path),
-            "error_schema": schema_errors.schema,
-            "error_schema_path": list(schema_errors.schema_path),
-        }
-        LOG.debug(f"Invalid request (API schema): {error_log}")
-        error_response += f" {schema_errors.message} for field"
-        error_response += (
-            f" {'/'.join(map(str,schema_errors.path))}."
-        )
-    else:
+def _request_validation_result_or_400(errors: OpenAPIError) -> None:
+    """Raise HTTP 400."""
+    error_response = "The request body contains invalid API data."
+    if not errors.__cause__:
         error_response = str(errors)
+    elif (hasattr(errors.__cause__, "schema_errors") and
+            errors.__cause__.schema_errors):
+        schema_errors = errors.__cause__.schema_errors
+        for error in schema_errors:
+            error_response += f", {error.message} for field"
+            error_response += f" {'/'.join(map(str,error.path))}."
     raise HTTPException(400, detail=error_response)
 
 
@@ -405,8 +389,10 @@ def validate_openapi_request(
     if body:
         content_type_json_or_415(request)
     openapi_request = StarletteOpenAPIRequest(request, body)
-    result = openapi_request_validator.validate(spec, openapi_request)
-    _request_validation_result_or_400(result)
+    try:
+        unmarshal_request(openapi_request, spec)
+    except OpenAPIError as err:
+        _request_validation_result_or_400(err)
     return body
 
 
@@ -430,8 +416,10 @@ async def avalidate_openapi_request(
     if body:
         content_type_json_or_415(request)
     openapi_request = AStarletteOpenAPIRequest(request, body)
-    result = openapi_request_validator.validate(spec, openapi_request)
-    _request_validation_result_or_400(result)
+    try:
+        unmarshal_request(openapi_request, spec)
+    except OpenAPIError as err:
+        _request_validation_result_or_400(err)
     return body
 
 

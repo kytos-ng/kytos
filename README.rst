@@ -46,11 +46,11 @@ Installing
 ==========
 
 If you don't have Python 3 installed, please install it. Please make
-sure that you're using ``python3.9``:
+sure that you're using ``python3.11`` and dependencies:
 
 .. code-block:: shell
 
-   $ apt install python3.9
+   $ apt install python3.11 python3.11-dev python3.11-venv
 
 Then, the first step is to clone *kytos* repository:
 
@@ -64,7 +64,10 @@ install procedure:
 .. code-block:: shell
 
    $ cd kytos
-   $ sudo python3 setup.py install
+   $ sudo python3 -m pip install .
+
+For a complete installation procedure visit our
+`development environment setup <https://github.com/kytos-ng/documentation/blob/master/tutorials/napps/development_environment_setup.rst>`_.
 
 Configuring
 ===========
