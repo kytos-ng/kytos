@@ -44,7 +44,6 @@ class Connection:
         Args:
             address (|hw_address|): Source address.
             port (int): Port number.
-            socket (TransportSocket): socket.
             transport (Transport): transport.
             switch (:class:`~.Switch`): switch with this connection.
         """
