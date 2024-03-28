@@ -8,7 +8,7 @@
     # via -r requirements/dev.in
 -e git+https://github.com/kytos-ng/sphinx-theme.git#egg=kytos-sphinx-theme
     # via -r requirements/dev.in
--e git+https://github.com/kytos-ng/python-openflow.git@upgrade/python#egg=python-openflow
+-e git+https://github.com/kytos-ng/python-openflow.git#egg=python-openflow
     # via
     #   -r requirements/dev.in
     #   -r requirements/run.txt
