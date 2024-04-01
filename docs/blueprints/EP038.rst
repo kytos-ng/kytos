@@ -23,17 +23,24 @@ This blueprint details how Kytos should export/broadcast its events to external 
 Motivation
 ##########
 
-With Kytos running in production, we learned that Kytos events can be leveraged for multiple purposes, from capacity planning to topology evaluation, from troubleshooting to accounting. However, creating Kytos napps to only monitor the environment should be avoided to minimize possible impacts on running the kytos instance. Moreover, this NApp can expedite the prototyping of new applications and frameworks that need an understanding the network topology and control plane, such as the AtlanticWave-SDX project. Based on the information of the AtlanticWave-SDX project, the system design integrates the Kytos-ng SDN platform and the SDX Local Controller SDX-LC. This integration aims to fulfill the functionalities required by the AtlanticWave-SDX project. 
+With Kytos running in production, we learned that Kytos events can be leveraged for multiple purposes, from capacity planning to topology evaluation, from troubleshooting to accounting. However, creating Kytos napps to only monitor the environment should be avoided to minimize possible impacts on running the kytos instance. 
+Moreover, this NApp can expedite the prototyping of new applications and frameworks that need an understanding the network topology and control plane, such as the AtlanticWave-SDX project. 
+Based on the information of the AtlanticWave-SDX project, the system design integrates the Kytos-ng SDN platform and the SDX Local Controller SDX-LC. 
+This integration aims to fulfill the functionalities required by the AtlanticWave-SDX project. 
 
 Here is an overview of the AtlanticWave-SDX project components:
 
-Kytos-ng Topology: Integrating with the Kytos-ng framework provides a convenient API for retrieving the OXPO topology. This design choice leverages Kytos-ng's capabilities and simplifies obtaining topology data from the SDN platform. To fetch the topology data, the SDX-LC CRON function can request GET or pull through the endpoint: 
+:Kytos-ng Topology: 
+Integrating with the Kytos-ng framework provides a convenient API for retrieving the OXPO topology. This design choice leverages Kytos-ng's capabilities and simplifies obtaining topology data from the SDN platform. To fetch the topology data, the SDX-LC CRON function can request GET or pull through the endpoint: 
 
 "http://localhost:8181/api/kytos/topology/v3/".
 
-Kytos Event Handling: Kytos-ng uses Kytos Event decorated functions within the Kytos-sdx-topology Napp to handle specific events related to topology changes. This event-driven approach enables the system to respond promptly and capture changes in the Kytos topology. It also allows for flexibility in managing different types of events and provides a scalable solution.
+:Kytos Event Handling: 
+Kytos-ng uses Kytos Event decorated functions within the Kytos-sdx-topology Napp to handle specific events related to topology changes. 
+This event-driven approach enables the system to respond promptly and capture changes in the Kytos topology. It also allows for flexibility in managing different types of events and provides a scalable solution.
 
-Kytos-sdx-topology Napp: The Kytos-sdx-topology Napp should actively monitor topology changes by subscribing to events using the Kytos Event decorated function. This design choice must ensure the system stays updated with any modifications in the Kytos-ng topology and enables real-time processing of topology-related events.
+:Kytos-sdx-topology Napp: 
+The Kytos-sdx-topology Napp should actively monitor topology changes by subscribing to events using the Kytos Event decorated function. This design choice must ensure the system stays updated with any modifications in the Kytos-ng topology and enables real-time processing of topology-related events.
 
 Kytos-sdx-topology kytos Napp
 https://github.com/atlanticwave-sdx/kytos-sdx-topology
@@ -78,9 +85,9 @@ listen_events NApp
 
 The listen_events NApp is responsible for two essential functions:
 
-#########################################
+##########################################
 Publishing KytosEvents to a Message Broker
-#########################################
+##########################################
 
 Design and implement a Napp capable of listening to events, discriminating them, and sending them to a third-party message broker for processing.
 
@@ -88,68 +95,80 @@ Utilize the provided listen_event function to distinguish between various event 
 
 Here is the actual listen event function
 
-@listen_to(
-            "kytos/topology.link_*",
-            "kytos/topology.switch.*",
-            pool="dynamic_single")
+\@listen\_to\(
+            "kytos/topology.link\_\*",
+            "kytos/topology.switch.\*",
+            pool="dynamic_single"\)
 def listen_event(self, event=None):
         """Function meant for listen topology"""
-        if event is not None and self.version_control:
+
+        :if event is not None and self.version_control:
+
             dpid = ""
-            if event.name in settings.ADMIN_EVENTS:
+
+            :if event.name in settings.ADMIN_EVENTS:
+
                 switch_event = {
+
                         "version/control.initialize": True,
+
                         "kytos/topology.switch.enabled": True,
+
                         "kytos/topology.switch.disabled": True
+
                         }
-                if switch_event.get(event.name, False):
+
+	    	:if switch_event.get(event.name, False):
                     event_type = "administrative"
                     dpid = event.content["dpid"]
-                else:
+                :else:
                     event_type = None
             elif event.name in settings.OPERATIONAL_EVENTS and \
                     event.timestamp is not None:
                 event_type = "operational"
             else:
                 event_type = None
+
             if event_type is None:
                 return {"event": "not action event"}
 
 Setting file has the following events
 
-ADMIN_EVENTS = [
+:ADMIN_EVENTS = [:
         "version/control.initialize",
+
         "kytos/topology.switch.enabled",
-        "kytos/topology.switch.disabled",
+
+	"kytos/topology.switch.disabled",
+
         "kytos/topology.switch.metadata.added",
+
         "kytos/topology.interface.metadata.added",
+
         "kytos/topology.link.metadata.added",
+
         "kytos/topology.switch.metadata.removed",
+
         "kytos/topology.interface.metadata.removed",
+
         "kytos/topology.link.metadata.removed",
-        'kytos/topology.notify_link_up_if_status',
-        'kytos/core.shutdown',
-        'kytos/core.shutdown.kytos/topology',
-        '.*.topo_controller.upsert_switch',
-        '.*.of_lldp.network_status.updated',
-        '.*.switch.interfaces.created',
-         '.*.topology.switch.interface.created',
-         '.*.switch.interface.deleted',
-         '.*.switch.port.created',
-         'topology.interruption.start',
-         'topology.interruption.end',
+
         ]
-OPERATIONAL_EVENTS = [
+
+:OPERATIONAL_EVENTS = [:
         "topology_loaded",
+
         "kytos/topology.link_up",
+
         "kytos/topology.link_down",
+
 ]
 
 Leverage wildcards in topic exchange routing to route messages based on specific event patterns. For example:
 
-"kytos/topology.*" to capture all topology-related events.
+"kytos\/topology.\*" to capture all topology-related events.
 
-"kytos/core.*" to capture all core-related events.
+"kytos\/core.\*" to capture all core-related events.
 
 Ensure message continuity by only publishing messages if the consumer has consumed the previous message or if there is a status change.
 
