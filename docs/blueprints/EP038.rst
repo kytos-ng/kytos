@@ -132,6 +132,8 @@ def listen_event(self, event=None):
             if event_type is None:
                 return {"event": "not action event"}
 
+This napp must use async.io for all asynchronous calls, for instance, \`\@alisten\_to\` instead of \`\@listen\_to\`
+
 Setting file has the following events
 
 :ADMIN_EVENTS = [:
@@ -244,9 +246,9 @@ Exchange Existence Check
 At setup() method of mq_producer NApp should verify whether the target exchange exists within the message broker.
 This check ensures that only legitimate exchanges receive messages, avoiding potential errors from non-existent exchanges.
 
-################################
+#################################
 Exchange Creation if Non-existent
-################################
+#################################
 
 If the exchange does not exist, the mq_producer NApp should include logic to create the exchange dynamically.
 Even if the exchange wasn't previously defined, this dynamic creation ensures it's ready for message publishing.
@@ -273,9 +275,9 @@ This NApp offers enhanced flexibility and is configurable in event publishing wo
 This code will generate routing keys and topic exchanges based on the event names and content. The generate_routing_key function generates routing keys based on the event type and name, while the generate_topic_exchange function generates topic exchanges based on the event type. You can adjust the logic as needed to fit your specific requirements and event structures.
 
 # Define function to generate routing key based on event
-def generate_routing_key(event):
+:def generate_routing_key(event):
     event_type = None
-    if event.name in settings.ADMIN_EVENTS:
+    :if event.name in settings.ADMIN_EVENTS:
         switch_event = {
             "version/control.initialize": True,
             "kytos/topology.switch.enabled": True,
@@ -286,27 +288,27 @@ def generate_routing_key(event):
             dpid = event.content["dpid"]
         else:
             event_type = None
-    elif event.name in settings.OPERATIONAL_EVENTS and event.timestamp is not None:
+    :elif event.name in settings.OPERATIONAL_EVENTS and event.timestamp is not None:
         event_type = "operational"
-    else:
+    :else:
         event_type = None
 
-    if event_type:
+    :if event_type:
         return f"{event_type}.{event.name}"
-    else:
+    :else:
         return None
 
 # Define function to generate topic exchange based on event type
-def generate_topic_exchange(event):
-    if event.name in settings.ADMIN_EVENTS:
+:def generate_topic_exchange(event):
+    :if event.name in settings.ADMIN_EVENTS:
         return "admin_events"
-    elif event.name in settings.OPERATIONAL_EVENTS:
+    :elif event.name in settings.OPERATIONAL_EVENTS:
         return "operational_events"
-    else:
+    :else:
         return "other_events"
 
 # Generate routing key and topic exchange for each event
-for event_name in settings.ADMIN_EVENTS + settings.OPERATIONAL_EVENTS:
+:for event_name in settings.ADMIN_EVENTS + settings.OPERATIONAL_EVENTS:
     event = Event(event_name)  # Assuming Event is a class representing an event
     routing_key = generate_routing_key(event)
     topic_exchange = generate_topic_exchange(event)
@@ -317,38 +319,46 @@ for event_name in settings.ADMIN_EVENTS + settings.OPERATIONAL_EVENTS:
 Secret/Auth parameterization
 ############################
 
-Authorization through Environment Variables:
+:Authorization through Environment Variables:
 
 Implementing MQ authorization through environment variables is a common and practical approach. This approach enables the secure storage of credentials or authentication tokens beyond the codebase, thereby mitigating the risk of exposure.
 During runtime, the NApp can retrieve these credentials from environment variables, ensuring the confidentiality of sensitive information.
 By implementing authentication through environment variables and ensuring that the NApp can seamlessly restart and resume from the real-time point, it can effectively handle topology changes in real-time without the need for cluster connectivity or historical data persistence. This reliability feature ensures that the NApp never misses a beat, even in the face of unexpected events.
 
-import pika
+:import pika:
 
 # RabbitMQ connection parameters
+
 RABBITMQ_HOST = 'localhost'
+
 RABBITMQ_PORT = 5672
+
 RABBITMQ_USERNAME = 'guest'
+
 RABBITMQ_PASSWORD = 'guest'
+
 RABBITMQ_VIRTUAL_HOST = '/'
 
 # Function to create a connection to RabbitMQ
-def create_rabbitmq_connection():
+:def create_rabbitmq_connection():
     credentials = pika.PlainCredentials(RABBITMQ_USERNAME, RABBITMQ_PASSWORD)
     parameters = pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_VIRTUAL_HOST, credentials)
     connection = pika.BlockingConnection(parameters)
     return connection
 
 # Function to create queues
-def create_queues(connection, event_names):
+:def create_queues(connection, event_names):
     channel = connection.channel()
     for event_name in event_names:
         queue_name = event_name.replace('.', '_')  # Replace dots in event name with underscores for queue name
         channel.queue_declare(queue=queue_name, durable=True)  # Declare a durable queue
         print(f"Queue '{queue_name}' created.")
 
-# Example usage
-if __name__ == "__main__":
+#############
+Example usage
+#############
+
+:if __name__ == "__main__":
     # Generate list of event names
     all_events = settings.ADMIN_EVENTS + settings.OPERATIONAL_EVENTS
     
@@ -372,7 +382,10 @@ A highly efficient and versatile protocol empowers RabbitMQ, a widely acclaimed 
 aio-pika
 ********
 
+https://aio-pika.readthedocs.io/en/latest/rabbitmq-tutorial/1-introduction.html
+
 By implementing future optional asynchronous I/O, we can significantly improve our system's efficiency. This powerful feature will allow us to simultaneously handle multiple input/output operations, resulting in a faster and more responsive system overall."
+
 We will evaluate aio-pika an asynchronous AMQP client library designed for Python applications. It enables asynchronous and efficient interaction with RabbitMQ, making it well-suited for high-performance applications or systems that require non-blocking I/O operations.
 
 By leveraging the power of aio-pika, we can seamlessly integrate RabbitMQ's robust messaging capabilities into our Kytos Napps. This potent combination of RabbitMQ's strength and aio-pika's asynchronous nature inspires the creation of scalable and responsive distributed systems, fueling our projects' potential.
@@ -387,12 +400,17 @@ Use Case
 Interdomain Link Up/Down Monitoring
 ###################################
 
-Scenario: In SDX, monitoring the status of interdomain links for connectivity and reliability is crucial. This use case involves setting up a system to detect link status changes (up/down) and notify consumers about these events through message queues.
+:Scenario: 
+
+In SDX, monitoring the status of interdomain links for connectivity and reliability is crucial. This use case involves setting up a system to detect link status changes (up/down) and notify consumers about these events through message queues.
 Components:
 
-Producer: Generates events based on link status changes.
+:Producer: 
+
+Generates events based on link status changes.
 Consumer: Monitors link status by consuming messages from the appropriate queues.
-Implementation:
+
+:Implementation:
 
 ################################
 Link Status Queue Initialization
@@ -412,11 +430,12 @@ Scalable solution with dynamically created queues.
 Fault-tolerant design ensures persistent handling of link-down events.
 
 Flexibility in queue management allows dynamic addition or configuration based on settings.
+
 With its efficient producer-consumer relationship, the system orchestrates message handling for specific link-down events. This design ensures smooth communication, preventing message flooding and instilling confidence in its performance. 
 
-Here's how it operates:
+:Here's how it operates:
 
-Producer Advertises Link Down: 
+:Producer Advertises Link Down: 
 
 When a link-down event occurs, the producer publishes a message indicating the link's status change to down.
 
