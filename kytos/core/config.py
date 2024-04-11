@@ -217,7 +217,8 @@ class KytosConfig():
                 "log_at_most_n": 0,
                 "buffers": ["msg_in", "msg_out", "raw", "app"]
               }
-            ]
+            ],
+            "action_paces": {},
         }
 
         options, argv = self.conf_parser.parse_known_args()
@@ -288,6 +289,9 @@ class KytosConfig():
         )
         options.api_concurrency_limit = _parse_json(
             options.api_concurrency_limit
+        )
+        options.action_paces = _parse_json(
+            options.action_paces
         )
 
         return options
