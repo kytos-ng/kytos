@@ -252,14 +252,14 @@ V. Events
     1. *kytos/mef_eline.(redeployed_link_(up|down)|deployed|undeployed|deleted|error_redeploy_link_down|failover_deployed|failover_link_down)*
     2. *kytos/topology.link_up|link_down*
 
-The following table specifies expected **mef_eline** and **telemetry_int** actions when producing or handling certain events:
+The following table specifies expected **mef_eline** and **telemetry_int** actions when producing or handling certain events. A redeploy operation means remove and install the flows:
 
 +----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
 | kytos/mef_eline.<name> event     | mef_eline EVC action                                               | telemetry_int EVC action                              |
 +==================================+====================================================================+=======================================================+
 | ``undeployed``                   | remove flows                                                       | remove flows; deactivate                              |
 +----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
-| ``deployed``                     | remove and install flows (redeploy)                                | if requested INT, enable if first time or redeploy    |
+| ``deployed``                     | redeploy                                                           | if requested INT, enable if first time or redeploy    |
 +----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
 | ``deleted``                      | remove flows; delete; archive                                      | remove flows; disable                                 |
 +----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
