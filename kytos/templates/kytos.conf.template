@@ -161,3 +161,9 @@ apm =
 # Define the max number of connections to accept before additional
 # connections are automatically rejected.
 api_concurrency_limit = "threadpool"
+
+# Defines the rate at which certain actions will be paced to execute at.
+action_paces =
+  {
+      "flow_manager.send_flow_mod": {"max_concurrent": 40, "refresh_period": 1.0}
+  }
