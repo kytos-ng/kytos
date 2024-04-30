@@ -166,15 +166,10 @@ class Controller:
         sys.excepthook = exc_handler
 
         #: Pacer for controlling the rate which actions can be executed
-        self.pacer = Pacer(
-            {
-                key: (
-                    value['max_concurrent'],
-                    value['refresh_period']
-                )
-                for key, value in self.options.action_paces.items()
-            }
-            
+        self.pacer = Pacer()
+
+        self.pacer.inject_config(
+            self.options.action_paces
         )
 
 

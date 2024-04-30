@@ -13,7 +13,7 @@ LOG = logging.getLogger(__name__)
 @dataclass
 class Pacer:
     """Class for controlling the rate at which actions are executed."""
-    pace_config: dict[str, tuple[int, float]]
+    pace_config: dict[str, tuple[int, float]] = field(default_factory=dict)
     pending: Queue = field(default=None)
     scheduling: dict[tuple, tuple[asyncio.Semaphore, asyncio.Queue]] = field(default_factory=dict)
 
@@ -57,8 +57,6 @@ class Pacer:
         finally:
             LOG.info("Shutting down pacer.")
             self.pending = None
-            
-
 
     async def __process_one(
         self,
@@ -80,13 +78,16 @@ class Pacer:
             event.set()
             await asyncio.sleep(refresh_period)
 
-
     async def ahit(
         self,
         action_name: str,
         *keys
     ):
-        """Wait until the pacer says the action can occur."""
+        """
+        Asynchronous variant of `hit`.
+
+        This can be called from the serving thread safely.
+        """
         if self.pending is None:
             LOG.error("Pacer is not yet started")
             return
@@ -99,7 +100,14 @@ class Pacer:
         await ev.wait()
 
     def hit(self, action_name, *keys):
-        """Wait until the pacer says the action can occur."""
+        """
+        Pace execution, based on the pacing config for the given `action_name`.
+        Keys can be included to allow multiple objects
+        to be be paced separately on the same action.
+
+        This should not be called from the same thread serving
+        the pacing.
+        """
         if self.pending is None:
             LOG.error("Pacer is not yet started")
             return
@@ -110,3 +118,56 @@ class Pacer:
         )
 
         ev.wait()
+
+    def inject_config(self, config: dict):
+        """
+        Inject settings for pacing
+        """
+        self.pace_config.update(
+            {
+                key: (value['max_concurrent'], value['refresh_period'])
+                for key, value in config.items()
+            }
+        )
+
+
+@dataclass
+class PacerWrapper:
+    """
+    Applies a namespace to various operations related to pacing.
+    """
+    namespace: str
+    pacer: Pacer
+
+    def inject_config(self, napp_config: dict):
+        """
+        Inject namespace specific settings for pacing
+        """
+        self.pacer.inject_config(
+            {
+                self._localized_key(key): value for key, value in napp_config.items()
+            }
+        )
+
+    def hit(self, action_name, *args, **kwargs):
+        """
+        Asynchronous variant of `hit`.
+
+        This can be called from the serving thread safely.
+        """
+        return self.pacer.hit(self._localized_key(action_name), *args, **kwargs)
+
+
+    async def ahit(self, action_name, *args, **kwargs):
+        """
+        Pace execution, based on the pacing config for the given `action_name`.
+        Keys can be included to allow multiple objects
+        to be be paced separately on the same action.
+
+        This should not be called from the same thread serving
+        the pacing.
+        """
+        return await self.pacer.ahit(self._localized_key(action_name), *args, **kwargs)
+    
+    def _localized_key(self, key):
+        return f"{self.namespace}.{key}"
