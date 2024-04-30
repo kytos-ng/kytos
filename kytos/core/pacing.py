@@ -1,11 +1,10 @@
 """Provides utilities for pacing actions."""
 import asyncio
+import logging
 import threading
 from dataclasses import dataclass, field
-import logging
 
 from janus import Queue
-
 
 LOG = logging.getLogger(__name__)
 
@@ -15,13 +14,17 @@ class Pacer:
     """Class for controlling the rate at which actions are executed."""
     pace_config: dict[str, tuple[int, float]] = field(default_factory=dict)
     pending: Queue = field(default=None)
-    scheduling: dict[tuple, tuple[asyncio.Semaphore, asyncio.Queue]] = field(default_factory=dict)
+    scheduling: dict[tuple, tuple[asyncio.Semaphore, asyncio.Queue]] =\
+        field(default_factory=dict)
 
     async def serve(self):
+        """
+        Serve pacing requests.
+        """
         LOG.info("Starting pacer.")
         if self.pending is not None:
             LOG.error("Tried to start pacer, already started.")
-        
+
         self.pending = Queue()
 
         queue = self.pending.async_q
@@ -71,7 +74,7 @@ class Pacer:
         _, refresh_period = self.pace_config[action_name]
 
         if semaphore.locked():
-            LOG.warn("Pace limit reached on %s", keys)
+            LOG.warning("Pace limit reached on %s", keys)
 
         async with semaphore:
             event: asyncio.Event = queue.get_nowait()
@@ -145,20 +148,23 @@ class PacerWrapper:
         """
         self.pacer.inject_config(
             {
-                self._localized_key(key): value for key, value in napp_config.items()
+                self._localized_key(key): value
+                for key, value in napp_config.items()
             }
         )
 
-    def hit(self, action_name, *args, **kwargs):
+    def hit(self, action_name, *keys):
         """
         Asynchronous variant of `hit`.
 
         This can be called from the serving thread safely.
         """
-        return self.pacer.hit(self._localized_key(action_name), *args, **kwargs)
+        return self.pacer.hit(
+            self._localized_key(action_name),
+            *keys
+        )
 
-
-    async def ahit(self, action_name, *args, **kwargs):
+    async def ahit(self, action_name, *keys):
         """
         Pace execution, based on the pacing config for the given `action_name`.
         Keys can be included to allow multiple objects
@@ -167,7 +173,10 @@ class PacerWrapper:
         This should not be called from the same thread serving
         the pacing.
         """
-        return await self.pacer.ahit(self._localized_key(action_name), *args, **kwargs)
-    
+        return await self.pacer.ahit(
+            self._localized_key(action_name),
+            *keys
+        )
+
     def _localized_key(self, key):
         return f"{self.namespace}.{key}"

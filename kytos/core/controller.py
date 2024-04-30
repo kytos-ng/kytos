@@ -172,7 +172,6 @@ class Controller:
             self.options.action_paces
         )
 
-
     def start_auth(self):
         """Initialize Auth() and its services"""
         self.auth = Auth(self)
