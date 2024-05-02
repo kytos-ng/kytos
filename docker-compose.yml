@@ -1,9 +1,6 @@
 ################################################################
 # This docker-compose file is meant for LOCAL development only #
 ################################################################
-
-version: '3.3'
-
 services:
   mongo-setup:
     container_name: mongo-rs-init
