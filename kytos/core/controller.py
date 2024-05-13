@@ -514,6 +514,7 @@ class Controller:
         if self.apm:
             self.log.info("Stopping APM server...")
             self.apm.close()
+            self.log.info("Stopped APM Server")
         self.log.info("Stopping API Server...")
         self.api_server.stop()
         self.log.info("Stopped API Server")
