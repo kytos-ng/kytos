@@ -5,7 +5,7 @@
     - Italo Valcy <idasilva AT fiu DOT edu>
     - Vinicius Arcanjo <vindasil AT fiu DOT edu>
 :Created: 2022-08-24
-:Updated: 2023-07-26
+:Updated: 2024-04-11
 :Kytos-Version: 2024.1
 :Status: Accepted
 
@@ -249,8 +249,43 @@ V. Events
 ==========
 
   1. Listening
-    1. *kytos/mef_eline.(redeployed_link_(up|down)|deployed|undeployed|deleted|error_redeploy_link_down|created)*
+    1. *kytos/mef_eline.(redeployed_link_(up|down)|deployed|undeployed|deleted|error_redeploy_link_down|failover_deployed|failover_link_down)*
     2. *kytos/topology.link_up|link_down*
+
+The following table specifies expected **mef_eline** and **telemetry_int** actions when producing or handling certain events. A redeploy operation means remove and install the flows:
+
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| kytos/mef_eline.<name> event     | mef_eline EVC action                                               | telemetry_int EVC action                              |
++==================================+====================================================================+=======================================================+
+| ``undeployed``                   | remove flows                                                       | remove flows; deactivate                              |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``deployed``                     | redeploy                                                           | if requested INT, enable if first time or redeploy    |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``deleted``                      | remove flows; delete; archive                                      | remove flows; disable                                 |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``redeployed_link_down``         | redeploy                                                           | same                                                  |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``redeployed_link_up``           | redeploy                                                           | same                                                  |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``error_redeploy_link_down``     | remove flows; deactivate                                           | same                                                  |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``failover_link_down``           | install ingress flows; publish new flows                           | generate subset flows; install flows                  |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``failover_old_path``            | remove old flows; publish old flows (old current_path or failover) | generate subset flows; remove flows                   |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``failover_deployed``            | remove failover; install failover flows; publish old and new flows | generate subset flows; remove old; install new        |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+| ``uni_active_updated``           | deactivate or activate                                             | same                                                  |
++----------------------------------+--------------------------------------------------------------------+-------------------------------------------------------+
+
+Major challenges to be aware when dealing with **mef_eline** events convergence: a) ensure failover fast convergence, and b) **telemetry_int** isn't differentiating which **mef_eline** path each flow belongs to. Whenever it's desirable that **telemetry_int** only perform a side effect on a subset of the flows, **mef_eline** should facilitate ideally by publishing upfront the set of the flows since **mef_eline** owns the follows and **telemetry_int** essentially follows with its own INT equivalent higher priority flows matching UDP and TCP. In general, the final outcome when handling these events is supposed to only add a few extra milliseconds on top of the existing 2023.2 **mef_eline** flows convergence, the biggest expected latency will be from sending the flow mods in the TCP OpenFlow channel. **mef_eline** will implement these new events:
+
+- **mef_eline** should publish ``kytos/mef_eline.failover_link_down`` right after installing the ingress flows and publishing the new failover flows. Currently, **mef_eline** is publishing a `redeployed_link_down <https://github.com/kytos-ng/mef_eline/blob/master/main.py#L893>`_, but it should be replaced with ``kytos/mef_eline.failover_link_down`` in this case, just so ``telemetry_int`` will be able to efficiently get the flows upfront during this hot path event handling and install ingress related INT flow. 
+- **mef_eline** should publish ``kytos/mef_eline.failover_old_path`` when an EVC failover related old path gets removed.
+- **mef_eline** should publish ``kytos/mef_eline.failover_deployed`` whenever a new failover is successfully removed and installed, both the old and new failover flows should be published.
+- **mef_eline** should publish ``kytos/mef_eline.uni_active_updated`` whenever an EVC active state is updated due to a UNI going up or down.
+
+There's also opportunity to minimize certain deletion FlowMods, especially when **mef_eline** deletes all flows on a switch for a given cookie ``0xA8<7bytes>``, for those cases, it could also mask the adjacent **telemetry_int** cookie ``0xAA<7bytes>``, which would save extra FlowMods to be sent for **telemetry_int**, but sometimes **mef_eline** also only deletes with a specific match, and for those cases it wouldn't be able to delete the other **telemetry_int** flows. This idea might be explored in the future as the network convergence is stress tested depending on the results.
 
 VI. REST API
 =============
@@ -292,7 +327,15 @@ The **telemetry_int** napp must use a different cookie ID to help understanding 
 XI. Consistency
 ===============
 
-The **telemetry_int** napp will deploy a routine to evaluate the consistency of the telemetry flows as performed by the **mef_eline** napp. This implementation will be defined via field experience with Kytos. The consistency check will rely on ``sdntrace_cp`` and follow the same pattern as ``mef_eline``, except that also when trying to trace, it should test both UDP and TCP payloads, if any fails after a few attempts, then it should disable telemetry int and remove the flows for now, falling back to mef_eline flows. In the future, the consistency check process might evolve, but for now if it fails, it will fail safely falling back to mef_eline flows. As of ``sdntrace_cp`` version ``2023.1`` it still doesn't completely support ``goto_table`` neither ``instructions``, so it needs to be augmented just so ``telemetry_int`` can eventually also rely on it. 
+The **telemetry_int** napp will deploy a routine to evaluate the consistency of the telemetry flows as performed by the **mef_eline** napp. This implementation will be defined via field experience with Kytos. The consistency check will rely on ``sdntrace_cp`` and follow the same pattern as ``mef_eline``, except that also when trying to trace, it should test both UDP and TCP payloads, if any fails after a few attempts, then it should disable telemetry int and remove the flows for now, falling back to mef_eline flows. In the future, the consistency check process might evolve, but for now if it fails, it will fail safely falling back to mef_eline flows.
+
+The consistency check will be implemented after version ``2024.1`` when **mef_eline** implements its enhanced consistency check, and when it's been battle tested for some time, which is expected to also check for active EVCs. **mef_eline** enhanced consistency check details will be specified in a new blueprint. But, in general, it's expected to:
+
+- Run periodically. The seconds interval will be explored, it might stay the same as the existing one every 60 seconds.
+- No false positives. It should prioritize stability, it doesn't need to run immediately.
+- Only execute and make a decision when no flows have been updated recently.
+- **telemetry_int** will implemented a similar consistency check, except it'll run periodically a bit slower, just so if **mef_eline** consistency has to perform any side effects, **telemetry_int** will have a chance to first also react to it, before running its consistency check.
+
 
 XII. Pacing
 ===========
