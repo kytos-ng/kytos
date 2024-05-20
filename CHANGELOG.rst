@@ -10,6 +10,12 @@ Changed
 =======
 - Updated python environment installation from 3.9 to 3.11
 - Updated test dependencies
+- MongoDB version has been updated to 7.0
+
+General Information
+===================
+- Kytos is tested and supported with mongo version 7.0. It can work with the lower versions 6.0 and 5.0 but they are not guaranteed to work flawlessly. To update mongo version follow these `steps <https://github.com/kytos-ng/kytos/pull/470>`_.
+
 
 [2023.2.0] - 2024-02-16
 ***********************

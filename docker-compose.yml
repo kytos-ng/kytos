@@ -1,13 +1,10 @@
 ################################################################
 # This docker-compose file is meant for LOCAL development only #
 ################################################################
-
-version: '3.3'
-
 services:
   mongo-setup:
     container_name: mongo-rs-init
-    image: mongo:5.0
+    image: mongo:7.0
     restart: on-failure
     volumes:
       - ./docker/scripts:/scripts
@@ -24,7 +21,7 @@ services:
       - mongo3
   mongo1:
     container_name: mongo1
-    image: mongo:5.0
+    image: mongo:7.0
     volumes:
       - mongo1_data:/data/db
     ports:
@@ -36,7 +33,7 @@ services:
       - mongo3
   mongo2:
     container_name: mongo2
-    image: mongo:5.0
+    image: mongo:7.0
     volumes:
       - mongo2_data:/data/db
     ports:
@@ -45,7 +42,7 @@ services:
     entrypoint: [ "/usr/bin/mongod", "--bind_ip_all", "--replSet", "rs0", "--port", "27018" ]
   mongo3:
     container_name: mongo3
-    image: mongo:5.0
+    image: mongo:7.0
     volumes:
       - mongo3_data:/data/db
     ports:
