@@ -152,6 +152,24 @@ Here's an example of such an implementation:
             )
 
 
+######################
+Implementation Details
+######################
+
+This section is to provide developers with
+a few details about the implementation,
+intended for aiding in further development
+and maintenance of the feature.
+The way pacing is to be implemented is using the ``limits`` package.
+``limits`` has a few additional features, which aren't used,
+such as:
+
+ - A ``moving_window`` strategy. This isn't exposed to operators
+   because the behaviour as described in the ``limits``
+   documentation seems inconsistent with its implementation.
+ - External stores for limit data. The current implementation
+   only uses the memory storage, as of this point we don't
+   have enough unique actions to warrant using an external data store.
 
 
 ##############
