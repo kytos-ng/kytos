@@ -56,34 +56,36 @@ setting the pace of an action can be done through
 a NApp's ``action_paces`` setting.
 The ``action_paces`` setting is a dictionary,
 with keys representing the action to be paced,
-and values being the rate to pace them to.
-The pacing value is a string formatted as
-``{max_concurrent}/{time_period}{time_unit}``,
-where ``max_concurrent`` is the max amount of times
-the action is allowed to be executed
-within the ``time_period`` using the given ``time_unit``.
+and values being a dict with the rate to pace them to, ``pace``,
+and which ``strategy`` to use when pacing them.
 Here's an example:
 
 .. code-block:: python
 
     action_paces = {
-        "send_flow_mod": "50/2seconds",
+        "send_flow_mod": {
+            "pace": "50/2seconds",
+            "strategy": "fixed_window",
+        },
     }
 
-How the ``time_period`` is interpreted is controlled by the pacing strategy.
-Pacing strategy can be set using the ``pacing_strategy`` option in ``kytos.conf``.
+The ``pace``is a string formatted as
+``{max_concurrent}/{time_period}{time_unit}``,
+where ``max_concurrent`` is the max amount of times
+the action is allowed to be executed
+within the ``time_period`` using the given ``time_unit``.
+Supported time units include: ``second``, ``minute``, ``hour``,
+and ``day``.
+
+How the ``time_period`` is interpreted is controlled by the pacing ``strategy``.
 Available strategies include:
 
- - `fixed_window` - Actions are paced in a fixed window,
+ - ``fixed_window`` - Actions are paced in a fixed window,
    where actions are paced in fixed blocks of time
    that reset after the amount of time in the refresh period has passed.
- - `elastic_window` - Actions are paced in an elastic window,
+ - ``elastic_window`` - Actions are paced in an elastic window,
    which acts like a fixed window, except if the pace is exceeded
    then the window refresh period is doubled.
- - `moving_window` - Actions are paced in a moving window,
-   where actions are paced in a dynamic block of time
-   that trails behind the current time.
-
 
 
 Pacing an Action
@@ -144,7 +146,7 @@ Here's an example of such an implementation:
 
         async def asend_switch_event(self, switch: Switch):
             """Asynchronously send an event about the switch."""
-            await self.controller.pacer.ahit("mynapp.switch_event", switch.dpid)
+            await self.pacer.ahit("mynapp.switch_event", switch.dpid)
             await self.controller.buffers.app.aput(
                 ...
             )
