@@ -69,7 +69,7 @@ Here's an example:
         },
     }
 
-The ``pace``is a string formatted as
+The ``pace`` is a string formatted as
 ``{max_concurrent}/{time_period}{time_unit}``,
 where ``max_concurrent`` is the max amount of times
 the action is allowed to be executed
@@ -77,7 +77,7 @@ within the ``time_period`` using the given ``time_unit``.
 Supported time units include: ``second``, ``minute``, ``hour``,
 and ``day``.
 
-How the ``time_period`` is interpreted is controlled by the pacing ``strategy``.
+How ``time_period`` is interpreted is controlled by the pacing ``strategy``.
 Available strategies include:
 
  - ``fixed_window`` - Actions are paced in a fixed window,
@@ -150,6 +150,30 @@ Here's an example of such an implementation:
             await self.controller.buffers.app.aput(
                 ...
             )
+
+
+As for where to implement pacing,
+there is on key detail to keep in mind.
+Pacing is intended for when an action is
+initiated on a resource, therefore
+pacing should occur at where that resource is managed.
+If we wanted to pace flow mods,
+based on what resources we are considering the flow
+mods relative to would determine where
+pacing would be implemented for it.
+For example:
+
+ - Flow mod pacing could be implemented per switch.
+   In that case, the pacing should be implemented
+   in ``flow_manager``, as it manages the flows
+   on switches.
+ - Flow mod pacing could be implemented per EVC.
+   In that case we would implement pacing in
+   ``mef_eline`` as it manages the EVCs.
+ - Pacing could be implemented per connection.
+   In that case we would implement pacing in
+   the kytos controller, as it manages all connections
+   to switches.
 
 
 ######################
