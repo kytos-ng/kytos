@@ -728,8 +728,8 @@ class TestControllerAsync:
         controller.server.serve_forever.assert_called()
         all_buffers = controller.buffers.get_all_buffers()
         # It's expected that all buffers have a task + the api server task
-        assert controller.loop.create_task.call_count == len(all_buffers) + 2
-        assert len(controller._tasks) == len(all_buffers) + 2
+        assert controller.loop.create_task.call_count == len(all_buffers) + 1
+        assert len(controller._tasks) == len(all_buffers) + 1
         controller.pre_install_napps.assert_called_with([napp])
         controller.load_napps.assert_called()
         controller.api_server.start_web_ui.assert_called()

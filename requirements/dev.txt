@@ -86,6 +86,11 @@ decorator==5.1.1
     #   -r requirements/run.txt
     #   ipython
     #   kytos
+deprecated==1.2.14
+    # via
+    #   -r requirements/run.txt
+    #   kytos
+    #   limits
 dill==0.3.8
     # via pylint
 distlib==0.3.8
@@ -157,6 +162,11 @@ idna==3.6
     #   requests
 imagesize==1.4.1
     # via sphinx
+importlib-resources==6.4.0
+    # via
+    #   -r requirements/run.txt
+    #   kytos
+    #   limits
 iniconfig==2.0.0
     # via pytest
 ipython==8.22.1
@@ -221,6 +231,10 @@ lazy-object-proxy==1.10.0
     #   -r requirements/run.txt
     #   kytos
     #   openapi-spec-validator
+limits==3.11.0
+    # via
+    #   -r requirements/run.txt
+    #   kytos
 livereload==2.6.3
     # via sphinx-autobuild
 lockfile==0.12.2
@@ -262,10 +276,13 @@ openapi-spec-validator==0.7.1
     #   -r requirements/run.txt
     #   kytos
     #   openapi-core
-packaging==23.2
+packaging==24.0
     # via
+    #   -r requirements/run.txt
     #   black
     #   build
+    #   kytos
+    #   limits
     #   pyproject-api
     #   pytest
     #   sphinx
@@ -478,6 +495,7 @@ typing-extensions==4.10.0
     #   -r requirements/run.txt
     #   janus
     #   kytos
+    #   limits
     #   pydantic
     #   pydantic-core
 urllib3==1.26.18
@@ -528,6 +546,7 @@ wheel==0.40.0
 wrapt==1.14.1
     # via
     #   -r requirements/run.txt
+    #   deprecated
     #   elastic-apm
     #   kytos
 yala==3.2.0

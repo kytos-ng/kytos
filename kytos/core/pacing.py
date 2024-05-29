@@ -1,106 +1,84 @@
 """Provides utilities for pacing actions."""
 import asyncio
 import logging
-import threading
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass
 
-from janus import Queue
+import limits.aio.strategies
+import limits.strategies
+from limits import RateLimitItem, parse
+from limits.storage import storage_from_string
 
 LOG = logging.getLogger(__name__)
 
 
-@dataclass
+available_strategies = {
+    "fixed_window": (
+        limits.strategies.FixedWindowRateLimiter,
+        limits.aio.strategies.FixedWindowRateLimiter,
+    ),
+    "elastic_window": (
+        limits.strategies.FixedWindowElasticExpiryRateLimiter,
+        limits.aio.strategies.FixedWindowElasticExpiryRateLimiter,
+    ),
+}
+
+
 class Pacer:
     """Class for controlling the rate at which actions are executed."""
-    pace_config: dict[str, tuple[int, float]] = field(default_factory=dict)
-    pending: Queue = field(default=None)
-    scheduling: dict[tuple, tuple[asyncio.Semaphore, asyncio.Queue]] =\
-        field(default_factory=dict)
+    sync_strategies: dict[str, limits.strategies.RateLimiter]
+    async_strategies: dict[str, limits.aio.strategies.RateLimiter]
+    pace_config: dict[str, tuple[str, RateLimitItem]]
 
-    async def serve(self):
+    def __init__(self, storage_uri):
+        # Initialize dicts
+        self.sync_strategies = {}
+        self.async_strategies = {}
+        self.pace_config = {}
+
+        # Acquire storage
+        sync_storage = storage_from_string(storage_uri)
+        async_storage = storage_from_string(f"async+{storage_uri}")
+
+        # Populate strategies
+        for strat_name, strat_pair in available_strategies.items():
+            sync_strat_type, async_strat_type = strat_pair
+            self.sync_strategies[strat_name] = sync_strat_type(sync_storage)
+            self.async_strategies[strat_name] = async_strat_type(async_storage)
+
+    def inject_config(self, config: dict[str, dict]):
         """
-        Serve pacing requests.
+        Inject settings for pacing
         """
-        LOG.info("Starting pacer.")
-        if self.pending is not None:
-            LOG.error("Tried to start pacer, already started.")
+        self.pace_config.update(
+            {
+                key: (
+                    value.get('strategy', 'fixed_window'),
+                    parse(value['pace'])
+                )
+                for key, value in config.items()
+            }
+        )
 
-        self.pending = Queue()
-
-        queue = self.pending.async_q
-
-        try:
-            async with asyncio.TaskGroup() as tg:
-                while True:
-                    event, action_name, keys = await queue.get()
-
-                    if action_name not in self.pace_config:
-                        LOG.warning("Pace for `%s` is not set", action_name)
-                        event.set()
-                        continue
-
-                    max_concurrent, _ = self.pace_config[action_name]
-
-                    keys = action_name, *keys
-
-                    if keys not in self.scheduling:
-                        max_concurrent, _ = self.pace_config[action_name]
-                        self.scheduling[keys] = (
-                            asyncio.Semaphore(max_concurrent),
-                            asyncio.Queue()
-                        )
-
-                    _, sub_queue = self.scheduling[keys]
-
-                    await sub_queue.put(event)
-                    tg.create_task(self.__process_one(*keys))
-        except Exception as ex:
-            LOG.error("Pacing encounter error %s", ex)
-            raise ex
-        finally:
-            LOG.info("Shutting down pacer.")
-            self.pending = None
-
-    async def __process_one(
-        self,
-        action_name: str,
-        *keys
-    ):
-        """Ensure's fairness in dispatch."""
-
-        keys = action_name, *keys
-
-        semaphore, queue = self.scheduling[keys]
-        _, refresh_period = self.pace_config[action_name]
-
-        if semaphore.locked():
-            LOG.warning("Pace limit reached on %s", keys)
-
-        async with semaphore:
-            event: asyncio.Event = queue.get_nowait()
-            event.set()
-            await asyncio.sleep(refresh_period)
-
-    async def ahit(
-        self,
-        action_name: str,
-        *keys
-    ):
+    async def ahit(self, action_name, *keys):
         """
         Asynchronous variant of `hit`.
 
         This can be called from the serving thread safely.
         """
-        if self.pending is None:
-            LOG.error("Pacer is not yet started")
+        if action_name not in self.pace_config:
+            LOG.warning("Pace for `%s` is not set", action_name)
             return
-        ev = asyncio.Event()
+        strat, pace = self.pace_config[action_name]
+        identifiers = pace, action_name, *keys
+        strategy = self.async_strategies[strat]
+        while not await strategy.hit(*identifiers):
+            window_reset, _ = await strategy.get_window_stats(
+                *identifiers
+            )
+            sleep_time = window_reset - time.time()
 
-        await self.pending.async_q.put(
-            (ev, action_name, keys)
-        )
-
-        await ev.wait()
+            await asyncio.sleep(sleep_time)
 
     def hit(self, action_name, *keys):
         """
@@ -111,27 +89,19 @@ class Pacer:
         This should not be called from the same thread serving
         the pacing.
         """
-        if self.pending is None:
-            LOG.error("Pacer is not yet started")
+        if action_name not in self.pace_config:
+            LOG.warning("Pace for `%s` is not set", action_name)
             return
-        ev = threading.Event()
+        strat, pace = self.pace_config[action_name]
+        identifiers = pace, action_name, *keys
+        strategy = self.async_strategies[strat]
+        while not strategy.hit(*identifiers):
+            window_reset, _ = strategy.get_window_stats(
+                *identifiers
+            )
+            sleep_time = window_reset - time.time()
 
-        self.pending.sync_q.put(
-            (ev, action_name, keys)
-        )
-
-        ev.wait()
-
-    def inject_config(self, config: dict):
-        """
-        Inject settings for pacing
-        """
-        self.pace_config.update(
-            {
-                key: (value['max_concurrent'], value['refresh_period'])
-                for key, value in config.items()
-            }
-        )
+            time.sleep(sleep_time)
 
 
 @dataclass

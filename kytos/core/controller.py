@@ -166,11 +166,7 @@ class Controller:
         sys.excepthook = exc_handler
 
         #: Pacer for controlling the rate which actions can be executed
-        self.pacer = Pacer()
-
-        self.pacer.inject_config(
-            self.options.action_paces
-        )
+        self.pacer = Pacer("memory://")
 
     def start_auth(self):
         """Initialize Auth() and its services"""
@@ -377,8 +373,6 @@ class Controller:
         self.log.info("Starting TCP server: %s", self.server)
         self.server.serve_forever()
 
-        task = self.loop.create_task(self.pacer.serve())
-        self._tasks.append(task)
         task = self.loop.create_task(self.api_server.serve())
         self._tasks.append(task)
 
