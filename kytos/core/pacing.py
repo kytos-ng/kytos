@@ -50,14 +50,26 @@ class Pacer:
         """
         Inject settings for pacing
         """
-        self.pace_config.update(
-            {
-                key: (
-                    value.get('strategy', 'fixed_window'),
-                    parse(value['pace'])
+        # Regenerate update dict
+        next_config = {
+            key: (
+                value.get('strategy', 'fixed_window'),
+                parse(value['pace'])
+            )
+            for key, value in config.items()
+        }
+
+        # Validate
+        for action, (strat, pace) in next_config.items():
+            LOG.info("Added pace for action %s", action)
+            if strat not in available_strategies:
+                raise ValueError(
+                    f"Strategy ({strat}) for action ({action}) not valid"
                 )
-                for key, value in config.items()
-            }
+
+        # Apply
+        self.pace_config.update(
+            next_config
         )
 
     async def ahit(self, action_name, *keys):
