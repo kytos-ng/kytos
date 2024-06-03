@@ -1,0 +1,213 @@
+:EP: 38
+:Title: Action Pacing
+:Authors:
+    - David Ramirez <davramir@fiu.edu>;
+:Issued Date: 2024-05-16
+:Status: Pending
+:Type: Standards Track
+
+*********************
+EP038 - Action Pacing
+*********************
+
+########
+Abstract
+########
+
+This document is intended on a guide for both NApp Developers
+and Network Operators for how to implement and use Pacing within Kytos.
+Pacing is intended as a mechanism to control
+how often certain actions will be executed.
+This differs from rate limiting, as the action is not cancelled,
+and instead the caller is temporarily paused until the action
+is allowed to be executed again.
+For an action to be paced, it needs to be instrumented
+by developers to support pacing.
+
+##########
+Motivation
+##########
+
+The purpose of adding in pacing to Kytos is
+help maintain system stability by preventing
+excessive throughput.
+It could occur that sending too many flow mods
+or too many DB requests may result in
+connection failures, and therefore system
+instability.
+To prevent such scenarios,
+pacing of actions which are sensitive to high
+throuhput should be implemented.
+
+#############
+Specification
+#############
+
+This section describes how to set the pace of actions,
+intended for network operators,
+and how to add pacing to an action,
+intended for developers.
+
+Setting A Pace
+==============
+
+For network operators,
+setting the pace of an action can be done through
+a NApp's ``action_paces`` setting.
+The ``action_paces`` setting is a dictionary,
+with keys representing the action to be paced,
+and values being a dict with the rate to pace them to, ``pace``,
+and which ``strategy`` to use when pacing them.
+Here's an example:
+
+.. code-block:: python
+
+    action_paces = {
+        "send_flow_mod": {
+            "pace": "50/2seconds",
+            "strategy": "fixed_window",
+        },
+    }
+
+The ``pace`` is a string formatted as
+``{max_concurrent}/{time_period}{time_unit}``,
+where ``max_concurrent`` is the max amount of times
+the action is allowed to be executed
+within the ``time_period`` using the given ``time_unit``.
+Supported time units include: ``second``, ``minute``, ``hour``,
+and ``day``.
+
+How ``time_period`` is interpreted is controlled by the pacing ``strategy``.
+Available strategies include:
+
+ - ``fixed_window`` - Actions are paced in a fixed window,
+   where actions are paced in fixed blocks of time
+   that reset after the amount of time in the refresh period has passed.
+ - ``elastic_window`` - Actions are paced in an elastic window,
+   which acts like a fixed window, except if the pace is exceeded
+   then the window refresh period is doubled.
+
+
+Pacing an Action
+================
+
+In order to add pacing functionality to an action,
+the pacing controller must be integrate into the NApp.
+To do so, add in a ``PacerNappWrapper`` to wrap
+around the pacer controller provided by the Kytos Controller.
+Then with the wrapped pacer, inject the configuration from the
+NApp's settings. Here's an example of this:
+
+.. code-block:: python
+
+    from kytos.core.pacing import PacerNappWrapper
+    from napps.kytos.my_napp import settings
+
+    class Main(KytosNApp):
+        ...
+
+        def setup(self):
+            ...
+
+            self.pacer = PacerNappWrapper(
+                "mynapp",
+                self.controller.pacer
+            )
+
+            self.pacer.inject_config(
+                settings.action_paces
+            )
+
+            ...
+
+With the pacer added to the NApp at startup,
+it can then be used at runtime.
+To use the pacer, use the ``hit`` or ``ahit`` methods.
+The ``hit`` and ``ahit`` methods take in the name of an action,
+and a set of optional keys, which will then
+pause execution of the current thread or task until
+the action is allowed to be executed.
+
+If we where to want to pace an action basedon a the given switch,
+we would use the switch's ID, as one of the keys.
+Here's an example of such an implementation:
+
+.. code-block:: python
+
+    class Main(KytosNApp):
+        ...
+
+        def send_switch_event(self, switch: Switch):
+            """Send an event about the switch."""
+            self.pacer.hit("mynapp.switch_event", switch.dpid)
+            self.controller.buffers.app.put(
+                ...
+            )
+
+        async def asend_switch_event(self, switch: Switch):
+            """Asynchronously send an event about the switch."""
+            await self.pacer.ahit("mynapp.switch_event", switch.dpid)
+            await self.controller.buffers.app.aput(
+                ...
+            )
+
+
+As for where to implement pacing,
+there is on key detail to keep in mind.
+Pacing is intended for when an action is
+initiated on a resource, therefore
+pacing should occur at where that resource is managed.
+If we wanted to pace flow mods,
+based on what resources we are considering the flow
+mods relative to would determine where
+pacing would be implemented for it.
+For example:
+
+ - Flow mod pacing could be implemented per switch.
+   In that case, the pacing should be implemented
+   in ``flow_manager``, as it manages the flows
+   on switches.
+ - Flow mod pacing could be implemented per EVC.
+   In that case we would implement pacing in
+   ``mef_eline`` as it manages the EVCs.
+ - Pacing could be implemented per connection.
+   In that case we would implement pacing in
+   the kytos controller, as it manages all connections
+   to switches.
+
+
+######################
+Implementation Details
+######################
+
+This section is to provide developers with
+a few details about the implementation,
+intended for aiding in further development
+and maintenance of the feature.
+The way pacing is to be implemented is using the ``limits`` package.
+``limits`` has a few additional features, which aren't used,
+such as:
+
+ - A ``moving_window`` strategy. This isn't exposed to operators
+   because the behaviour as described in the ``limits``
+   documentation seems inconsistent with its implementation.
+ - External stores for limit data. The current implementation
+   only uses the memory storage, as of this point we don't
+   have enough unique actions to warrant using an external data store.
+
+
+##############
+Rejected Ideas
+##############
+
+This pacing specification has been through
+several iterations.
+Originally it was intended that pacing would
+be done on the event bus.
+However, the event bus approach required
+a user defined config for how to extract
+keys from events, which severely bloated
+the implementation, and required developer
+knowledge to use.
+It was ultimately too unwieldy to use
+correctly, and too difficult to maintain.
