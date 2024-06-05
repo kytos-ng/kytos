@@ -60,7 +60,7 @@ class Pacer:
         }
 
         # Validate
-        for action, (strat, pace) in next_config.items():
+        for action, (strat, _) in next_config.items():
             LOG.info("Added pace for action %s", action)
             if strat not in available_strategies:
                 raise ValueError(
@@ -106,12 +106,15 @@ class Pacer:
             return
         strat, pace = self.pace_config[action_name]
         identifiers = pace, action_name, *keys
-        strategy = self.async_strategies[strat]
+        strategy = self.sync_strategies[strat]
         while not strategy.hit(*identifiers):
             window_reset, _ = strategy.get_window_stats(
                 *identifiers
             )
             sleep_time = window_reset - time.time()
+
+            if sleep_time <= 0:
+                continue
 
             time.sleep(sleep_time)
 
