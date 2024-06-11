@@ -61,18 +61,18 @@ class Pacer:
 
         # Validate
         for action, (strat, _) in next_config.items():
-            LOG.info("Added pace for action %s", action)
             if strat not in available_strategies:
                 raise ValueError(
                     f"Strategy ({strat}) for action ({action}) not valid"
                 )
+            LOG.info("Added pace for action %s", action)
 
         # Apply
         self.pace_config.update(
             next_config
         )
 
-    async def ahit(self, action_name, *keys):
+    async def ahit(self, action_name: str, *keys):
         """
         Asynchronous variant of `hit`.
 
@@ -92,7 +92,7 @@ class Pacer:
 
             await asyncio.sleep(sleep_time)
 
-    def hit(self, action_name, *keys):
+    def hit(self, action_name: str, *keys):
         """
         Pace execution, based on the pacing config for the given `action_name`.
         Keys can be included to allow multiple objects
@@ -138,7 +138,7 @@ class PacerWrapper:
             }
         )
 
-    def hit(self, action_name, *keys):
+    def hit(self, action_name: str, *keys):
         """
         Asynchronous variant of `hit`.
 
@@ -149,7 +149,7 @@ class PacerWrapper:
             *keys
         )
 
-    async def ahit(self, action_name, *keys):
+    async def ahit(self, action_name: str, *keys):
         """
         Pace execution, based on the pacing config for the given `action_name`.
         Keys can be included to allow multiple objects
