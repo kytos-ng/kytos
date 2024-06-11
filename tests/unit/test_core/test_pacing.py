@@ -72,6 +72,9 @@ class TestPacer:
         async def micro_task():
             await configured_pacer.ahit("paced_action")
 
+        loop = asyncio.get_event_loop()
+
+        start = loop.time()
         async with asyncio.timeout(20):
             await asyncio.gather(
                 *[
@@ -79,20 +82,11 @@ class TestPacer:
                     for _ in range(50)
                 ]
             )
+        end = loop.time()
 
-    async def test_async_pace_limit_exceeded(self, configured_pacer: Pacer):
-        """Test that actions are being properly paced"""
-        async def micro_task():
-            await configured_pacer.ahit("paced_action")
+        elapsed = end - start
 
-        with pytest.raises(TimeoutError):
-            async with asyncio.timeout(9):
-                await asyncio.gather(
-                    *[
-                        micro_task()
-                        for _ in range(100)
-                    ]
-                )
+        assert elapsed > 4
 
     def test_pace_limit(self, configured_pacer: Pacer):
         """Test that actions are being properly paced"""
