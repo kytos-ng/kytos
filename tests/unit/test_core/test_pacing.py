@@ -50,10 +50,10 @@ class TestPacer:
     def test_check_strategies(self, pacer: Pacer):
         """Check which strategies are present."""
         assert set(pacer.sync_strategies) == {
-            'fixed_window', 'elastic_window',
+            'fixed_window',
         }
         assert set(pacer.async_strategies) == {
-            'fixed_window', 'elastic_window',
+            'fixed_window',
         }
 
     def test_missing_pace(self, pacer: Pacer):
