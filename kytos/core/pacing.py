@@ -2,7 +2,6 @@
 import asyncio
 import logging
 import time
-from dataclasses import dataclass
 
 import limits.aio.strategies
 import limits.strategies
@@ -119,13 +118,16 @@ class Pacer:
             time.sleep(sleep_time)
 
 
-@dataclass
 class PacerWrapper:
     """
     Applies a namespace to various operations related to pacing.
     """
     namespace: str
     pacer: Pacer
+
+    def __init__(self, namespace: str, pacer: Pacer):
+        self.namespace = namespace
+        self.pacer = pacer
 
     def inject_config(self, napp_config: dict):
         """
