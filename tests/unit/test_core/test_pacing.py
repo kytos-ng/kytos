@@ -25,13 +25,18 @@ class TestPacer:
             ),
         ]
     )
-    def configured_pacer(self, pacer: Pacer, request):
+    def strategy(self, request):
+        """Provide a strategy for tests."""
+        return request.param
+
+    @pytest.fixture
+    def configured_pacer(self, pacer: Pacer, strategy):
         """Configure the pacer to have a paced action."""
         pacer.inject_config(
             {
                 "paced_action": {
                     "pace": "10/second",
-                    "strategy": request.param,
+                    "strategy": strategy,
                 },
             }
         )
@@ -103,3 +108,27 @@ class TestPacer:
         elapsed = end - start
 
         assert elapsed > 4
+
+    def test_nonexistant_strategy(self, pacer: Pacer):
+        """Make sure that nonexistant strategies raise an exception"""
+        with pytest.raises(ValueError):
+            pacer.inject_config(
+                {
+                    "paced_action": {
+                        "pace": "10/second",
+                        "strategy": "non-existant strategy",
+                    },
+                }
+            )
+
+    def test_bad_pace(self, pacer: Pacer, strategy):
+        """Make sure that bad pace values raise an exception"""
+        with pytest.raises(ValueError):
+            pacer.inject_config(
+                {
+                    "paced_action": {
+                        "pace": "z10/second",
+                        "strategy": strategy,
+                    },
+                }
+            )
