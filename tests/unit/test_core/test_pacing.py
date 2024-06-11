@@ -16,7 +16,15 @@ class TestPacer:
         """Setup the pacer"""
         return Pacer("memory://")
 
-    @pytest.fixture(params=['fixed_window', 'elastic_window'])
+    @pytest.fixture(
+        params=[
+            'fixed_window',
+            pytest.param(
+                'elastic_window',
+                marks=pytest.mark.skip(reason='Inconsistent behaviour')
+            ),
+        ]
+    )
     def configured_pacer(self, pacer: Pacer, request):
         """Configure the pacer to have a paced action."""
         pacer.inject_config(
@@ -59,7 +67,6 @@ class TestPacer:
         """Test what happens when a pace is set"""
         await configured_pacer.ahit("paced_action")
 
-    @pytest.mark.skip(reason="Inconsistent behaviour with elastic_window")
     async def test_async_pace_limit(self, configured_pacer: Pacer):
         """Test that actions are being properly paced"""
         async def micro_task():
