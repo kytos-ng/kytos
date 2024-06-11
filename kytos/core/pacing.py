@@ -16,10 +16,10 @@ available_strategies = {
         limits.strategies.FixedWindowRateLimiter,
         limits.aio.strategies.FixedWindowRateLimiter,
     ),
-    "elastic_window": (
-        limits.strategies.FixedWindowElasticExpiryRateLimiter,
-        limits.aio.strategies.FixedWindowElasticExpiryRateLimiter,
-    ),
+    # "elastic_window": (
+    #     limits.strategies.FixedWindowElasticExpiryRateLimiter,
+    #     limits.aio.strategies.FixedWindowElasticExpiryRateLimiter,
+    # ),
 }
 
 
