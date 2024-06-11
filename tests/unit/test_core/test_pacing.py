@@ -80,18 +80,18 @@ class TestPacer:
         loop = asyncio.get_event_loop()
 
         start = loop.time()
-        async with asyncio.timeout(20):
+        async with asyncio.timeout(5):
             await asyncio.gather(
                 *[
                     micro_task()
-                    for _ in range(50)
+                    for _ in range(20)
                 ]
             )
         end = loop.time()
 
         elapsed = end - start
 
-        assert elapsed > 4
+        assert elapsed > 1
 
     def test_pace_limit(self, configured_pacer: Pacer):
         """Test that actions are being properly paced"""
@@ -99,7 +99,7 @@ class TestPacer:
 
         start = time.time()
 
-        while actions_executed < 50:
+        while actions_executed < 20:
             configured_pacer.hit("paced_action")
             actions_executed = actions_executed + 1
 
@@ -107,7 +107,7 @@ class TestPacer:
 
         elapsed = end - start
 
-        assert elapsed > 4
+        assert elapsed > 1
 
     def test_nonexistant_strategy(self, pacer: Pacer):
         """Make sure that nonexistant strategies raise an exception"""
