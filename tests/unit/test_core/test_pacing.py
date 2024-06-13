@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from kytos.core.pacing import Pacer, PacerWrapper
+from kytos.core.pacing import NoSuchActionError, Pacer, PacerWrapper
 
 
 class TestPacer:
@@ -54,7 +54,8 @@ class TestPacer:
 
     def test_missing_pace(self, pacer: Pacer):
         """Test what happens when no pace is set."""
-        pacer.hit("unpaced_action")
+        with pytest.raises(NoSuchActionError):
+            pacer.hit("unpaced_action")
 
     def test_existing_pace(self, configured_pacer: Pacer):
         """Test what happens when a pace is set"""
@@ -62,7 +63,8 @@ class TestPacer:
 
     async def test_async_missing_pace(self, pacer: Pacer):
         """Test what happens when no pace is set."""
-        await pacer.ahit("unpaced_action")
+        with pytest.raises(NoSuchActionError):
+            await pacer.ahit("unpaced_action")
 
     async def test_async_existing_pace(self, configured_pacer: Pacer):
         """Test what happens when a pace is set"""
