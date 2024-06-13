@@ -19,10 +19,6 @@ class TestPacer:
     @pytest.fixture(
         params=[
             'fixed_window',
-            pytest.param(
-                'elastic_window',
-                marks=pytest.mark.skip(reason='Inconsistent behaviour')
-            ),
         ]
     )
     def strategy(self, request):
