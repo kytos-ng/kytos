@@ -22,10 +22,11 @@ available_strategies = {
     # ),
 }
 
+
 class NoSuchActionError(BaseException):
     """
     Exception for trying to use actions that aren't configured.
-    
+
     Not intended to be caught by NApps.
     """
 
@@ -85,7 +86,9 @@ class Pacer:
         This can be called from the serving thread safely.
         """
         if action_name not in self.pace_config:
-            raise NoSuchActionError(f"`{action_name}` has not been configured yet")
+            raise NoSuchActionError(
+                f"`{action_name}` has not been configured yet"
+            )
         strat, pace = self.pace_config[action_name]
         identifiers = pace, action_name, *keys
         strategy = self.async_strategies[strat]
@@ -107,7 +110,9 @@ class Pacer:
         the pacing.
         """
         if action_name not in self.pace_config:
-            raise NoSuchActionError(f"`{action_name}` has not been configured yet")
+            raise NoSuchActionError(
+                f"`{action_name}` has not been configured yet"
+            )
         strat, pace = self.pace_config[action_name]
         identifiers = pace, action_name, *keys
         strategy = self.sync_strategies[strat]
