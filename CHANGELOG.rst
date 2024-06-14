@@ -6,6 +6,10 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Added
+=====
+- Added in the ``pacer`` to the kytos controller. The ``pacer`` can be used by NApps to pace specific actions, at a specified ``pace`` using a specified ``strategy``. For more info see EP0038. NOTE: The only available strategy at this time is ``fixed_window``.
+
 Changed
 =======
 - Updated python environment installation from 3.9 to 3.11

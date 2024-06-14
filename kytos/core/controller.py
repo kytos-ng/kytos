@@ -48,6 +48,7 @@ from kytos.core.logs import LogManager
 from kytos.core.napps.base import NApp
 from kytos.core.napps.manager import NAppsManager
 from kytos.core.napps.napp_dir_listener import NAppDirListener
+from kytos.core.pacing import Pacer
 from kytos.core.queue_monitor import QueueMonitorWindow
 from kytos.core.switch import Switch
 
@@ -163,6 +164,9 @@ class Controller:
         #: from napps.<username>.<napp_name> import ?....
         sys.path.append(os.path.join(self.options.napps, os.pardir))
         sys.excepthook = exc_handler
+
+        #: Pacer for controlling the rate which actions can be executed
+        self.pacer = Pacer("memory://")
 
     def start_auth(self):
         """Initialize Auth() and its services"""
