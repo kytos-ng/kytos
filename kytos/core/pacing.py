@@ -11,11 +11,51 @@ from limits.storage import storage_from_string
 LOG = logging.getLogger(__name__)
 
 
+class EmptyStrategy(limits.strategies.FixedWindowRateLimiter):
+    """Rate limiter, that doesn't actually rate limit."""
+
+    def hit(
+        self,
+        item: RateLimitItem,
+        *identifiers: str,
+        cost: int = 1
+    ) -> bool:
+        self.storage.incr(
+            item.key_for(*identifiers),
+            item.get_expiry(),
+            elastic_expiry=False,
+            amount=cost,
+        )
+        return True
+
+
+class AsyncEmptyStrategy(limits.aio.strategies.FixedWindowRateLimiter):
+    """Rate limiter, that doesn't actually rate limit."""
+
+    async def hit(
+        self,
+        item: RateLimitItem,
+        *identifiers: str,
+        cost: int = 1
+    ) -> bool:
+        await self.storage.incr(
+            item.key_for(*identifiers),
+            item.get_expiry(),
+            elastic_expiry=False,
+            amount=cost,
+        )
+        return True
+
+
 available_strategies = {
     "fixed_window": (
         limits.strategies.FixedWindowRateLimiter,
         limits.aio.strategies.FixedWindowRateLimiter,
     ),
+    "ignore_pace": (
+        EmptyStrategy,
+        AsyncEmptyStrategy,
+    )
     # "elastic_window": (
     #     limits.strategies.FixedWindowElasticExpiryRateLimiter,
     #     limits.aio.strategies.FixedWindowElasticExpiryRateLimiter,

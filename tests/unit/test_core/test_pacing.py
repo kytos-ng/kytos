@@ -19,6 +19,7 @@ class TestPacer:
     @pytest.fixture(
         params=[
             'fixed_window',
+            'ignore_pace',
         ]
     )
     def strategy(self, request):
@@ -47,9 +48,11 @@ class TestPacer:
         """Check which strategies are present."""
         assert set(pacer.sync_strategies) == {
             'fixed_window',
+            'ignore_pace'
         }
         assert set(pacer.async_strategies) == {
             'fixed_window',
+            'ignore_pace'
         }
 
     def test_missing_pace(self, pacer: Pacer):
@@ -70,7 +73,7 @@ class TestPacer:
         """Test what happens when a pace is set"""
         await configured_pacer.ahit("paced_action")
 
-    async def test_async_pace_limit(self, configured_pacer: Pacer):
+    async def test_async_pace_limit(self, strategy, configured_pacer: Pacer):
         """Test that actions are being properly paced"""
         async def micro_task():
             await configured_pacer.ahit("paced_action")
@@ -89,9 +92,12 @@ class TestPacer:
 
         elapsed = end - start
 
-        assert elapsed > 1
+        if strategy != 'ignore_pace':
+            assert elapsed > 1
+        else:
+            assert elapsed < 1
 
-    def test_pace_limit(self, configured_pacer: Pacer):
+    def test_pace_limit(self, strategy, configured_pacer: Pacer):
         """Test that actions are being properly paced"""
         actions_executed = 0
 
@@ -105,7 +111,10 @@ class TestPacer:
 
         elapsed = end - start
 
-        assert elapsed > 1
+        if strategy != 'ignore_pace':
+            assert elapsed > 1
+        else:
+            assert elapsed < 1
 
     def test_nonexistant_strategy(self, pacer: Pacer):
         """Make sure that nonexistant strategies raise an exception"""
