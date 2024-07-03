@@ -167,6 +167,11 @@ class Pacer:
 
             time.sleep(sleep_time)
 
+    def is_configured(self, action_name):
+        """
+        Check if the given action has been configured.
+        """
+        return action_name in self.pace_config
 
 class PacerWrapper:
     """
@@ -213,6 +218,14 @@ class PacerWrapper:
         return await self.pacer.ahit(
             self._localized_key(action_name),
             *keys
+        )
+
+    def is_configured(self, action_name: str):
+        """
+        Check if the given action has been configured.
+        """
+        return self.pacer.is_configured(
+            self._localized_key(action_name)
         )
 
     def _localized_key(self, key):
