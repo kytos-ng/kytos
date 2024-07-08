@@ -173,6 +173,7 @@ class Pacer:
         """
         return action_name in self.pace_config
 
+
 class PacerWrapper:
     """
     Applies a namespace to various operations related to pacing.
