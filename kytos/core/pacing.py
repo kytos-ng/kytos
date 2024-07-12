@@ -11,11 +11,53 @@ from limits.storage import storage_from_string
 LOG = logging.getLogger(__name__)
 
 
+class EmptyStrategy(limits.strategies.FixedWindowRateLimiter):
+    """Rate limiter, that doesn't actually rate limit."""
+
+    def hit(
+        self,
+        item: RateLimitItem,
+        *identifiers: str,
+        cost: int = 1
+    ) -> bool:
+        # Increment storage, to collect data on usage rate of actions
+        self.storage.incr(
+            item.key_for(*identifiers),
+            item.get_expiry(),
+            elastic_expiry=False,
+            amount=cost,
+        )
+        return True
+
+
+class AsyncEmptyStrategy(limits.aio.strategies.FixedWindowRateLimiter):
+    """Rate limiter, that doesn't actually rate limit."""
+
+    async def hit(
+        self,
+        item: RateLimitItem,
+        *identifiers: str,
+        cost: int = 1
+    ) -> bool:
+        # Increment storage, to collect data on usage rate of actions
+        await self.storage.incr(
+            item.key_for(*identifiers),
+            item.get_expiry(),
+            elastic_expiry=False,
+            amount=cost,
+        )
+        return True
+
+
 available_strategies = {
     "fixed_window": (
         limits.strategies.FixedWindowRateLimiter,
         limits.aio.strategies.FixedWindowRateLimiter,
     ),
+    "ignore_pace": (
+        EmptyStrategy,
+        AsyncEmptyStrategy,
+    )
     # "elastic_window": (
     #     limits.strategies.FixedWindowElasticExpiryRateLimiter,
     #     limits.aio.strategies.FixedWindowElasticExpiryRateLimiter,
@@ -97,7 +139,7 @@ class Pacer:
                 *identifiers
             )
             sleep_time = window_reset - time.time()
-
+            LOG.info(f'Limited reached: {identifiers}')
             await asyncio.sleep(sleep_time)
 
     def hit(self, action_name: str, *keys):
@@ -121,11 +163,17 @@ class Pacer:
                 *identifiers
             )
             sleep_time = window_reset - time.time()
-
+            LOG.info(f'Limited reached: {identifiers}')
             if sleep_time <= 0:
                 continue
 
             time.sleep(sleep_time)
+
+    def is_configured(self, action_name):
+        """
+        Check if the given action has been configured.
+        """
+        return action_name in self.pace_config
 
 
 class PacerWrapper:
@@ -173,6 +221,14 @@ class PacerWrapper:
         return await self.pacer.ahit(
             self._localized_key(action_name),
             *keys
+        )
+
+    def is_configured(self, action_name: str):
+        """
+        Check if the given action has been configured.
+        """
+        return self.pacer.is_configured(
+            self._localized_key(action_name)
         )
 
     def _localized_key(self, key):
