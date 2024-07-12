@@ -20,6 +20,7 @@ class EmptyStrategy(limits.strategies.FixedWindowRateLimiter):
         *identifiers: str,
         cost: int = 1
     ) -> bool:
+        # Increment storage, to collect data on usage rate of actions
         self.storage.incr(
             item.key_for(*identifiers),
             item.get_expiry(),
@@ -38,6 +39,7 @@ class AsyncEmptyStrategy(limits.aio.strategies.FixedWindowRateLimiter):
         *identifiers: str,
         cost: int = 1
     ) -> bool:
+        # Increment storage, to collect data on usage rate of actions
         await self.storage.incr(
             item.key_for(*identifiers),
             item.get_expiry(),
@@ -137,7 +139,7 @@ class Pacer:
                 *identifiers
             )
             sleep_time = window_reset - time.time()
-
+            LOG.info(f'Limited reached: {identifiers}')
             await asyncio.sleep(sleep_time)
 
     def hit(self, action_name: str, *keys):
@@ -161,7 +163,7 @@ class Pacer:
                 *identifiers
             )
             sleep_time = window_reset - time.time()
-
+            LOG.info(f'Limited reached: {identifiers}')
             if sleep_time <= 0:
                 continue
 
