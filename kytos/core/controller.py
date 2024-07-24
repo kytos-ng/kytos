@@ -583,17 +583,22 @@ class Controller:
                     else:
                         listener(event)
 
+    # pylint: disable=broad-exception-caught
     async def event_handler(self, buffer_name: str):
         """Default event handler that gets from an event buffer."""
         event_buffer = getattr(self.buffers, buffer_name)
         self.log.info(f"Event handler {buffer_name} started")
         while True:
-            event = await event_buffer.aget()
-            self.notify_listeners(event)
+            try:
+                event = await event_buffer.aget()
+                self.notify_listeners(event)
 
-            if event.name == "kytos/core.shutdown":
-                self.log.debug(f"Event handler {buffer_name} stopped")
-                break
+                if event.name == "kytos/core.shutdown":
+                    self.log.debug(f"Event handler {buffer_name} stopped")
+                    break
+            except Exception as exc:
+                self.log.exception(f"Unhandled exception on {buffer_name}",
+                                   exc_info=exc)
 
     async def publish_connection_error(self, event):
         """Publish connection error event.
@@ -607,6 +612,7 @@ class Controller:
         event.content["exception"] = error_msg
         await self.buffers.conn.aput(event)
 
+    # pylint: disable=broad-exception-caught
     async def msg_out_event_handler(self):
         """Handle msg_out events.
 
@@ -615,15 +621,15 @@ class Controller:
         """
         self.log.info("Event handler msg_out started")
         while True:
-            triggered_event = await self.buffers.msg_out.aget()
-
-            if triggered_event.name == "kytos/core.shutdown":
-                self.log.debug("Message Out Event handler stopped")
-                break
-
-            message = triggered_event.content['message']
-            destination = triggered_event.destination
             try:
+                triggered_event = await self.buffers.msg_out.aget()
+
+                if triggered_event.name == "kytos/core.shutdown":
+                    self.log.debug("Message Out Event handler stopped")
+                    break
+
+                message = triggered_event.content['message']
+                destination = triggered_event.destination
                 if (destination and
                         not destination.state == ConnectionState.FINISHED):
                     packet = message.pack()
@@ -644,6 +650,9 @@ class Controller:
                     f"Discarding message: {message}, event: {triggered_event} "
                     f"because of PackException {err}"
                 )
+            except Exception as exc:
+                self.log.exception("Unhandled exception on msg_out",
+                                   exc_info=exc)
 
     def get_interface_by_id(self, interface_id):
         """Find a Interface  with interface_id.

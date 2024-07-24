@@ -15,6 +15,7 @@ Changed
 - Updated python environment installation from 3.9 to 3.11
 - Updated test dependencies
 - MongoDB version has been updated to 7.0
+- Queue buffers event handlers will now handle and log broad exceptions keeping the task execution alive
 
 General Information
 ===================

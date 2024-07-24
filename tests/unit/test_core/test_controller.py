@@ -818,6 +818,21 @@ class TestControllerAsync:
         await controller.msg_out_event_handler()
         assert controller.log.error.call_count == 1
 
+    async def test_msg_out_event_handler_broad_exc(self, controller):
+        """Test msg_out_event_handler async broad exception."""
+        controller._buffers = KytosBuffers()
+        dst, msg = MagicMock(), MagicMock()
+        dst.state = 0
+        msg.pack.side_effect = ValueError("some error")
+        event_1 = KytosEvent('kytos/core.any',
+                             content={'message': msg, 'destination': dst})
+        event_2 = KytosEvent('kytos/core.shutdown')
+
+        await controller.buffers.msg_out._queue.async_q.put(event_1)
+        await controller.buffers.msg_out._queue.async_q.put(event_2)
+        await controller.msg_out_event_handler()
+        assert controller.log.exception.call_count == 1
+
     async def test_app_event_handler(self, controller):
         """Test app_event_handler async method by handling a shutdown event."""
         controller._buffers = KytosBuffers()
@@ -826,6 +841,19 @@ class TestControllerAsync:
         await controller.buffers.app._queue.async_q.put(event)
         await controller.event_handler("app")
         controller.notify_listeners.assert_called_with(event)
+
+    async def test_app_event_handler_exc(self, controller):
+        """Test app_event_handler async method exc."""
+        controller._buffers = KytosBuffers()
+        event1 = KytosEvent("kytos/core.any", content={"message": ""})
+        event2 = KytosEvent("kytos/core.shutdown")
+        controller.notify_listeners = MagicMock()
+        controller.notify_listeners.side_effect = [ValueError("some error"), 1]
+        await controller.buffers.app._queue.async_q.put(event1)
+        await controller.buffers.app._queue.async_q.put(event2)
+        await controller.event_handler("app")
+        assert controller.log.exception.call_count == 1
+        controller.notify_listeners.assert_called_with(event2)
 
     async def test_configuration_endpoint(self, controller, api_client):
         """Should return the attribute options as json."""
