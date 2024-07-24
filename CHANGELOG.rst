@@ -6,6 +6,9 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2024.1.0] - 2024-07-23
+***********************
+
 Added
 =====
 - Added in the ``pacer`` to the kytos controller. The ``pacer`` can be used by NApps to pace specific actions, at a specified ``pace`` using a specified ``strategy``. For more info see EP0038. NOTE: The only available strategy at this time is ``fixed_window``.
@@ -13,7 +16,6 @@ Added
 Changed
 =======
 - Updated python environment installation from 3.9 to 3.11
-- Updated test dependencies
 - MongoDB version has been updated to 7.0
 - Queue buffers event handlers will now handle and log broad exceptions keeping the task execution alive
 
