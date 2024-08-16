@@ -62,7 +62,7 @@ class APIServer:
         )
         kytos_conf = KytosConfig().options["daemon"]
 
-        api_threadpool_size = get_thread_pool_max_workers().get('api', 160)
+        api_threadpool_size = get_thread_pool_max_workers().get('api', 512)
 
         concurrency_limit = kytos_conf.api_concurrency_limit
         if concurrency_limit == 'threadpool':
