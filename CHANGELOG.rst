@@ -18,10 +18,12 @@ Changed
 - Updated python environment installation from 3.9 to 3.11
 - MongoDB version has been updated to 7.0
 - Queue buffers event handlers will now handle and log broad exceptions keeping the task execution alive
+- Raised the ``api`` threadpool workers to 512.
 
 General Information
 ===================
 - Kytos is tested and supported with mongo version 7.0. It can work with the lower versions 6.0 and 5.0 but they are not guaranteed to work flawlessly. To update mongo version follow these `steps <https://github.com/kytos-ng/kytos/pull/470>`_.
+- If you encounter problems with the http api being unavailable (return code 503), then you should boost the ``api`` threadpool size. As a general rule of thumb you should have two ``api`` threads for every three EVCs.
 
 
 [2023.2.0] - 2024-02-16
