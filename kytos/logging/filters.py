@@ -115,4 +115,4 @@ class RepeateMessageFilter:
 
     @staticmethod
     def _record_key(record: LogRecord):
-        return (record.module, record.levelno, record.message, record.args)
+        return (record.module, record.levelno, record.msg, record.args)
