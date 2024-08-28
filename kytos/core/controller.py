@@ -214,8 +214,6 @@ class Controller:
                     new_logger.addFilter(log_filter)
             module.LOG = new_logger
 
-            
-
     @staticmethod
     def loggers():
         """List all logging Loggers.

@@ -1,10 +1,11 @@
 
+import time
 from logging import LogRecord
 from threading import Lock
-import time
 from typing import Generic, Self, TypeVar
 
 T = TypeVar("T")
+
 
 class _DoublyLinkedList(Generic[T]):
     value: T
@@ -45,16 +46,17 @@ class _DoublyLinkedList(Generic[T]):
             yield curr.value
             curr = curr.next
 
+
 K = TypeVar("K")
 V = TypeVar("V")
+
 
 class _LimitedCache(Generic[K, V]):
     root: _DoublyLinkedList[tuple[K, V] | None]
     cache: dict[K, _DoublyLinkedList[tuple[K, V]]]
     max_size: int
 
-
-    def __init__(self, max_size = 512):
+    def __init__(self, max_size=512):
         self.root = _DoublyLinkedList(None)
         self.cache = {}
         self.max_size = max_size
@@ -63,10 +65,10 @@ class _LimitedCache(Generic[K, V]):
         entry = self.cache[key]
         _, v = entry.value
         return v
-    
+
     def __contains__(self, key: K) -> bool:
         return key in self.cache
-    
+
     def __setitem__(self, key: K, value: V):
         if key in self.cache:
             entry = self.cache[key]
@@ -76,7 +78,7 @@ class _LimitedCache(Generic[K, V]):
             entry = _DoublyLinkedList(
                 (key, value)
             )
-            self.cache[key]  = entry
+            self.cache[key] = entry
             if len(self.cache) == self.max_size:
                 self._remove_oldest()
 
@@ -98,7 +100,7 @@ class RepeateMessageFilter:
     lockout_time: float
     _cache: _LimitedCache
     _lock: Lock
-    
+
     def __init__(self, lockout_time: float, cache_size: int = 512):
         self.lockout_time = lockout_time
         self._cache = _LimitedCache(cache_size)
@@ -108,7 +110,10 @@ class RepeateMessageFilter:
         key = self._record_key(record)
         current_time = time.time()
         with self._lock:
-            if(key not in self._cache) or (current_time - self._cache[key] > self.lockout_time):
+            if key not in self._cache:
+                self._cache[key] = current_time
+                return True
+            elif current_time - self._cache[key] > self.lockout_time:
                 self._cache[key] = current_time
                 return True
             return False
