@@ -205,7 +205,13 @@ class Controller:
         reloadable_mods = [module for mod_name, module in sys.modules.items()
                            if mod_name[:str_len] == match_str]
         for module in reloadable_mods:
+            old_logger = module.LOG
             module.LOG = logging.getLogger(module.__name__)
+            for handler in old_logger.handlers:
+                module.LOG.addHandler(handler)
+            for log_filter in old_logger.filters:
+                module.LOG.addFilter(log_filter)
+            
 
     @staticmethod
     def loggers():

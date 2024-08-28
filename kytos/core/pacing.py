@@ -8,7 +8,11 @@ import limits.strategies
 from limits import RateLimitItem, parse
 from limits.storage import storage_from_string
 
+from kytos.logging.filters import RepeateMessageFilter
+
 LOG = logging.getLogger(__name__)
+
+LOG.addFilter(RepeateMessageFilter(3.0, 512))
 
 
 class EmptyStrategy(limits.strategies.FixedWindowRateLimiter):
