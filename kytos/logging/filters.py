@@ -37,4 +37,11 @@ class RepeateMessageFilter:
 
     @staticmethod
     def _record_key(record: LogRecord):
-        return (record.pathname, record.module, record.lineno, record.levelno, record.msg, record.args)
+        return (
+            record.pathname,
+            record.module,
+            record.lineno,
+            record.levelno,
+            record.msg,
+            record.args
+        )
