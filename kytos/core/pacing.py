@@ -12,7 +12,7 @@ from kytos.logging.filters import RepeateMessageFilter
 
 LOG = logging.getLogger(__name__)
 
-LOG.addFilter(RepeateMessageFilter(3.0, 512))
+LOG.addFilter(RepeateMessageFilter(1.0, 512))
 
 
 class EmptyStrategy(limits.strategies.FixedWindowRateLimiter):
