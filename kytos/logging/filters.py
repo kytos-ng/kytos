@@ -23,7 +23,6 @@ class RepeateMessageFilter:
         with self._lock:
             if key not in self._cache:
                 self._cache[key] = current_time
-                self._cache.move_to_end(key)
                 if len(self._cache) > self.cache_size:
                     self._cache.popitem(last=False)
                 return True
