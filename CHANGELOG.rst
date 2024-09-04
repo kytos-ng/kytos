@@ -6,6 +6,9 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2024.1.1] - 2024-08-04
+***********************
+
 Added
 =====
 - Added logging filter to suppress frequently repeated messages from pacing.
