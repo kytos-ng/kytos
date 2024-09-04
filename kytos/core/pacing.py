@@ -143,7 +143,7 @@ class Pacer:
                 *identifiers
             )
             sleep_time = window_reset - time.time()
-            LOG.info(f'Limited reached: {identifiers}')
+            LOG.info(f'Limit reached: {identifiers}')
             await asyncio.sleep(sleep_time)
 
     def hit(self, action_name: str, *keys):
