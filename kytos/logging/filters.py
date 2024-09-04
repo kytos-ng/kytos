@@ -1,5 +1,4 @@
 
-import time
 from collections import OrderedDict
 from logging import LogRecord
 from threading import Lock
@@ -19,7 +18,7 @@ class RepeateMessageFilter:
 
     def filter(self, record: LogRecord) -> bool:
         key = self._record_key(record)
-        current_time = time.time()
+        current_time = record.created
         with self._lock:
             if key not in self._cache:
                 self._cache[key] = current_time
