@@ -8,7 +8,11 @@ import limits.strategies
 from limits import RateLimitItem, parse
 from limits.storage import storage_from_string
 
+from kytos.logging.filters import RepeateMessageFilter
+
 LOG = logging.getLogger(__name__)
+
+LOG.addFilter(RepeateMessageFilter(1.0, 512))
 
 
 class EmptyStrategy(limits.strategies.FixedWindowRateLimiter):
@@ -139,7 +143,7 @@ class Pacer:
                 *identifiers
             )
             sleep_time = window_reset - time.time()
-            LOG.info(f'Limited reached: {identifiers}')
+            LOG.info(f'Limit reached: {identifiers}')
             await asyncio.sleep(sleep_time)
 
     def hit(self, action_name: str, *keys):
