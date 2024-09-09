@@ -167,7 +167,7 @@ class Pacer:
                 *identifiers
             )
             sleep_time = window_reset - time.time()
-            LOG.info(f'Limited reached: {identifiers}')
+            LOG.info(f'Limit reached: {identifiers}')
             if sleep_time <= 0:
                 continue
 
