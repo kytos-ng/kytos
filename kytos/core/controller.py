@@ -263,7 +263,7 @@ class Controller:
             # enable debug
             logger.setLevel(logging.DEBUG)
 
-    def start(self, restart=False):
+    async def start(self, restart=False):
         """Create pidfile and call start_controller method."""
         self.enable_logs()
         # pylint: disable=broad-except
@@ -275,7 +275,7 @@ class Controller:
                 self.apm = init_apm(self.options.apm, app=self.api_server.app)
             if not restart:
                 self.create_pidfile()
-            self.start_controller()
+            await self.start_controller()
         except (KytosDBInitException, KytosAPMInitException) as exc:
             message = f"Kytos couldn't start because of {str(exc)}"
             sys.exit(message)
@@ -361,7 +361,7 @@ class Controller:
             self._buffers = KytosBuffers()
         return self._buffers
 
-    def start_controller(self):
+    async def start_controller(self):
         """Start the controller.
 
         Starts the KytosServer (TCP Server) coroutine.
@@ -382,6 +382,8 @@ class Controller:
 
         task = self.loop.create_task(self.api_server.serve())
         self._tasks.append(task)
+        while not self.api_server.server.started:
+            await asyncio.sleep(0.1)
 
         # ASYNC TODO: ensure all threads started correctly
         # This is critical, if any of them failed starting we should exit.

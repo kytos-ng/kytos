@@ -156,7 +156,7 @@ def async_main(config):
     if controller.options.debug:
         loop.set_debug(True)
 
-    loop.call_soon(controller.start)
+    loop.run_until_complete(controller.start())
 
     shell_task = None
     if controller.options.foreground:
