@@ -270,7 +270,6 @@ class Controller:
         try:
             if self.options.database:
                 db_conn_wait(db_backend=self.options.database)
-                self.start_auth()
             if self.options.apm:
                 self.apm = init_apm(self.options.apm, app=self.api_server.app)
             if not restart:
@@ -361,6 +360,11 @@ class Controller:
             self._buffers = KytosBuffers()
         return self._buffers
 
+    async def _wait_api_server_started(self):
+        """Use this method to wait for Uvicorn server to start."""
+        while not self.api_server.server.started:
+            await asyncio.sleep(0.1)
+
     async def start_controller(self):
         """Start the controller.
 
@@ -382,13 +386,14 @@ class Controller:
 
         task = self.loop.create_task(self.api_server.serve())
         self._tasks.append(task)
-        while not self.api_server.server.started:
-            await asyncio.sleep(0.1)
+        await self._wait_api_server_started()
 
         # ASYNC TODO: ensure all threads started correctly
         # This is critical, if any of them failed starting we should exit.
         # sys.exit(error_msg.format(thread, exception))
 
+        self.log.info("Starting authorization.")
+        self.start_auth()
         self.log.info("Loading Kytos NApps...")
         self.napp_dir_listener.start()
         self.pre_install_napps(self.options.napps_pre_installed)
