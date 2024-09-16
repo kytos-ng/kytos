@@ -89,7 +89,7 @@ class TestKytosd:
 
         async_main(MagicMock())
 
-        event_loop.call_soon.assert_called_with(controller.start)
+        event_loop.run_until_complete.assert_called_with(controller.start())
 
     @patch("builtins.open", create=True)
     @patch('kytos.core.kytosd.os')

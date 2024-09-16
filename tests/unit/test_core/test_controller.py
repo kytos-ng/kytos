@@ -170,12 +170,12 @@ class TestController:
     @patch('kytos.core.controller.Controller.start_controller')
     @patch('kytos.core.controller.Controller.create_pidfile')
     @patch('kytos.core.controller.Controller.enable_logs')
-    def test_start(self, *args):
+    async def test_start(self, *args):
         """Test start method."""
         (mock_enable_logs, mock_create_pidfile,
          mock_start_controller, mock_db_conn_wait,
          mock_init_apm) = args
-        self.controller.start()
+        await self.controller.start()
 
         mock_enable_logs.assert_called()
         mock_create_pidfile.assert_called()
@@ -190,13 +190,13 @@ class TestController:
     @patch('kytos.core.controller.Controller.start_controller')
     @patch('kytos.core.controller.Controller.create_pidfile')
     @patch('kytos.core.controller.Controller.enable_logs')
-    def test_start_error_broad_exception(self, *args):
+    async def test_start_error_broad_exception(self, *args):
         """Test start error handling broad exception."""
         (mock_enable_logs, mock_create_pidfile,
          mock_start_controller, mock_db_conn_wait,
          mock_init_apm, mock_sys) = args
         mock_start_controller.side_effect = Exception
-        self.controller.start()
+        await self.controller.start()
 
         mock_enable_logs.assert_called()
         mock_create_pidfile.assert_called()
@@ -210,14 +210,14 @@ class TestController:
     @patch('kytos.core.controller.Controller.start_controller')
     @patch('kytos.core.controller.Controller.create_pidfile')
     @patch('kytos.core.controller.Controller.enable_logs')
-    def test_start_with_mongodb_and_apm(self, *args):
+    async def test_start_with_mongodb_and_apm(self, *args):
         """Test start method with database and APM options set."""
         (mock_enable_logs, mock_create_pidfile,
          mock_start_controller, mock_db_conn_wait,
          mock_init_apm) = args
         self.controller.options.database = "mongodb"
         self.controller.options.apm = "es"
-        self.controller.start()
+        await self.controller.start()
 
         mock_enable_logs.assert_called()
         mock_create_pidfile.assert_called()
@@ -229,11 +229,11 @@ class TestController:
     @patch('kytos.core.controller.sys.exit')
     @patch('kytos.core.controller.Controller.create_pidfile')
     @patch('kytos.core.controller.Controller.enable_logs')
-    def test_start_with_invalid_database_backend(self, *args):
+    async def test_start_with_invalid_database_backend(self, *args):
         """Test start method with unsupported database backend."""
         (mock_enable_logs, _, mock_sys_exit) = args
         self.controller.options.database = "invalid"
-        self.controller.start()
+        await self.controller.start()
         mock_enable_logs.assert_called()
         mock_sys_exit.assert_called()
 
@@ -722,7 +722,7 @@ class TestControllerAsync:
         controller.api_server = MagicMock()
         controller.load_napps = MagicMock()
         controller.options.napps_pre_installed = [napp]
-        controller.start_controller()
+        await controller.start_controller()
         assert controller.buffers
 
         controller.server.serve_forever.assert_called()
