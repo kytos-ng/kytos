@@ -6,6 +6,13 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2024.1.2] - 2024-09-16
+***********************
+
+Changed
+=======
+- Kytos will wait until uvicorn server starts before loading NApps.
+
 [2024.1.1] - 2024-08-04
 ***********************
 

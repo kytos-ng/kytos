@@ -263,19 +263,18 @@ class Controller:
             # enable debug
             logger.setLevel(logging.DEBUG)
 
-    def start(self, restart=False):
+    async def start(self, restart=False):
         """Create pidfile and call start_controller method."""
         self.enable_logs()
         # pylint: disable=broad-except
         try:
             if self.options.database:
                 db_conn_wait(db_backend=self.options.database)
-                self.start_auth()
             if self.options.apm:
                 self.apm = init_apm(self.options.apm, app=self.api_server.app)
             if not restart:
                 self.create_pidfile()
-            self.start_controller()
+            await self.start_controller()
         except (KytosDBInitException, KytosAPMInitException) as exc:
             message = f"Kytos couldn't start because of {str(exc)}"
             sys.exit(message)
@@ -361,7 +360,12 @@ class Controller:
             self._buffers = KytosBuffers()
         return self._buffers
 
-    def start_controller(self):
+    async def _wait_api_server_started(self):
+        """Use this method to wait for Uvicorn server to start."""
+        while not self.api_server.server.started:
+            await asyncio.sleep(0.1)
+
+    async def start_controller(self):
         """Start the controller.
 
         Starts the KytosServer (TCP Server) coroutine.
@@ -377,16 +381,20 @@ class Controller:
                                   self,
                                   self.options.protocol_name)
 
-        self.log.info("Starting TCP server: %s", self.server)
-        self.server.serve_forever()
-
+        self.log.info("Starting API server")
         task = self.loop.create_task(self.api_server.serve())
         self._tasks.append(task)
+        await self._wait_api_server_started()
+
+        self.log.info(f"Starting TCP server: {self.server}")
+        self.server.serve_forever()
 
         # ASYNC TODO: ensure all threads started correctly
         # This is critical, if any of them failed starting we should exit.
         # sys.exit(error_msg.format(thread, exception))
 
+        self.log.info("Starting authorization.")
+        self.start_auth()
         self.log.info("Loading Kytos NApps...")
         self.napp_dir_listener.start()
         self.pre_install_napps(self.options.napps_pre_installed)
