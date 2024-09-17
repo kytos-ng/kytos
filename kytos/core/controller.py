@@ -381,12 +381,13 @@ class Controller:
                                   self,
                                   self.options.protocol_name)
 
-        self.log.info("Starting TCP server: %s", self.server)
-        self.server.serve_forever()
-
+        self.log.info("Starting API server")
         task = self.loop.create_task(self.api_server.serve())
         self._tasks.append(task)
         await self._wait_api_server_started()
+
+        self.log.info(f"Starting TCP server: {self.server}")
+        self.server.serve_forever()
 
         # ASYNC TODO: ensure all threads started correctly
         # This is critical, if any of them failed starting we should exit.
