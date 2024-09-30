@@ -251,8 +251,10 @@ class KytosNApp(Thread, metaclass=ABCMeta):
         except Exception:
             traceback_str = traceback.format_exc(chain=False)
             LOG.error(f"NApp: {self} unhandled exception {traceback_str}")
-        while self.__interval > 0 and not self.__event.is_set():
+        while self.__interval > 0:
             self.__event.wait(self.__interval)
+            if self.__event.is_set():
+                break
             try:
                 self.execute()
             except Exception:
@@ -276,8 +278,8 @@ class KytosNApp(Thread, metaclass=ABCMeta):
             event (:class:`KytosEvent`): event to be listened.
         """
         if not self.__event.is_set():
-            self.__event.set()
             self.shutdown()
+            self.__event.set()
 
     @abstractmethod
     def setup(self):
