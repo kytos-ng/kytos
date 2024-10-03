@@ -6,6 +6,10 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Fixed
+=====
+- Execute routines like consistency checks will not trigger one more time after kytos shuts down.
+
 [2024.1.2] - 2024-09-16
 ***********************
 
