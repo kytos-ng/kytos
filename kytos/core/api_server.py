@@ -198,13 +198,13 @@ class APIServer:
         """
         section_name = request.path_params["section_name"]
         section_name = '*' if section_name == "all" else section_name
-        path = f"{self.napps_dir}/*/*/ui/{section_name}/*.kytos"
+        path = f"{self.napps_dir}/*/*/ui/{section_name}/*.vue"
         components = []
         for name in glob(path):
             dirs_name = name.split('/')
             dirs_name.remove('ui')
 
-            component_name = '-'.join(dirs_name[-4:]).replace('.kytos', '')
+            component_name = '-'.join(dirs_name[-4:]).replace('.vue', '')
             url = f'ui/{"/".join(dirs_name[-4:])}'
             component = {'name': component_name, 'url': url}
             components.append(component)
