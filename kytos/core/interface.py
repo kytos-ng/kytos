@@ -2,7 +2,7 @@
 import json
 import logging
 import operator
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from copy import deepcopy
 from enum import Enum
 from functools import reduce
@@ -246,8 +246,12 @@ class Interface(GenericEntity):  # pylint: disable=too-many-instance-attributes
         """Return True if all tags are avaiable (no tags used),
          False otherwise"""
         with self._tag_lock:
-            return (self.available_tags == self.tag_ranges and
-                    self.special_available_tags == self.special_tags)
+            tags_bool = self.available_tags == self.tag_ranges
+            special_bool = True
+            for field, ranges in self.special_available_tags.items():
+                if Counter(ranges) != Counter(self.special_tags[field]):
+                    special_bool = False
+            return (tags_bool and special_bool)
 
     def set_tag_ranges(self, tag_ranges: list[list[int]], tag_type: str):
         """Set new restriction, tag_ranges."""
