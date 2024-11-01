@@ -9,6 +9,7 @@ UNRELEASED - Under development
 Fixed
 =====
 - Execute routines like consistency checks will not trigger one more time after kytos shuts down.
+- Order in ``interface.special_available_tags`` and ``interface.special_tags`` does not matter anymore when looking for used special tag.
 
 [2024.1.2] - 2024-09-16
 ***********************
