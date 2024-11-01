@@ -533,6 +533,10 @@ class TestInterface():
         self.iface.special_available_tags = {"vlan": ["any"]}
         assert self.iface.all_tags_available()
 
+        self.iface.special_available_tags = {"vlan": ["untagged", "any"]}
+        self.iface.special_tags = {"vlan": ["any", "untagged"]}
+        assert self.iface.all_tags_available()
+
 
 class TestUNI():
     """UNI tests."""
