@@ -96,6 +96,23 @@ def test_range_intersection():
     ]
     assert result == expected
 
+    result = []
+    iterator_result = range_intersection(tags_a, tags_b, reverse=True)
+    for tag_range in iterator_result:
+        result.append(tag_range)
+    expected = [
+        [30, 30], [27, 28], [25, 25], [22, 23], [15, 15], [12, 13], [3, 3]
+    ]
+    assert result == expected
+
+    tags = range_intersection(tags_a, tags_b)
+    first, _ = next(tags)
+    assert first == 3
+
+    tags = range_intersection(tags_a, tags_b, reverse=True)
+    _, last = next(tags)
+    assert last == 30
+
 
 def test_range_difference():
     """Test range_difference"""

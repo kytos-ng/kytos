@@ -143,7 +143,8 @@ class Link(GenericEntity):
     def get_next_available_tag(
         self,
         controller,
-        link_id,
+        link_id: str,
+        take_last: bool = False,
         tag_type: str = 'vlan'
     ) -> int:
         """Return the next available tag if exists."""
@@ -152,10 +153,11 @@ class Link(GenericEntity):
                 with self.endpoint_b._tag_lock:
                     ava_tags_a = self.endpoint_a.available_tags[tag_type]
                     ava_tags_b = self.endpoint_b.available_tags[tag_type]
-                    tags = range_intersection(ava_tags_a,
-                                              ava_tags_b)
+                    tags = range_intersection(ava_tags_a, ava_tags_b,
+                                              take_last)
                     try:
-                        tag, _ = next(tags)
+                        first, last = next(tags)
+                        tag = first if not take_last else last
                         self.endpoint_a.use_tags(
                             controller, tag, use_lock=False, check_order=False
                         )
