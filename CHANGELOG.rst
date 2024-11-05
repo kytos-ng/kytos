@@ -6,6 +6,10 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Added
+=====
+- Added option for links to obtained last TAG from ``interface.available_tags``
+
 Fixed
 =====
 - Execute routines like consistency checks will not trigger one more time after kytos shuts down.

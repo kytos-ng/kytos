@@ -210,7 +210,7 @@ class TestLink():
         tag = link.get_next_available_tag(controller, "link_id")
         next_tag = link.get_next_available_tag(controller, "link_id")
         assert tag == 1
-        assert tag != next_tag
+        assert next_tag == 2
 
     def test_get_next_available_tag_reverse(self, controller):
         """Test get last available tags returns different tags"""
@@ -218,7 +218,7 @@ class TestLink():
         tag = link.get_next_available_tag(controller, "link_id", True)
         next_tag = link.get_next_available_tag(controller, "link_id", True)
         assert tag == 4095
-        assert next_tag != tag
+        assert next_tag == 4094
 
     def test_tag_life_cicle(self, controller):
         """Test get next available tags returns different tags"""
