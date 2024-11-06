@@ -93,7 +93,8 @@ def get_validated_tags(
 
 def range_intersection(
     ranges_a: list[list[int]],
-    ranges_b: list[list[int]]
+    ranges_b: list[list[int]],
+    reverse: bool = False,
 ) -> Iterator[list[int]]:
     """Returns an iterator of an intersection between
     two validated list of ranges.
@@ -105,23 +106,35 @@ def range_intersection(
             get_validated_tags() for also list[int]
     """
     a_i, b_i = 0, 0
-    while a_i < len(ranges_a) and b_i < len(ranges_b):
+    index_diff = 1
+    if reverse:
+        a_i = len(ranges_a) - 1
+        b_i = len(ranges_b) - 1
+        index_diff = -1
+    while 0 <= a_i < len(ranges_a) and 0 <= b_i < len(ranges_b):
         fst_a, snd_a = ranges_a[a_i]
         fst_b, snd_b = ranges_b[b_i]
         # Moving forward with non-intersection
         if snd_a < fst_b:
-            a_i += 1
+            if not reverse:
+                a_i += index_diff
+            else:
+                b_i += index_diff
         elif snd_b < fst_a:
-            b_i += 1
+            if not reverse:
+                b_i += index_diff
+            else:
+                a_i += index_diff
         else:
             # Intersection
             intersection_start = max(fst_a, fst_b)
             intersection_end = min(snd_a, snd_b)
             yield [intersection_start, intersection_end]
-            if snd_a < snd_b:
-                a_i += 1
+            move_from_a = snd_a < snd_b if not reverse else fst_a > fst_b
+            if move_from_a:
+                a_i += index_diff
             else:
-                b_i += 1
+                b_i += index_diff
 
 
 def range_difference(
