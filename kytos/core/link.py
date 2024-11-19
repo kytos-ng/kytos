@@ -14,7 +14,7 @@ from kytos.core.common import EntityStatus, GenericEntity
 from kytos.core.exceptions import (KytosLinkCreationError,
                                    KytosNoTagAvailableError)
 from kytos.core.id import LinkID
-from kytos.core.interface import Interface, TAGType
+from kytos.core.interface import TAG, Interface, TAGType
 from kytos.core.tag_ranges import range_intersection
 
 
@@ -145,7 +145,8 @@ class Link(GenericEntity):
         controller,
         link_id: str,
         take_last: bool = False,
-        tag_type: str = 'vlan'
+        tag_type: str = 'vlan',
+        avoid_tag: TAG = None,
     ) -> int:
         """Return the next available tag if exists."""
         with self._get_available_vlans_lock[link_id]:
@@ -156,8 +157,21 @@ class Link(GenericEntity):
                     tags = range_intersection(ava_tags_a, ava_tags_b,
                                               take_last)
                     try:
-                        first, last = next(tags)
-                        tag = first if not take_last else last
+                        tag_range: list = next(tags)
+                        if (avoid_tag and
+                                tag_range[take_last] == avoid_tag.value):
+                            if (tag_range[take_last] !=
+                                    tag_range[not take_last]):
+                                tag = tag_range[take_last]
+                                tag += (+1) if not take_last else (-1)
+                            else:
+                                try:
+                                    tag = next(tags)[take_last]
+                                except StopIteration:
+                                    tag = tag_range[take_last]
+                        else:
+                            tag = tag_range[take_last]
+
                         self.endpoint_a.use_tags(
                             controller, tag, use_lock=False, check_order=False
                         )
