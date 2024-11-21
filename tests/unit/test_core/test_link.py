@@ -7,7 +7,7 @@ import pytest
 
 from kytos.core.common import EntityStatus
 from kytos.core.exceptions import KytosLinkCreationError
-from kytos.core.interface import TAG, Interface, TAGType
+from kytos.core.interface import Interface, TAGType
 from kytos.core.link import Link
 from kytos.core.switch import Switch
 
@@ -223,44 +223,44 @@ class TestLink():
     def test_get_next_available_tag_avoid_tag(self, controller):
         """Test get next available tag avoiding a tag"""
         link = Link(self.iface1, self.iface2)
-        avoid_tag = TAG('vlan', 1)
+        avoid_vlan = 1
 
         # Tag different that avoid tag is available in the same range
         link.endpoint_a.available_tags['vlan'] = [[1, 5]]
         tag = link.get_next_available_tag(
-            controller, "link_id", avoid_tag=avoid_tag
+            controller, "link_id", try_avoid_value=avoid_vlan
         )
         assert tag == 2
 
         # The next tag is the next range
         link.endpoint_a.available_tags['vlan'] = [[1, 1], [100, 300]]
         tag = link.get_next_available_tag(
-            controller, "link_id", avoid_tag=avoid_tag
+            controller, "link_id", try_avoid_value=avoid_vlan
         )
         assert tag == 100
 
         # No more tags available
         link.endpoint_a.available_tags['vlan'] = [[1, 1]]
         tag = link.get_next_available_tag(
-            controller, "link_id", avoid_tag=avoid_tag
+            controller, "link_id", try_avoid_value=avoid_vlan
         )
         assert tag == 1
 
         # Same cases but with reversed
-        avoid_tag = TAG('vlan', 50)
+        avoid_vlan = 50
         link.endpoint_a.available_tags['vlan'] = [[3, 50]]
         tag = link.get_next_available_tag(
-            controller, "link_id", take_last=True, avoid_tag=avoid_tag
+            controller, "link_id", True, try_avoid_value=avoid_vlan
         )
         assert tag == 49
         link.endpoint_a.available_tags['vlan'] = [[1, 20], [50, 50]]
         tag = link.get_next_available_tag(
-            controller, "link_id", take_last=True, avoid_tag=avoid_tag
+            controller, "link_id", True, try_avoid_value=avoid_vlan
         )
         assert tag == 20
         link.endpoint_a.available_tags['vlan'] = [[50, 50]]
         tag = link.get_next_available_tag(
-            controller, "link_id", take_last=True, avoid_tag=avoid_tag
+            controller, "link_id", True, try_avoid_value=avoid_vlan
         )
         assert tag == 50
 

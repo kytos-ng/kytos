@@ -14,7 +14,7 @@ from kytos.core.common import EntityStatus, GenericEntity
 from kytos.core.exceptions import (KytosLinkCreationError,
                                    KytosNoTagAvailableError)
 from kytos.core.id import LinkID
-from kytos.core.interface import TAG, Interface, TAGType
+from kytos.core.interface import Interface, TAGType
 from kytos.core.tag_ranges import range_intersection
 
 
@@ -146,9 +146,16 @@ class Link(GenericEntity):
         link_id: str,
         take_last: bool = False,
         tag_type: str = 'vlan',
-        avoid_tag: TAG = None,
+        try_avoid_value: int = None,
     ) -> int:
-        """Return the next available tag if exists."""
+        """Return the next available tag if exists. By default this
+         method returns the smallest tag available. Apply options to
+         change behavior.
+         Options:
+           - take_last (bool): Choose the largest tag available.
+           - try_avoid_value (int): Avoid given tag if possible. Otherwise
+             return what is available.
+        """
         with self._get_available_vlans_lock[link_id]:
             with self.endpoint_a._tag_lock:
                 with self.endpoint_b._tag_lock:
@@ -158,8 +165,8 @@ class Link(GenericEntity):
                                               take_last)
                     try:
                         tag_range: list = next(tags)
-                        if (avoid_tag and
-                                tag_range[take_last] == avoid_tag.value):
+                        if (try_avoid_value is not None and
+                                tag_range[take_last] == try_avoid_value):
                             if (tag_range[take_last] !=
                                     tag_range[not take_last]):
                                 tag = tag_range[take_last]
