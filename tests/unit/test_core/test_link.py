@@ -220,6 +220,50 @@ class TestLink():
         assert tag == 4095
         assert next_tag == 4094
 
+    def test_get_next_available_tag_avoid_tag(self, controller):
+        """Test get next available tag avoiding a tag"""
+        link = Link(self.iface1, self.iface2)
+        avoid_vlan = 1
+
+        # Tag different that avoid tag is available in the same range
+        link.endpoint_a.available_tags['vlan'] = [[1, 5]]
+        tag = link.get_next_available_tag(
+            controller, "link_id", try_avoid_value=avoid_vlan
+        )
+        assert tag == 2
+
+        # The next tag is the next range
+        link.endpoint_a.available_tags['vlan'] = [[1, 1], [100, 300]]
+        tag = link.get_next_available_tag(
+            controller, "link_id", try_avoid_value=avoid_vlan
+        )
+        assert tag == 100
+
+        # No more tags available
+        link.endpoint_a.available_tags['vlan'] = [[1, 1]]
+        tag = link.get_next_available_tag(
+            controller, "link_id", try_avoid_value=avoid_vlan
+        )
+        assert tag == 1
+
+        # Same cases but with reversed
+        avoid_vlan = 50
+        link.endpoint_a.available_tags['vlan'] = [[3, 50]]
+        tag = link.get_next_available_tag(
+            controller, "link_id", True, try_avoid_value=avoid_vlan
+        )
+        assert tag == 49
+        link.endpoint_a.available_tags['vlan'] = [[1, 20], [50, 50]]
+        tag = link.get_next_available_tag(
+            controller, "link_id", True, try_avoid_value=avoid_vlan
+        )
+        assert tag == 20
+        link.endpoint_a.available_tags['vlan'] = [[50, 50]]
+        tag = link.get_next_available_tag(
+            controller, "link_id", True, try_avoid_value=avoid_vlan
+        )
+        assert tag == 50
+
     def test_tag_life_cicle(self, controller):
         """Test get next available tags returns different tags"""
         link = Link(self.iface1, self.iface2)

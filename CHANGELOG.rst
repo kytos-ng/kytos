@@ -8,7 +8,8 @@ UNRELEASED - Under development
 
 Added
 =====
-- Added option for links to obtained last TAG from ``interface.available_tags``
+- Added option for links to get last TAG from ``interface.available_tags``.
+- Added option for links to try to avoid a TAG value from ``interface.available_tags``.
 
 Fixed
 =====
