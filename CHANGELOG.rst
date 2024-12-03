@@ -9,6 +9,14 @@ UNRELEASED - Under development
 [2023.2.1] - 2024-11-01
 ***********************
 
+Added
+=====
+- Added option for links to get last TAG from ``interface.available_tags``.
+- Added option for links to try to avoid a TAG value from ``interface.available_tags``.
+
+[2023.2.1] - 2024-11-01
+***********************
+
 Fixed
 =====
 - Order in ``interface.special_available_tags`` and ``interface.special_tags`` does not matter anymore when looking for used special tag.
