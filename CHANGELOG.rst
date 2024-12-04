@@ -6,6 +6,14 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2023.2.2] - 2024-12-03
+***********************
+
+Added
+=====
+- Added option for links to get last TAG from ``interface.available_tags``.
+- Added option for links to try to avoid a TAG value from ``interface.available_tags``.
+
 [2023.2.1] - 2024-11-01
 ***********************
 
