@@ -143,19 +143,42 @@ class Link(GenericEntity):
     def get_next_available_tag(
         self,
         controller,
-        link_id,
-        tag_type: str = 'vlan'
+        link_id: str,
+        take_last: bool = False,
+        tag_type: str = 'vlan',
+        try_avoid_value: int = None,
     ) -> int:
-        """Return the next available tag if exists."""
+        """Return the next available tag if exists. By default this
+         method returns the smallest tag available. Apply options to
+         change behavior.
+         Options:
+           - take_last (bool): Choose the largest tag available.
+           - try_avoid_value (int): Avoid given tag if possible. Otherwise
+             return what is available.
+        """
         with self._get_available_vlans_lock[link_id]:
             with self.endpoint_a._tag_lock:
                 with self.endpoint_b._tag_lock:
                     ava_tags_a = self.endpoint_a.available_tags[tag_type]
                     ava_tags_b = self.endpoint_b.available_tags[tag_type]
-                    tags = range_intersection(ava_tags_a,
-                                              ava_tags_b)
+                    tags = range_intersection(ava_tags_a, ava_tags_b,
+                                              take_last)
                     try:
-                        tag, _ = next(tags)
+                        tag_range = next(tags)
+                        if (try_avoid_value is not None and
+                                tag_range[take_last] == try_avoid_value):
+                            if (tag_range[take_last] !=
+                                    tag_range[not take_last]):
+                                tag = tag_range[take_last]
+                                tag += (+1) if not take_last else (-1)
+                            else:
+                                try:
+                                    tag = next(tags)[take_last]
+                                except StopIteration:
+                                    tag = tag_range[take_last]
+                        else:
+                            tag = tag_range[take_last]
+
                         self.endpoint_a.use_tags(
                             controller, tag, use_lock=False, check_order=False
                         )
