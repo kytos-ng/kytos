@@ -6,6 +6,13 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2024.1.4] - 2024-12-09
+***********************
+
+Fixed
+=====
+- Order in ``interface.special_available_tags`` and ``interface.special_tags`` does not matter anymore when looking for used special tag.
+
 [2024.1.3] - 2024-12-05
 ***********************
 

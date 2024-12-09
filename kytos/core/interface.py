@@ -246,8 +246,12 @@ class Interface(GenericEntity):  # pylint: disable=too-many-instance-attributes
         """Return True if all tags are avaiable (no tags used),
          False otherwise"""
         with self._tag_lock:
-            return (self.available_tags == self.tag_ranges and
-                    self.special_available_tags == self.special_tags)
+            if self.available_tags != self.tag_ranges:
+                return False
+            for field, ranges in self.special_available_tags.items():
+                if set(ranges) != set(self.special_tags[field]):
+                    return False
+            return True
 
     def set_tag_ranges(self, tag_ranges: list[list[int]], tag_type: str):
         """Set new restriction, tag_ranges."""
