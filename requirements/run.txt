@@ -145,7 +145,7 @@ pygments==2.17.2
     # via ipython
 pyjwt==2.8.0
     # via -r requirements/run.in
-pymongo==4.6.2
+pymongo==4.11.1
     # via -r requirements/run.in
 python-daemon==3.0.1
     # via -r requirements/run.in
