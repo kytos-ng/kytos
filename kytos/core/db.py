@@ -8,7 +8,7 @@ import sys
 import time
 from typing import List, Optional, Tuple
 
-import pymongo.helpers
+import pymongo.helpers_shared
 from pymongo import MongoClient
 from pymongo.errors import AutoReconnect, OperationFailure
 from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
@@ -37,8 +37,8 @@ def _log_pymongo_thread_traceback() -> None:
             del einfo
 
 
-if hasattr(pymongo.helpers, "_handle_exception"):
-    pymongo.helpers._handle_exception = _log_pymongo_thread_traceback
+if hasattr(pymongo.helpers_shared, "_handle_exception"):
+    pymongo.helpers_shared._handle_exception = _log_pymongo_thread_traceback
 
 
 def mongo_client(
@@ -57,6 +57,8 @@ def mongo_client(
     maxpoolsize=int(os.environ.get("MONGO_MAX_POOLSIZE") or 300),
     minpoolsize=int(os.environ.get("MONGO_MIN_POOLSIZE") or 30),
     serverselectiontimeoutms=int(os.environ.get("MONGO_TIMEOUTMS") or 30000),
+    timeoutms=int(os.environ.get("MONGO_OP_TIMEOUTMS") or 20000),
+    sockettimeoutms=int(os.environ.get("MONGO_SOCKET_TIMEOUTMS") or 30000),
     **kwargs,
 ) -> MongoClient:
     """Instantiate a MongoClient instance.
@@ -80,6 +82,8 @@ def mongo_client(
         minpoolsize=minpoolsize,
         readconcernlevel=readconcernlevel,
         serverselectiontimeoutms=serverselectiontimeoutms,
+        timeoutms=timeoutms,
+        sockettimeoutms=sockettimeoutms,
         **kwargs,
     )
 
@@ -133,6 +137,7 @@ def _mongo_conn_wait(mongo_client=mongo_client, retries=12,
     """Try to run 'hello' command on MongoDB and wait for it with retries."""
     try:
         client = mongo_client(maxpoolsize=6, minpoolsize=3,
+                              timeoutms=timeout_ms,
                               serverselectiontimeoutms=timeout_ms)
         LOG.info("Trying to run 'hello' command on MongoDB...")
         client.db.command("hello")
