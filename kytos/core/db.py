@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 
 import pymongo.helpers_shared
 from pymongo import MongoClient
-from pymongo.errors import AutoReconnect, OperationFailure
+from pymongo.errors import ConnectionFailure, OperationFailure
 from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
                       wait_random)
 
@@ -104,7 +104,7 @@ class Mongo:
             max=int(os.environ.get("MONGO_AUTO_RETRY_WAIT_RANDOM_MAX", 1)),
         ),
         before_sleep=before_sleep,
-        retry=retry_if_exception_type((OperationFailure, AutoReconnect)),
+        retry=retry_if_exception_type((OperationFailure, ConnectionFailure)),
         reraise=True
     )
     def bootstrap_index(
@@ -142,7 +142,7 @@ def _mongo_conn_wait(mongo_client=mongo_client, retries=12,
         LOG.info("Trying to run 'hello' command on MongoDB...")
         client.db.command("hello")
         LOG.info("Ran 'hello' command on MongoDB successfully. It's ready!")
-    except (OperationFailure, AutoReconnect) as exc:
+    except (OperationFailure, ConnectionFailure) as exc:
         retries -= 1
         if retries > 0:
             time.sleep(max(timeout_ms / 1000, 1))
