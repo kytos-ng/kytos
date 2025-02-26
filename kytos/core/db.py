@@ -1,6 +1,7 @@
 """DB client."""
 # pylint: disable=invalid-name,redefined-outer-name,too-many-arguments
 # pylint: disable=unsubscriptable-object,inconsistent-return-statements
+# pylint: disable=too-many-locals
 
 import logging
 import os
