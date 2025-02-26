@@ -159,5 +159,9 @@ apm =
 # authenticate_urls = ["kytos/mef_eline", "kytos/pathfinder"]
 
 # Define the max number of connections to accept before additional
-# connections are automatically rejected.
+# connections are automatically rejected. This limits the number of
+# HTTP requests (GET, POST, PATCH) used by the users and some NApps like
+# of_lldp, mef_eline. These requests can happen multiple times in a very
+# short period of time. "threadpool" is the default value to take the same
+# values as thread_pool_max_workers["api"]. It can be replaced by an integer.
 api_concurrency_limit = "threadpool"
