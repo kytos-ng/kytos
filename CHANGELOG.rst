@@ -15,6 +15,9 @@ Fixed
 =====
 - Execute routines like consistency checks will not trigger one more time after kytos shuts down.
 - Order in ``interface.special_available_tags`` and ``interface.special_tags`` does not matter anymore when looking for used special tag.
+- Exposed pymongo ``timeoutms`` via ``MONGO_OP_TIMEOUTMS`` env var, 20 seconds by default.
+- Exposed pymongo ``sockettimeoutms`` via ``MONGO_SOCKET_TIMEOUTMS`` env var, 30 seconds by default
+- Upgraded pymongo from 4.6.2 to 4.11.1
 
 [2024.1.2] - 2024-09-16
 ***********************
