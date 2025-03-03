@@ -15,7 +15,8 @@ import jwt
 import pymongo
 from pydantic import ValidationError
 from pymongo.collection import ReturnDocument
-from pymongo.errors import AutoReconnect, DuplicateKeyError
+from pymongo.errors import (ConnectionFailure, DuplicateKeyError,
+                            ExecutionTimeout)
 from pymongo.results import InsertOneResult
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_random
 
@@ -76,7 +77,7 @@ def authenticated(func):
         max=int(os.environ.get("MONGO_AUTO_RETRY_WAIT_RANDOM_MAX", 1)),
     ),
     before_sleep=before_sleep,
-    retry=retry_if_exception_type((AutoReconnect,)),
+    retry=retry_if_exception_type((ConnectionFailure, ExecutionTimeout)),
 )
 class UserController:
     """UserController"""

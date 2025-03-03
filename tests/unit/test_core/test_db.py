@@ -47,6 +47,8 @@ class TestDb:
             minpoolsize=30,
             readconcernlevel="majority",
             serverselectiontimeoutms=30000,
+            timeoutms=20000,
+            sockettimeoutms=30000,
         )
 
     @staticmethod
@@ -56,7 +58,8 @@ class TestDb:
         mongo_client = MagicMock(return_value=client)
         _mongo_conn_wait(mongo_client)
         mongo_client.assert_called_with(maxpoolsize=6, minpoolsize=3,
-                                        serverselectiontimeoutms=10000)
+                                        serverselectiontimeoutms=10000,
+                                        timeoutms=10000)
         assert client.db.command.mock_calls == [call("hello")]
 
     @patch("kytos.core.db.time.sleep")
