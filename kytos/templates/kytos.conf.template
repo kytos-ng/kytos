@@ -72,7 +72,7 @@ jwt_secret = {{ jwt_secret }}
 # - sb: it's used automatically by kytos/of_core.* events, it's meant for southbound related messages
 # - app: it's meant for general NApps event, it's default pool if no other one has been specified
 # - db: it can be used by for higher priority db related tasks (need to be parametrized on decorator)
-# - api: Not used by events, but instead API requests. For worst case scenario, should be equal to two thirds of the total EVCs.
+# - api: Not used by events, but instead API requests handling/processing. For worst case scenario, should be equal to two thirds of the total EVCs.
 thread_pool_max_workers = {"sb": 256, "db": 256, "app": 512, "api": 512}
 
 # Queue monitors are for detecting and alerting certain queuing thresholds over a delta time.
@@ -159,9 +159,12 @@ apm =
 # authenticate_urls = ["kytos/mef_eline", "kytos/pathfinder"]
 
 # Define the max number of connections to accept before additional
-# connections are automatically rejected. This limits the number of
-# HTTP requests (GET, POST, PATCH) used by the users and some NApps like
-# of_lldp, mef_eline. These requests can happen multiple times in a very
-# short period of time. "threadpool" is the default value to take the same
-# values as thread_pool_max_workers["api"]. It can be replaced by an integer.
+# connections are automatically rejected. This limits the number of connections
+# made by HTTP requests (GET, POST, PATCH) used by the users and some NApps like
+# of_lldp, mef_eline. "threadpool" is the default value to take the same
+# value as thread_pool_max_workers["api"]=512.
+# It is recommended that "api" is bigger than "api_concurrency_limit" since
+# "mef_eline" can send a large amount of content in its requests depending
+# on the number of EVCs, for more info check:
+# https://github.com/kytos-ng/kytos/issues/489#issuecomment-2289932188
 api_concurrency_limit = "threadpool"
