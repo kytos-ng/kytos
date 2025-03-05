@@ -19,6 +19,10 @@ Fixed
 - Exposed pymongo ``sockettimeoutms`` via ``MONGO_SOCKET_TIMEOUTMS`` env var, 30 seconds by default
 - Upgraded pymongo from 4.6.2 to 4.11.1
 
+General Information
+===================
+- If you are running Linux Kernel 6+, you need to upgrade Elasticsearch (ES) patch version to 7.17.28. This ES version has been tested in development with Kernel versions: 5.10, 5.15, 6.6, 6.8, and 6.12.
+
 [2024.1.2] - 2024-09-16
 ***********************
 
