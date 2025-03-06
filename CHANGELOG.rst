@@ -6,6 +6,16 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2024.1.5] - 2025-03-03
+***********************
+
+Fixed
+=====
+
+- Exposed pymongo ``timeoutms`` via ``MONGO_OP_TIMEOUTMS`` env var, 20 seconds by default.
+- Exposed pymongo ``sockettimeoutms`` via ``MONGO_SOCKET_TIMEOUTMS`` env var, 30 seconds by default
+- Upgraded pymongo from 4.6.2 to 4.11.1
+
 [2024.1.4] - 2024-12-09
 ***********************
 
