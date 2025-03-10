@@ -569,7 +569,7 @@ class Controller:
         """
         return now() - self.started_at if self.started_at else 0
 
-    def notify_listeners(self, event):
+    async def notify_listeners(self, event):
         """Send the event to the specified listeners.
 
         Loops over self.events_listeners matching (by regexp) the attribute
@@ -606,7 +606,7 @@ class Controller:
         while True:
             try:
                 event = await event_buffer.aget()
-                self.notify_listeners(event)
+                await self.loop.create_task(self.notify_listeners(event))
 
                 if event.name == "kytos/core.shutdown":
                     self.log.debug(f"Event handler {buffer_name} stopped")
@@ -656,7 +656,7 @@ class Controller:
                                    message.header.message_type,
                                    message.header.xid,
                                    packet.hex())
-                    self.notify_listeners(triggered_event)
+                    await self.notify_listeners(triggered_event)
             except OSError:
                 await self.publish_connection_error(triggered_event)
                 self.log.info("connection closed. Cannot send message")
