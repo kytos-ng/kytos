@@ -163,7 +163,7 @@ apm =
 # made by HTTP requests (GET, POST, PATCH) used by the users and some NApps like
 # of_lldp, mef_eline. "threadpool" is the default value to take the same
 # value as thread_pool_max_workers["api"]=512.
-# It is recommended that "api" is bigger than "api_concurrency_limit" since
+# It is recommended that "api" is equal or bigger than "api_concurrency_limit" since
 # "mef_eline" can send a large amount of content in its requests depending
 # on the number of EVCs, for more info check:
 # https://github.com/kytos-ng/kytos/issues/489#issuecomment-2289932188
