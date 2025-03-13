@@ -8,7 +8,7 @@ keys: console,syslog,file
 keys: root,kytos,api_server,socket
 
 [formatter_syslog]
-format: %(name)s:%(levelname)s %(module)s:%(lineno)d:  %(message)s
+format: %(name)s:%(levelname)s %(module)s:%(lineno)d:  %(message).16000s
 
 [formatter_console]
 format: %(asctime)s - %(levelname)s [%(name)s] (%(threadName)s) %(message)s
