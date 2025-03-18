@@ -11,6 +11,10 @@ Added
 - Added option for links to get last TAG from ``interface.available_tags``.
 - Added option for links to try to avoid a TAG value from ``interface.available_tags``.
 
+Changed
+=======
+- Limited maximum log message size to syslog hander in ``logging.ini`` template to 16000 characters. Syslog handler has potential to cause crashes with very long log messages, so operators should consider configuring the syslog message handler in a similar fashion.
+
 Fixed
 =====
 - Execute routines like consistency checks will not trigger one more time after kytos shuts down.
