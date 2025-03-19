@@ -141,7 +141,7 @@ def listen_to(event, *events, pool=None):
                 result = handler(*args)
             except Exception:
                 result = None
-                traceback_str = traceback.format_exc().replace("\n", ", ")
+                traceback_str = traceback.format_exc()
                 LOG.error(f"listen_to handler: {handler}, "
                           f"args: {args} traceback: {traceback_str}")
                 if hasattr(cls, "controller"):
@@ -162,7 +162,7 @@ def listen_to(event, *events, pool=None):
                 tx.result = result
             except Exception as exc:
                 result = None
-                traceback_str = traceback.format_exc().replace("\n", ", ")
+                traceback_str = traceback.format_exc()
                 LOG.error(f"listen_to handler: {handler}, "
                           f"args: {args} traceback: {traceback_str}")
                 if hasattr(cls, "controller"):
@@ -231,7 +231,7 @@ def alisten_to(event, *events):
                 result = await handler(*args)
             except Exception:
                 result = None
-                traceback_str = traceback.format_exc().replace("\n", ", ")
+                traceback_str = traceback.format_exc()
                 LOG.error(f"alisten_to handler: {handler}, "
                           f"args: {args} traceback: {traceback_str}")
                 if hasattr(cls, "controller"):
@@ -252,7 +252,7 @@ def alisten_to(event, *events):
                 tx.result = result
             except Exception as exc:
                 result = None
-                traceback_str = traceback.format_exc().replace("\n", ", ")
+                traceback_str = traceback.format_exc()
                 LOG.error(f"alisten_to handler: {handler}, "
                           f"args: {args} traceback: {traceback_str}")
                 if hasattr(cls, "controller"):
