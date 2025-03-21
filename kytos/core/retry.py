@@ -12,6 +12,10 @@ def before_sleep(state) -> None:
     """Before sleep function for tenacity to also logs args and kwargs."""
     LOG.warning(
         f"Retry #{state.attempt_number} for {state.fn.__name__}, "
+        f"seconds since start: {state.seconds_since_start:.2f}",
+    )
+    LOG.debug(
+        f"Retry #{state.attempt_number} for {state.fn.__name__}, "
         f"args: {state.args}, kwargs: {state.kwargs}, "
         f"seconds since start: {state.seconds_since_start:.2f}",
     )
