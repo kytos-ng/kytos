@@ -154,8 +154,8 @@ class TestInterface():
 
     async def test_interface_available_tags_tag_ranges(self):
         """Test available_tags and tag_ranges on Interface class."""
-        default_available = {'vlan': [[1, 4095]]}
-        default_tag_ranges = {'vlan': [[1, 4095]]}
+        default_available = {'vlan': [[1, 4094]]}
+        default_tag_ranges = {'vlan': [[1, 4094]]}
         default_special_vlans = {'vlan': ["untagged", "any"]}
         default_special_tags = {'vlan': ["untagged", "any"]}
         assert self.iface.available_tags == default_available
@@ -163,8 +163,8 @@ class TestInterface():
         assert self.iface.special_available_tags == default_special_vlans
         assert self.iface.special_tags == default_special_tags
 
-        custom_available = {'vlan': [[10, 200], [210, 4095]]}
-        custom_tag_ranges = {'vlan': [[1, 100], [200, 4095]]}
+        custom_available = {'vlan': [[10, 200], [210, 4094]]}
+        custom_tag_ranges = {'vlan': [[1, 100], [200, 4094]]}
         custom_special_vlans = {'vlan': ["any"]}
         custom_special_tags = {'vlan': ["any"]}
         self.iface.set_available_tags_tag_ranges(
@@ -178,7 +178,7 @@ class TestInterface():
 
     async def test_interface_is_tag_available(self):
         """Test is_tag_available on Interface class."""
-        max_range = 4096
+        max_range = 4095
         for tag in range(1, max_range):
             next_tag = self.iface.is_tag_available(tag)
             assert next_tag
@@ -325,8 +325,8 @@ class TestInterface():
     async def test_default_tag_values(self) -> None:
         """Test default_tag_values property"""
         expected = {
-            "vlan": [[1, 4095]],
-            "vlan_qinq": [[1, 4095]],
+            "vlan": [[1, 4094]],
+            "vlan_qinq": [[1, 4094]],
             "mpls": [[1, 1048575]],
         }
         assert self.iface.default_tag_values == expected
@@ -394,7 +394,7 @@ class TestInterface():
             self.iface.remove_tag_ranges('vlan_qinq')
 
         self.iface.remove_tag_ranges('vlan')
-        default = [[1, 4095]]
+        default = [[1, 4094]]
         assert self.iface.tag_ranges['vlan'] == default
 
     def test_set_special_tags(self) -> None:

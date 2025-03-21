@@ -11,6 +11,10 @@ Added
 - Added option for links to get last TAG from ``interface.available_tags``.
 - Added option for links to try to avoid a TAG value from ``interface.available_tags``.
 
+Changed
+=======
+- Changed the default vlan tag range from [[1,4095]] to [[1, 4094]]
+
 Fixed
 =====
 - Execute routines like consistency checks will not trigger one more time after kytos shuts down.
