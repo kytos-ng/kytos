@@ -605,6 +605,7 @@ class Controller:
         self.log.info(f"Event handler {buffer_name} started")
         while True:
             try:
+                await asyncio.sleep(0)
                 event = await event_buffer.aget()
                 self.notify_listeners(event)
 
