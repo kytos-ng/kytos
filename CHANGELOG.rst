@@ -9,9 +9,9 @@ UNRELEASED - Under development
 [2024.1.6] - 2025-03-24
 ***********************
 
-Changed
+Fixed
 =======
-- The dedault for the pacers had been increased to 10 times their previous values. With the introduction of bulk installations, Kytos can now handle up to 50,000 flows in a single request.
+- - TCP server does not longer reset connections after approximately ~32,000 events are concurrently sent to the queue. From tests, TCP server is more resilient to resets with a cap around 120,000 events.
 
 [2024.1.5] - 2025-03-03
 ***********************
