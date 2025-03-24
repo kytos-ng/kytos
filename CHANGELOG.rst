@@ -18,6 +18,7 @@ Fixed
 - Exposed pymongo ``timeoutms`` via ``MONGO_OP_TIMEOUTMS`` env var, 20 seconds by default.
 - Exposed pymongo ``sockettimeoutms`` via ``MONGO_SOCKET_TIMEOUTMS`` env var, 30 seconds by default
 - Upgraded pymongo from 4.6.2 to 4.11.1
+- TCP server does not longer reset connections after approximately ~32,000 events are concurrently sent to the queue. From tests, TCP server is more resilient to resets with a cap around 120,000 events.
 
 General Information
 ===================

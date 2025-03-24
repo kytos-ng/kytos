@@ -605,6 +605,12 @@ class Controller:
         self.log.info(f"Event handler {buffer_name} started")
         while True:
             try:
+                # After hitting issues with a large amount of flows being
+                # installed (16k which sends 32k events), this task was
+                # hooging resources in the MainThread causing disconnections
+                # and socket exceptions. With the following sleep, this task
+                # yields to other loops mitigating the disconnection issues.
+                # Now the cap for flow installation at the same time is 50k.
                 await asyncio.sleep(0)
                 event = await event_buffer.aget()
                 self.notify_listeners(event)
