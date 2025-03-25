@@ -607,7 +607,7 @@ class Controller:
             try:
                 # After hitting issues with a large amount of flows being
                 # installed (16k which sends 32k events), this task was
-                # hooging resources in the MainThread causing disconnections
+                # hogging resources in the MainThread causing disconnections
                 # and socket exceptions. With the following sleep, this task
                 # yields to other loops mitigating the disconnection issues.
                 # Now the cap for flow installation at the same time is 50k.
