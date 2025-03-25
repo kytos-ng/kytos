@@ -14,6 +14,7 @@ Added
 Changed
 =======
 - Limited maximum log message size to syslog hander in ``logging.ini`` template to 16000 characters. Syslog handler has potential to cause crashes with very long log messages, so operators should consider configuring the syslog message handler in a similar fashion.
+- Changed the default vlan tag range from [[1,4095]] to [[1, 4094]]
 
 Fixed
 =====

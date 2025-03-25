@@ -217,8 +217,8 @@ class TestLink():
         link = Link(self.iface1, self.iface2)
         tag = link.get_next_available_tag(controller, "link_id", True)
         next_tag = link.get_next_available_tag(controller, "link_id", True)
-        assert tag == 4095
-        assert next_tag == 4094
+        assert tag == 4094
+        assert next_tag == 4093
 
     def test_get_next_available_tag_avoid_tag(self, controller):
         """Test get next available tag avoiding a tag"""
