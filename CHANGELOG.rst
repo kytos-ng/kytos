@@ -6,6 +6,13 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2024.1.6] - 2025-03-24
+***********************
+
+Fixed
+=======
+- - TCP server does not longer reset connections after approximately ~32,000 events are concurrently sent to the queue. From tests, TCP server is more resilient to resets with a cap around 120,000 events.
+
 [2024.1.5] - 2025-03-03
 ***********************
 
