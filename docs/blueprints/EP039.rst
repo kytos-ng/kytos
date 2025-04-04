@@ -1,0 +1,313 @@
+:EP: 39
+:Title: Exporting Kytos events
+:Authors:
+    - Austin Uwate <auwate AT fiu DOT edu>
+:Created: 2025-02-12
+:Status: Draft
+:Type: Standard
+
+****************************************
+EP039 - Kafka NApp Proposal
+****************************************
+
+
+Abstract
+========
+
+This blueprint, EP 039, seeks to outline the requirements, features, and implementation of a NApp designed for exporting Kytos events to external applications. Without this NApp, external applications must to interact with Kytos APIs and log entries to obtain the network state, which leads to traffic engineering delays and extra load for Kytos to manage. By pushing data to an event broker, external application can consume data in real time without any impacts to Kytos. 
+
+
+Motivation
+==========
+
+- As Kytos grows and the number of external applications consuming data from Kytos's API increases, maintaining a high-performance system becomes critical. Relying on constant API requests and synchronous data retrieval can overwhelm the application, causing performance degradation. By pushing events to Kafka, external applications can receive the data asynchronously, which reduces the load on Kytos, improves its scalability, and ensures that the system remains fault-tolerant.
+- In case of a critical error or debugging cycle, engineers need consistent and reliable logging. By leveraging a lightweight data producer via Kafka, engineers can see exactly what happens in real-time.
+
+
+Rationale
+=========
+
+The implementation took a simple, object-oriented approach in development. The main reasons behind this were:
+
+  1. Encapsulation of Concerns - Each component is self-contained with a clear boundary, reducing unintended side effects and making debugging easier.
+  2. Code Reusability & Maintainability - By encapsulating logic within classes and methods, components can be reused when the project is extended or updated without modifying core functionality.
+  3. Improved Readability & Organization - Object-oriented code structures the application into well-defined classes, making it easier to navigate, understand, and modify.
+  4. Testability - With an object-oriented approach, dependencies can be injected, making unit testing and mocking easier.
+
+I. Requirements
+===============
+
+This blueprint has the following characteristics:
+
+  1. - This NApp requires a reachable Kafka cluster to be fully operational.
+      - For normal cluster conditions, the NApp should start up and shut down gracefully, using available async methods.
+      - In the case of an unreachable cluster, this NApp should follow the following behaviors, based on when the outage occurs:
+        - 1: On start-up: The NApp should retry connection, up to a limit of 3 times (with a 10 second connection timeout). If connection fails, then processed events should be dropped.
+        - 2: In operation: The NApp should retry connection, up to a limit of 3 times. The NApp is designed to buffer up to 32MB (max) before it sends, so if the connection fails when the buffer is full, it should log a warning and drop the message.
+          - If a message cannot be sent or appended to the bufer within that time, use tenacity's retry mechanic and async locking to retry message delivery. If the connection cannot be processed, drop the message.
+        - 3: On shut-down: The NApp should retry connection, up to a limit of 3 times. The shutdown mechanic tries to close a connection and flush any remaining messages. If connection fails, then the messages should be dropped.
+
+  2. - This NApp requires a Kafka topic to be created with suitable partitions available.
+      - To reduce dependency reliance, the NApp will not rely on `kafka-python-ng` to create topics, but rather will manually do this.
+
+II. How kafka_napp works with Kytos
+===============================
+
+This section provides an in-depth explanation of how the kafka_napp integrates with Kytos, detailing its workflow, event handling, and interactions with Kafka.
+
+1. The kafka_napp serves as a listener for Kytos, enabling efficient event-driven communication by filtering, processing, and forwarding network events. It ensures that only relevant events are published to Kafka topics while discarding unnecessary ones based on configuration.
+
+- Workflow
+  - Initialization
+    - Kafka_napp starts execution through the setup() function.
+    - Within setup(), an instance of KafkaSendOperations is created.
+    - Within setup(), the running event loop is retrieved and used to run KafkaSendOperations' setup.
+  - Event Listening and Filtering
+    - Kafka_napp listens to all Kytos network events by subscribing to the event bus.
+    - It checks each event against a predefined configuration to determine whether it should be processed.
+      - Event filtering should be done using regular expressions, instead of manually inserting each name.
+    - Events that are not configured for processing are filtered out and discarded.
+  - Sending Data
+    - In the event loop, kafka_napp will serialize the JSON message, grab an asyncio Lock, then use `aiokafka` to append the message to the batch.
+    - If `aiokafka` throws an exception, tenacity's retry mechanic will continuously send data until we reach `ALLOWED_RETRIES`.
+  - Shutdown
+    - Kafka_napp receives starts the shutdown() function
+    - Within shutdown(), all tasks are canceled as the event loop has been stopped
+    - Within shutdown(), the producer is shut down and messages should be flushed to Kafka.
+  - Key Components
+    - Event Listener: Listens to all Kytos events and applies filtering rules.
+    - KafkaSendOperations: Handles functionality for interfacing with Kafka.
+
+
+III. How kafka_napp interacts with Kafka
+===============================================
+
+1. The kafka_napp also serves as an asynchronous producer of events, producing serialization and network submission functionality.
+
+- Publishing to Kafka
+  - Serialization
+    - Once filtered, kafka_napp will add a task to be completed in the MainThread event loop.
+    - Events are serialized using JSON and appended to `aiokafka's` batch to be published to the corresponding Kafka topic. This is to be completed before kafka_napp is run.
+      - The topic name is configured in `settings.py`.
+      - The default is `event_logs`.
+      - Kafka ensures these events are durably stored and available for consumption by downstream services.
+  - Production
+    - Events are sent in batches asynchronously, ensuring maximum efficiency in network requests and processing.
+    - We rely on batching to enqueue data in the case of a cluster outage.
+    - Each message is sent to the same topic, but divided into their respective partitions based on keys.
+      - The amount of partitions is equal to the amount of different event types that need to be consumed.
+      - The amount of partitions that can be created safely is relatively high, so short-term to medium-term concerns over scalability are covered.
+        - If scalability becomes a concern, we can split topics are continue creating more partitions.
+  - Key Components
+    - KafkaSendOperations: Handles the Kafka functionality like event publishing.
+
+
+IV. Configurations in settings.py
+==============================
+
+IV. Configurations in settings.py
+
+1. This section describes the key configuration parameters used by the kafka_napp application. These constants define how the application connects to Kafka, manages topics, handles message delivery, and filters events.
+
+- Key Configuration Constants
+  - BOOTSTRAP_SERVERS
+    - Description: Specifies the Kafka server's address (hostname and port).
+    - Usage: This setting is critical for establishing the connection with the Kafka broker.
+  - ACKS
+    - Description: Determines the level of message acknowledgements required by Kafka.
+    - Available Options:
+      - 0: No acknowledgements required.
+      - 1: Only the leader broker must acknowledge.
+      - "all": All in-sync replicas must acknowledge the message.
+      - Usage: Controls the reliability and durability of message delivery.
+      - Note: This may increase latency between the application during sends. To add this functionality, ensure tolerance for when the application is sending to kafka but the also wants to enqueue new requests.
+  - ENABLE_ITEMPOTENCE
+    - Description: Tells aiokafka to keep track of all messages
+    - Requires ACKS == "all"
+    - Available Options:
+      - True: Enabled
+      - False: Disabled
+  - REQUEST_TIMEOUT_MS
+    - Description: The amount of time aiokafka waits while trying to send requests to Kafka
+    - Takes an integer (minimum 1)
+  - ALLOWED_RETRIES
+    - Description: The amount of retries that tenacity's retry mechanic will try until
+    - Takes an integer (minimum 0)
+  - DEFAULT_NUM_PARTITIONS
+    - Description: Sets the default number of partitions per Kafka topic.
+    - Usage: Influences the parallelism and throughput of message processing.
+  - IGNORED_EVENTS
+    - Description: Defines a set of event names that should be filtered out and not processed.
+    - Usage: Helps in ignoring events that are not relevant to the application's processing logic.
+  - REPLICATION_FACTOR
+    - Description: Specifies the number of times each partition is replicated across Kafka brokers.
+    - Usage: Enhances data redundancy and fault tolerance.
+    - Note: The value should not exceed the number of available Kafka brokers.
+  - TOPIC_NAME
+    - Description: The Kafka topic from which messages are sent and/or consumed.
+    - Usage: Acts as the central channel for event logging and communication between components.
+  - COMPRESSION_TYPE
+    - Description: The type of compression applied to messages sent to Kafka.
+    - Example: "gzip"
+    - Usage: Reduces network load and improves performance by compressing message data.
+
+
+V. Events
+==========
+
+  1. This section describes the how and why events are to be filtered in kafka_napp
+
+  - Filtering
+    - Events are to be filtered using regular expressions (regex)
+      - This allows for flexibility in rejecting some or all of a given producer's events.
+    - Some events may not be necessary to downstream consumers, thus ignoring them would reduce Kafka's burden and improve throughput.
+
+
+VII. Dependencies
+=================
+
+ * kytos
+ * aiokafka - [0.12.0]
+
+
+VII. Kafka message structure
+======================
+
+1. Overview
+------------
+A Kafka message consists of **a key, value, headers, timestamp, and metadata**. The **AIOKafkaProducer** sends messages as **ProducerRecord** objects.
+
+2. Kafka Message Format
+------------------------
+Each message follows this structure:
+
+.. list-table:: Kafka Message Fields
+   :widths: 20 20 60
+   :header-rows: 1
+
+   * - Field
+     - Type
+     - Description
+   * - **Key**
+     - ``bytes`` or ``None``
+     - Used for partitioning. If ``None``, Kafka assigns a random partition.
+   * - **Value**
+     - ``bytes``
+     - The actual message payload (usually JSON in our case).
+   * - **Headers**
+     - ``list[(str, bytes)]``
+     - Optional metadata as key-value pairs.
+   * - **Timestamp**
+     - ``int`` (ms) or ``None``
+     - Event creation time (epoch milliseconds).
+   * - **Topic**
+     - ``str``
+     - Destination topic name.
+   * - **Partition**
+     - ``int`` or ``None``
+     - If specified, sends the message to that partition; otherwise, Kafka decides.
+
+3. Example Message Structure (JSON Payload)
+--------------------------------------------
+When ``handle_new_switch()`` sends a Kafka message, the value is typically JSON-encoded, like this:
+
+.. code-block:: json
+
+    {
+      "event": "kytos/topology.switch.new",
+      "switch_id": "00:00:00:00:00:00:00:01",
+      "timestamp": 1707859200000,
+      "metadata": {
+        "dpid": "1",
+        "ip": "192.168.1.10",
+        "port_count": 48
+      }
+    }
+
+- **Key:** ``None`` (Kafka handles partitioning).
+- **Value:** JSON message (converted to ``bytes``).
+- **Headers:** May contain custom metadata (e.g., ``("source", "kytos".encode())``).
+- **Timestamp:** Generated automatically or set manually.
+- **Topic:** ``"kytos_events"`` (example).
+
+4. AIOKafkaProducer Example
+----------------------------
+How the message is sent inside the Kytos event handler:
+
+.. code-block:: python
+
+    await self._producer.send(
+        topic="kytos_events",
+        key=None,  # Kafka decides the partition
+        value=json.dumps(event_data).encode(),  # Convert JSON to bytes
+        headers=[("source", "kytos".encode())],  # Custom headers
+        timestamp_ms=int(time.time() * 1000)  # Timestamp in ms
+    )
+
+5. How Kafka Stores the Message
+--------------------------------
+Kafka writes the message to a partition inside a topic. The message is stored in **binary format** with an **offset**:
+
+.. code-block:: text
+
+    Topic: kytos_events, Partition: 2
+    --------------------------------------------------
+    Offset | Key   | Value (JSON)                    | Timestamp
+    --------------------------------------------------
+    1023   | None  | { "event": "kytos/..." }        | 1707859200000
+    1024   | None  | { "event": "kytos/..." }        | 1707859210000
+
+6. Message Retrieval (Kafka Consumer Example)
+----------------------------------------------
+A consumer reads the message and decodes it:
+
+.. code-block:: python
+
+    async for msg in consumer:
+        event = json.loads(msg.value.decode())
+        print(f"Received: {event}")
+
+
+XIII. Implementation details ``v1``
+===================================
+
+The following requirements clarify certain details and expected behavior for ``kafka_napp`` v1:
+
+1. Initialization (setup())
+  - Log the startup process: "SETUP Kytos/Kafka"
+  - Create Kafka Producer and Admin Client:
+  - Instantiate KafkaSendOperations, which sets up:
+    - _setup_admin(): Creates a KafkaAdminClient, retrying up to 3 times if Kafka isn't available.
+  - Grab MainThread event loop.
+    - Retrieves the MainThread event loop for usage on KafkaSendOperations.
+    - Enqueue's KafkaSendOperations' setup() function.
+
+2. Event Handling (handle_new_switch())
+  - Triggered when a switch connects (or other event matches the regex pattern .*).
+  - Check if the event needs to be filtered out; if so, ignore it.
+  - Send the event data to Kafka via _send_ops.send_message()
+    - Message sending is to be enqueued on the event loop.
+
+  - send_message():
+    - Converts the event to JSON.
+    - Acquires an asyncio semaphore Lock to ensure sequential delivery
+    - Uses AIOKafkaProducer.send() to append to the batch and later publish it to the Kafka topic.
+
+3. Shutdown (shutdown())
+  - Log the shutdown process: "SHUTDOWN Kafka/Kytos"
+  - Cancel all pending async tasks. 
+  - Wait for the AIOKafkaProducer's shutdown sequence to be successful.
+
+XIV. Open Questions / Future Work
+=================================
+
+  1. Error codes
+  2. Route messages to their partitions based on key usage
+  3. When filtering events, use Regex patterns instead of Set.
+    - Eliminates redundancy by excluding all events from particular groups, instead of listing each individually.
+  4. Add endpoints that provide clients with useful data
+    - Currently the endpoints have been removed as there is no use. However, this can change with future work.
+  5. Use a TBD `async shutdown` method instead of the synchronous version
+    - This would allow `AIOKafkaProducer` to be shut down gracefully
+  6. Use a TBD `async setup` method instead of the synchronous version
+    - This would allow `AIOKafkaProducer` to be awaited gracefully instead of awaiting within the event listener.
