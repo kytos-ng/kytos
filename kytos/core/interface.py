@@ -230,8 +230,8 @@ class Interface(GenericEntity):  # pylint: disable=too-many-instance-attributes
         """Return a default list of ranges. Applicable to
         available_tags and tag_ranges."""
         default_values = {
-            "vlan": [[1, 4095]],
-            "vlan_qinq": [[1, 4095]],
+            "vlan": [[1, 4094]],
+            "vlan_qinq": [[1, 4094]],
             "mpls": [[1, 1048575]],
         }
         return default_values
