@@ -172,8 +172,17 @@ IV. Configurations in settings.py
     - Example: "gzip"
     - Usage: Reduces network load and improves performance by compressing message data.
 
+V. `managers/``
 
-V. Events
+This folder contains the relevant domain specific classes that manage data accordingly.
+
+1. `kafka_ops.py`
+
+- This contains the KafkaSendOperations class, which handles data serialization and transfer to `Kafka`.
+- Mainly `async`, following conventions and directives from `kytos` advances in `asyncio`.
+  - Uses the `aiokafka` framework instead of `kafka-python` or `kafka-python-ng`.
+
+VI. Events
 ==========
 
   1. This section describes the how and why events are to be filtered in kafka_events
@@ -184,14 +193,14 @@ V. Events
     - Some events may not be necessary to downstream consumers, thus ignoring them would reduce Kafka's burden and improve throughput.
 
 
-VI. Dependencies
+VII. Dependencies
 =================
 
  * kytos
  * aiokafka - [0.12.0]
 
 
-VII. Kafka message structure
+VIII. Kafka message structure
 ======================
 
 1. Overview
@@ -289,7 +298,7 @@ A consumer reads the message and decodes it:
         print(f"Received: {event}")
 
 
-VIII. Implementation details ``v1``
+IX. Implementation details ``v1``
 ===================================
 
 The following requirements clarify certain details and expected behavior for ``kafka_events`` v1:
@@ -319,7 +328,7 @@ The following requirements clarify certain details and expected behavior for ``k
   - Cancel all pending async tasks. 
   - Wait for the AIOKafkaProducer's shutdown sequence to be successful.
 
-XI. Benchmarks
+X. Benchmarks
 
 The following benchmarks were the product of sending 400 requests (split across 10 threads) to the `mef_eline` endpoint to create `kytos/mef_eline.created` events naturally through `kytos`.
 
@@ -328,7 +337,7 @@ The following benchmarks were the product of sending 400 requests (split across 
 | MainThread | 3505340 | 234876 | 743.895 seconds | 775 seconds |
 | Separate Thread | 2887532 | 235164 | 488.687 seconds | 508 seconds |
 
-X. Open Questions / Future Work
+XI. Open Questions / Future Work
 =================================
 
   1. Error codes
