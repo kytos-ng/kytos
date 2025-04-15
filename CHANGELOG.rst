@@ -6,6 +6,9 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2025.1.0] - 2025-04-15
+***********************
+
 Added
 =====
 - Added option for links to get last TAG from ``interface.available_tags``.
