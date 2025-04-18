@@ -334,9 +334,9 @@ The following benchmarks were the product of sending a request to a REST API end
 
 EPS
 ---
-:Mean 510.3469387755102
-:Median 529.5
-:Standard Deviation 504.16585184252443
+:Mean: 510.3469387755102
+:Median: 529.5
+:Standard Deviation: 504.16585184252443
 
 XI. Open Questions / Future Work
 =================================
