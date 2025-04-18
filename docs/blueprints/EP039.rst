@@ -244,21 +244,16 @@ When ``handle_events()`` sends a Kafka message, the value is typically JSON-enco
 .. code-block:: json
 
     {
-      "event": "kytos/topology.switch.new",
-      "switch_id": "00:00:00:00:00:00:00:01",
-      "timestamp": 1707859200000,
-      "metadata": {
-        "dpid": "1",
-        "ip": "192.168.1.10",
-        "port_count": 48
-      }
+      "name": str,
+      "content": dict,
+      "timestamp": str,
+      "id": str
     }
 
-- **Key:** ``None`` (Kafka handles partitioning).
-- **Value:** JSON message (converted to ``bytes``).
-- **Headers:** May contain custom metadata (e.g., ``("source", "kytos".encode())``).
-- **Timestamp:** Generated automatically or set manually.
-- **Topic:** ``"kytos_events"`` (example).
+- **name** ``str`` The name of the KytosEvent being emitted.
+- **content** ``dict`` The contents of the message, preserved from the original KytosEvent.
+- **timestamp** ``str`` The ISO formatted (like 2025-04-15T20:49:05.196851) timestamp associated to when the KytosEvent was emitted.
+- **id:** ``str`` The UUID identifier (in str format) that the KytosEvent was originally emitted with.
 
 4. AIOKafkaProducer Example
 ----------------------------
@@ -331,11 +326,18 @@ The following requirements clarify certain details and expected behavior for ``k
 X. Benchmarks
 
 The following benchmarks were the product of sending 400 requests (split across 10 threads) to the `mef_eline` endpoint to create `kytos/mef_eline.created` events naturally through `kytos`.
+The following benchmarks were the product of sending a request to a REST API endpoint to create 50_000 `KytosEvents` like the following:
 
-| Implementation | VIRT | RES | Script time | `kafka_events` time |
-|--------|--------|--------|--------|--------|
-| MainThread | 3505340 | 234876 | 743.895 seconds | 775 seconds |
-| Separate Thread | 2887532 | 235164 | 488.687 seconds | 508 seconds |
+.. code-block:: python
+
+    KytosEvent("kytos/sample_ui.do_work", content={"value": "x" * 10_000})
+
+EPS
+---
+
+| Implementation | Mean | Median | Standard Deviation |
+|--------|--------|--------|--------|
+| MainThread | 510.3469387755102 | 529.5 | 504.16585184252443 |
 
 XI. Open Questions / Future Work
 =================================
@@ -352,4 +354,5 @@ XI. Open Questions / Future Work
     - This would allow `AIOKafkaProducer` to be awaited gracefully instead of awaiting within the event listener.
   7. If scalability becomes a concern, we can split topics are continue creating more partitions.
     - How this would work would be to logically split target events into specific topics and to add a key to each exported event so they have their own partition.
-    - For example, if the amount of unique events from `flow_manager` or `mef_eline` become to big to handle on one topic, we can make a separate topic for them and continue adding partitions.
+    - For example, if the amount of unique events from `flow_manager` or `mef_eline` become to big to handle on one topic, we can make a separate topic for them and continue adding partitions.\
+  8. In the case of a `Kafka` outage, memory consumption could spike and cause `Kytos` to freeze if not handled properly.
