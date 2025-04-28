@@ -26,8 +26,10 @@ class TAGCapable:
     __slots__ = (
         "available_tags",
         "tag_ranges",
+        "default_tag_ranges",
         "special_available_tags",
         "special_tags",
+        "default_special_tags",
         "tag_lock",
     )
 
