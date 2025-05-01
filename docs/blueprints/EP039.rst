@@ -126,8 +126,6 @@ III. How kafka_events interacts with Kafka
 IV. Configurations in settings.py
 ==============================
 
-IV. Configurations in settings.py
-
 1. This section describes the key configuration parameters used by the kafka_events application. These constants define how the application connects to Kafka, manages topics, handles message delivery, and filters events.
 
 - Key Configuration Constants
@@ -173,6 +171,7 @@ IV. Configurations in settings.py
     - Usage: Reduces network load and improves performance by compressing message data.
 
 V. `managers/``
+=============
 
 This folder contains the relevant domain specific classes that manage data accordingly.
 
@@ -191,16 +190,37 @@ VI. Events
     - Events are to be filtered using regular expressions (regex)
       - This allows for flexibility in rejecting some or all of a given producer's events.
     - Some events may not be necessary to downstream consumers, thus ignoring them would reduce Kafka's burden and improve throughput.
+    - Events can be dynamically added/listed/removed at runtime by interacting with the endpoints `/v1/create`, `/v1/list`, and `/v1/delete` respectively.
 
+VII. Endpoints
+==============
 
-VII. Dependencies
+  1. `/v1/create`
+
+  - Allows operators to create new filters to allow different NApps to be serialized.
+  - Requires JSON data to work
+    - Mandatory: "pattern": The regex pattern to be added
+    - Optional: "description": The human readable description for the Filter
+
+  2. `/v1/list`
+
+  - Allows operators to list the currently running filters
+  - Does not require JSON data
+
+  3. `/v1/delete`
+
+  - Allows operators to remove filters from the pipeline, restricting what is allowed.
+  - Requires JSON data to work
+    - Mandatory: "pattern": The regex pattern to be removed
+
+VIII. Dependencies
 =================
 
  * kytos
  * aiokafka - [0.12.0]
 
 
-VIII. Kafka message structure
+IX. Kafka message structure
 ======================
 
 1. Overview
@@ -293,7 +313,7 @@ A consumer reads the message and decodes it:
         print(f"Received: {event}")
 
 
-IX. Implementation details ``v1``
+X. Implementation details ``v1``
 ===================================
 
 The following requirements clarify certain details and expected behavior for ``kafka_events`` v1:
