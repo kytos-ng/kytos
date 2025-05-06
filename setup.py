@@ -16,6 +16,7 @@ try:
     # pylint: disable=unused-import
     import pip  # noqa
     from setuptools import Command, find_packages, setup
+    from setuptools.command.develop import develop
     from setuptools.command.egg_info import egg_info
 except ModuleNotFoundError:
     print('Please install python3-pip and run setup.py again.')
@@ -175,17 +176,19 @@ class Linter(SimpleCommand):
 #             self.do_egg_install()
 
 
-# class DevelopMode(develop):
-#    """Recommended setup for developers.
-#
-#    The following feature are temporarily remove from code:
-#    Instead of copying the files to the expected directories, a symlink is
-#    created on the system aiming the current source code.
-#    """
-#
-#    def run(self):
-#        """Install the package in a developer mode."""
-#        super().run()
+class DevelopMode(develop):
+   """Recommended setup for developers.
+
+   The following feature are temporarily remove from code:
+   Instead of copying the files to the expected directories, a symlink is
+   created on the system aiming the current source code.
+   """
+
+   def run(self):
+        """Install the package in a developer mode."""
+        cmd = [sys.executable, '-m', 'pip', 'install', '-e', '.',
+               '--no-use-pep517']
+        check_call(cmd, shell=True)
 
 
 # We are parsing the metadata file as if it was a text file because if we
@@ -215,7 +218,6 @@ setup(name='kytos',
       author=METADATA.get('__author__'),
       author_email=METADATA.get('__author_email__'),
       license=METADATA.get('__license__'),
-      test_suite='tests',
       scripts=['bin/kytosd'],
       include_package_data=True,
       data_files=[(os.path.join(BASE_ENV, 'etc/kytos'), ETC_FILES)],
@@ -238,6 +240,7 @@ setup(name='kytos',
       cmdclass={
           'clean': Cleaner,
           'coverage': TestCoverage,
+          'develop': DevelopMode,
           'doctest': DocTest,
           'egg_info': EggInfo,
           'lint': Linter,
@@ -245,15 +248,9 @@ setup(name='kytos',
       },
       zip_safe=False,
       classifiers=[
-          'License :: OSI Approved :: MIT License',
           'Operating System :: POSIX :: Linux',
-          'Programming Language :: Python :: 3.6',
-          'Programming Language :: Python :: 3.7',
-          'Programming Language :: Python :: 3.8',
-          'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.11',
           'Topic :: System :: Networking',
-          'Development Status :: 4 - Beta',
           'Environment :: Console',
           'Environment :: No Input/Output (Daemon)',
       ])
