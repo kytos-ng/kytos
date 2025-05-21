@@ -1,0 +1,748 @@
+:EP: 40
+:Title: Optional proxy ports for telemetry-enabled EVCs
+:Authors:
+    - Jeronimo Bezerra <jbezerra AT fiu DOT edu>
+    - Italo Valcy <idasilva AT fiu DOT edu>
+    - Vinicius Arcanjo <vindasil AT fiu DOT edu>
+:Created: 2025-05-19
+:Kytos-Version: 2025.2
+:Status: Draft
+
+*******************************************************
+EP040 - Optional proxy ports for telemetry-enabled EVCs
+*******************************************************
+
+Introduction
+============
+
+This blueprint augments `EP031 <https://github.com/kytos-ng/kytos/blob/master/docs/blueprints/EP031.rst>`_, `EP033 <https://github.com/kytos-ng/kytos/blob/master/docs/blueprints/EP033.rst>`_, and it's a re-assessment of `discussion 137 <https://github.com/kytos-ng/telemetry_int/discussions/137>`_.
+
+Problem being solved
+====================
+
+Although a proxy port for each UNI of an EVC unlocked full INT visibility on all hops of an path. It has the following practical downsides:
+
+- Financially, it can be costly.
+- Consumes another port of a switch just for this (looped) purpose.
+- Certain switches might not have available ports to be allocated as a proxy port.
+
+Therefore, it's desirable to make the use of a proxy port optional at the expense of not having INT adding INT metadata on the last hop, and then network operators can make a decision whether or not they want to use a proxy port when enabling INT on an EVC.
+
+Proposed solutions
+==================
+
+The proposed solutions are the same as the ones presented on `discussion 137 <https://github.com/kytos-ng/telemetry_int/discussions/137>`_. All in all, and based on AmLight's network requirements, proxy ports configurations must be optional.
+
+Optional proxy port requirements
+-------------------------------
+
+The following requirements will be implemented on ``telemetry_int``:
+
+- **R0)** Proxy port configuration will always need to be symmetrical on both UNIs, either they both use it or not.
+- **R1)** If a proxy port isn't used then the egress switch must not ``add_int_metadata``, and only perform ``send_report`` and ``pop_int`` before forwarding the traffic to the UNI
+- **R2)** Intra-EVC will still require proxy ports (otherwise it can't add INT metadata).
+- **R3)** Inter-EVC proxy ports will now be optional, by default no proxy port is needed. A proxy port is derived to be used once it's been configured on a UNI. This will ensure that configuration is still aligned with the first specification (where proxy ports are pre-configured) while still not adding extra complexity and states being set on endpoints and events.
+- **R4.1)** An existing INT inter-EVC in order to no longer use proxy ports will need to have its INT disabled first.
+- **R4.2)** An existing INT inter-EVC in order to start using proxy ports will need to have its INT disabled first.
+- **R4.3)** INT EVCs if not disabled while changing from no proxy port to proxy port or vice-versa the NApp will react by auto disabling it to avoid hitting an unsupported config.
+- **R5)** Any direct change on proxy port metadata the NApp will still behave the same: ``proxy_port`` metadata overwrite implies in disabling INT following by enabling INT again; ``proxy_port`` removal implies in disabling INT.
+- **R6)** Augment ``POST v1/uni/{interface_id}/proxy_port/{port_number}`` to also validate and not allow asymmetric proxy port configuration. Network operators are supposed to use this endpoint when adding proxy port to have the validations upfront before the actual metadata is set.
+
+
+API changes
+-----------
+
+- No changes in payloads, except now that ``POST /v1/evc/enable`` endpoint will also check for additional proxy ports conflicts such as unsupported asymmetric configuration. In case of a conflict, it'll return HTTP status code 409.
+- ``POST v1/uni/{interface_id}/proxy_port/{port_number}`` endpoint to also validate and not allow asymmetric proxy port configuration.
+
+Topology Example
+----------------
+
+Figure 1 illustrates a linear 3 topology example with an Inter-EVC (EVPL) from S1 port 15, vlan 2222 to S6 port 16, vlan 2222. By default, an EVPL will still use table 2, and an EPL will use table 3.
+
+
+.. code-block:: none
+
+               +----+                                              +----+
+             17|    |18                                          25|    |26
+           +---+----v---+            +------------+           +----+----v---+
+        15 |            |            |            |           |             |22
+    -------+            |2         2 |            |1        5 |             +-------
+     vlan  |     S1     +------------+    S2      +-----------+    S6       | vlan
+     2222  |            |            |            |           |             | 2222
+           |            |            |            |           |             |
+           +------------+            +------------+           +-------------+
+
+                          Figure 1 - Linear 3 switches topology
+
+
+Expected INT related actions from S1 to S6 with proxy port:
+
+- S1: ``push_int`` & ``goto_table``, ``add_int_metadata`` & ``output:2``
+- S2: ``add_int_metadata`` & ``output:1``
+- S6: ``add_int_metadata`` & ``output:25`` (proxy port), ``send_report`` & ``goto_table``, ``pop_int`` & ``output:22`` (UNI)
+
+Expected INT related actions from S1 to S6 without proxy port:
+
+- S1: ``push_int`` & ``goto_table``, ``add_int_metadata`` & ``output:2``
+- S2: ``add_int_metadata`` & ``output:1``
+- S6: ``send_report`` & ``goto_table``, ``pop_int`` & ``output:22`` (UNI)
+
+Expected flows per switches without proxy ports (``mef_eline`` related flows are included too for completeness and to also encapsulate non UDP and non TCP traffic):
+
+.. code-block:: json
+
+    {
+      "00:00:00:00:00:00:00:01": {
+        "flows": [
+          {
+            "table_id": 0,
+            "owner": "telemetry_source",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 15,
+              "dl_type": 2048,
+              "dl_vlan": 2222,
+              "nw_proto": 6
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "push_int"
+                  }
+                ]
+              },
+              {
+                "instruction_type": "goto_table",
+                "table_id": 2
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_source",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 15,
+              "dl_type": 2048,
+              "dl_vlan": 2222,
+              "nw_proto": 17
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "push_int"
+                  }
+                ]
+              },
+              {
+                "instruction_type": "goto_table",
+                "table_id": 2
+              }
+            ]
+          },
+          {
+            "table_id": 2,
+            "owner": "telemetry_int_source",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 15,
+              "dl_vlan": 2222
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "add_int_metadata"
+                  },
+                  {
+                    "action_type": "push_vlan",
+                    "tag_type": "s"
+                  },
+                  {
+                    "action_type": "set_vlan",
+                    "vlan_id": 1
+                  },
+                  {
+                    "action_type": "output",
+                    "port": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_int_sink",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 2,
+              "dl_type": 2048,
+              "dl_vlan": 1,
+              "nw_proto": 17
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "send_report"
+                  }
+                ]
+              },
+              {
+                "instruction_type": "goto_table",
+                "table_id": 2
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_int_sink",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 2,
+              "dl_type": 2048,
+              "dl_vlan": 1,
+              "nw_proto": 6
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "send_report"
+                  }
+                ]
+              },
+              {
+                "instruction_type": "goto_table",
+                "table_id": 2
+              }
+            ]
+          },
+          {
+            "table_id": 2,
+            "owner": "telemetry_int_sink",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 2,
+              "dl_type": 2048,
+              "dl_vlan": 1
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "pop_int"
+                  },
+                  {
+                    "action_type": "pop_vlan"
+                  },
+                  {
+                    "action_type": "output",
+                    "port": 15
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "mef_eline",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12303411020944846664,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 15,
+              "dl_vlan": 2222
+            },
+            "actions": [
+              {
+                "action_type": "push_vlan",
+                "tag_type": "s"
+              },
+              {
+                "action_type": "set_vlan",
+                "vlan_id": 1
+              },
+              {
+                "action_type": "output",
+                "port": 2
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "mef_eline",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12303411020944846664,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 2,
+              "dl_vlan": 1
+            },
+            "actions": [
+              {
+                "action_type": "pop_vlan"
+              },
+              {
+                "action_type": "output",
+                "port": 15
+              }
+            ]
+          }
+        ]
+      },
+      "00:00:00:00:00:00:00:06": {
+        "flows": [
+          {
+            "table_id": 0,
+            "owner": "telemetry_int_source",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 22,
+              "dl_type": 2048,
+              "dl_vlan": 2222,
+              "nw_proto": 6
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "push_int"
+                  }
+                ]
+              },
+              {
+                "instruction_type": "goto_table",
+                "table_id": 2
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_int_source",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 22,
+              "dl_type": 2048,
+              "dl_vlan": 2222,
+              "nw_proto": 17
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "push_int"
+                  }
+                ]
+              },
+              {
+                "instruction_type": "goto_table",
+                "table_id": 2
+              }
+            ]
+          },
+          {
+            "table_id": 2,
+            "owner": "telemetry_int_source",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 22,
+              "dl_vlan": 2222
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "add_int_metadata"
+                  },
+                  {
+                    "action_type": "push_vlan",
+                    "tag_type": "s"
+                  },
+                  {
+                    "action_type": "set_vlan",
+                    "vlan_id": 1
+                  },
+                  {
+                    "action_type": "output",
+                    "port": 5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_int_sink",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 5,
+              "dl_type": 2048,
+              "dl_vlan": 1,
+              "nw_proto": 6
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "send_report"
+                  }
+                ]
+              },
+              {
+                "instruction_type": "goto_table",
+                "table_id": 2
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_int_sink",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 5,
+              "dl_type": 2048,
+              "dl_vlan": 1,
+              "nw_proto": 17
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "send_report"
+                  }
+                ]
+              },
+              {
+                "instruction_type": "goto_table",
+                "table_id": 2
+              }
+            ]
+          },
+          {
+            "table_id": 2,
+            "owner": "telemetry_int_sink",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 5,
+              "dl_type": 2048,
+              "dl_vlan": 1
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "pop_int"
+                  },
+                  {
+                    "action_type": "pop_vlan"
+                  },
+                  {
+                    "action_type": "output",
+                    "port": 22
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "mef_eline",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12303411020944846664,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 22,
+              "dl_vlan": 2222
+            },
+            "actions": [
+              {
+                "action_type": "push_vlan",
+                "tag_type": "s"
+              },
+              {
+                "action_type": "set_vlan",
+                "vlan_id": 1
+              },
+              {
+                "action_type": "output",
+                "port": 5
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "mef_eline",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12303411020944846664,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 5,
+              "dl_vlan": 1
+            },
+            "actions": [
+              {
+                "action_type": "pop_vlan"
+              },
+              {
+                "action_type": "output",
+                "port": 22
+              }
+            ]
+          }
+        ]
+      },
+      "00:00:00:00:00:00:00:02": {
+        "flows": [
+          {
+            "table_id": 0,
+            "owner": "telemetry_int_hop",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 2,
+              "dl_type": 2048,
+              "dl_vlan": 1,
+              "nw_proto": 6
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "add_int_metadata"
+                  },
+                  {
+                    "action_type": "set_vlan",
+                    "vlan_id": 1
+                  },
+                  {
+                    "action_type": "output",
+                    "port": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_int_hop",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 2,
+              "dl_type": 2048,
+              "dl_vlan": 1,
+              "nw_proto": 17
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "add_int_metadata"
+                  },
+                  {
+                    "action_type": "set_vlan",
+                    "vlan_id": 1
+                  },
+                  {
+                    "action_type": "output",
+                    "port": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_int",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 1,
+              "dl_type": 2048,
+              "dl_vlan": 1,
+              "nw_proto": 6
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "add_int_metadata"
+                  },
+                  {
+                    "action_type": "set_vlan",
+                    "vlan_id": 1
+                  },
+                  {
+                    "action_type": "output",
+                    "port": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "telemetry_int",
+            "table_group": "evpl",
+            "priority": 20100,
+            "cookie": 12159295832868990792,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 1,
+              "dl_type": 2048,
+              "dl_vlan": 1,
+              "nw_proto": 17
+            },
+            "instructions": [
+              {
+                "instruction_type": "apply_actions",
+                "actions": [
+                  {
+                    "action_type": "add_int_metadata"
+                  },
+                  {
+                    "action_type": "set_vlan",
+                    "vlan_id": 1
+                  },
+                  {
+                    "action_type": "output",
+                    "port": 2
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "mef_eline",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12303411020944846664,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 2,
+              "dl_vlan": 1
+            },
+            "actions": [
+              {
+                "action_type": "set_vlan",
+                "vlan_id": 1
+              },
+              {
+                "action_type": "output",
+                "port": 1
+              }
+            ]
+          },
+          {
+            "table_id": 0,
+            "owner": "mef_eline",
+            "table_group": "evpl",
+            "priority": 20000,
+            "cookie": 12303411020944846664,
+            "idle_timeout": 0,
+            "hard_timeout": 0,
+            "match": {
+              "in_port": 1,
+              "dl_vlan": 1
+            },
+            "actions": [
+              {
+                "action_type": "set_vlan",
+                "vlan_id": 1
+              },
+              {
+                "action_type": "output",
+                "port": 2
+              }
+            ]
+          }
+        ]
+      }
+    }
