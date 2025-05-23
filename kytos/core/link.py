@@ -42,6 +42,7 @@ class Link(GenericEntity):
             self.endpoint_a: Interface = endpoint_a
             self.endpoint_b: Interface = endpoint_b
 
+        self.link_lock = Lock()
         super().__init__()
 
     def __hash__(self):
