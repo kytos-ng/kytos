@@ -256,7 +256,6 @@ Expected flows per switches without proxy ports (``mef_eline`` related flows are
             "hard_timeout": 0,
             "match": {
               "in_port": 2,
-              "dl_type": 2048,
               "dl_vlan": 1
             },
             "instructions": [
@@ -491,7 +490,6 @@ Expected flows per switches without proxy ports (``mef_eline`` related flows are
             "hard_timeout": 0,
             "match": {
               "in_port": 5,
-              "dl_type": 2048,
               "dl_vlan": 1
             },
             "instructions": [
