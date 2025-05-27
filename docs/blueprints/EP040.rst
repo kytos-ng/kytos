@@ -22,7 +22,7 @@ Problem being solved
 
 Although a proxy port for each UNI of an EVC unlocked full INT visibility on all hops of an path. It has the following practical downsides:
 
-- Financially, it can be costly.
+- Financially, it can be expensive.
 - Consumes another port of a switch just for this (looped) purpose.
 - Certain switches might not have available ports to be allocated as a proxy port.
 
@@ -38,7 +38,7 @@ Optional proxy port requirements
 
 The following requirements will be implemented on ``telemetry_int``:
 
-- **R0)** Proxy port configuration will always need to be symmetrical on both UNIs, either they both use it or not.
+- **R0)** Proxy port configuration must be symmetrical on both UNIs, either they both use it or not.
 - **R1)** If a proxy port isn't used then the egress switch must not ``add_int_metadata``, and only perform ``send_report`` and ``pop_int`` before forwarding the traffic to the UNI
 - **R2)** Intra-EVC will still require proxy ports (otherwise it can't add INT metadata).
 - **R3)** Inter-EVC proxy ports will now be optional, by default no proxy port is needed. A proxy port is derived to be used once it's been configured on a UNI. This will ensure that configuration is still aligned with the first specification (where proxy ports are pre-configured) while still not adding extra complexity and states being set on endpoints and events.
