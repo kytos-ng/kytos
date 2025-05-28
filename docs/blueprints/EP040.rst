@@ -88,6 +88,20 @@ Expected INT related actions from S1 to S6 without proxy port:
 - S2: ``add_int_metadata`` & ``output:1``
 - S6: ``send_report`` & ``goto_table``, ``pop_int`` & ``output:22`` (UNI)
 
+
+Expected INT related actions from S6 to S1 with proxy port:
+
+- S6: ``push_int`` & ``goto_table``, ``add_int_metadata`` & ``output:5``
+- S2: ``add_int_metadata`` & ``output:2``
+- S1: ``add_int_metadata`` & ``output:17`` (proxy port), ``send_report`` & ``goto_table``, ``pop_int`` & ``output:15`` (UNI)
+
+Expected INT related actions from S6 to S1 without proxy port:
+
+- S6: ``push_int`` & ``goto_table``, ``add_int_metadata`` & ``output:5``
+- S2: ``add_int_metadata`` & ``output:2``
+- S6: ``send_report`` & ``goto_table``, ``pop_int`` & ``output:15`` (UNI)
+
+
 Expected flows per switches without proxy ports (``mef_eline`` related flows are included too for completeness and to also encapsulate non UDP and non TCP traffic):
 
 .. code-block:: json
