@@ -44,7 +44,7 @@ The following requirements will be implemented on ``telemetry_int``:
 - **R3)** Inter-EVC proxy ports will now be optional, by default no proxy port is needed. A proxy port is derived to be used once it's been configured on a UNI. This will ensure that configuration is still aligned with the first specification (where proxy ports are pre-configured) while still not adding extra complexity and states being set on endpoints and events.
 - **R4.1)** An existing INT inter-EVC in order to no longer use proxy ports will need to have its INT disabled first.
 - **R4.2)** An existing INT inter-EVC in order to start using proxy ports will need to have its INT disabled first.
-- **R4.3)** INT EVCs if not disabled while changing from no proxy port to proxy port or vice-versa the NApp will react by auto disabling it to avoid hitting an unsupported config.
+- **R4.3)** INT EVCs if not disabled while changing from no proxy port to proxy port (adding `proxy_port` metadata on a UNI interface) or vice-versa the NApp will react by auto disabling it to avoid hitting an unsupported config.
 - **R5)** Any direct change on proxy port metadata the NApp will still behave the same: ``proxy_port`` metadata overwrite implies in disabling INT following by enabling INT again; ``proxy_port`` removal implies in disabling INT.
 - **R6)** Augment ``POST v1/uni/{interface_id}/proxy_port/{port_number}`` to also validate and not allow asymmetric proxy port configuration. Network operators are supposed to use this endpoint when adding proxy port to have the validations upfront before the actual metadata is set.
 
