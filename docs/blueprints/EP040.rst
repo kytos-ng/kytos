@@ -46,7 +46,7 @@ The following requirements will be implemented on ``telemetry_int``:
 - **R4.2)** An existing INT inter-EVC in order to start using proxy ports will need to have its INT disabled first.
 - **R4.3)** INT EVCs if not disabled while changing from no proxy port to proxy port (adding `proxy_port` metadata on a UNI interface) or vice-versa the NApp will react by auto disabling it to avoid hitting an unsupported config.
 - **R5)** Any direct change on proxy port metadata the NApp will still behave the same: ``proxy_port`` metadata overwrite implies in disabling INT following by enabling INT again; ``proxy_port`` removal implies in disabling INT.
-- **R6)** Augment ``POST v1/uni/{interface_id}/proxy_port/{port_number}`` to also validate and not allow asymmetric proxy port configuration. Network operators are supposed to use this endpoint when adding proxy port to have the validations upfront before the actual metadata is set.
+- **R6)** Augment ``POST v1/uni/{interface_id}/proxy_port/{port_number}`` to also validate and not allow asymmetric proxy port configuration. For example, if you try to set a `proxy_port` on one UNI of an INT EVC that had been previously enabled without any proxy ports, then it would be asymmetric, resulting in validation error. Network operators are supposed to use this endpoint when adding proxy port to have the validations upfront before the actual metadata is set.
 
 
 API changes
