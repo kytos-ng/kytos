@@ -76,7 +76,7 @@ Figure 1 illustrates a linear 3 topology example with an Inter-EVC (EVPL) from S
                           Figure 1 - Linear 3 switches topology
 
 
-Expected INT related actions from S1 to S6 with proxy port:
+Expected INT related actions from S1 to S6 with proxy port (all examples below the flows are comma-separated):
 
 - S1: ``push_int`` & ``goto_table``, ``add_int_metadata`` & ``output:2``
 - S2: ``add_int_metadata`` & ``output:1``
