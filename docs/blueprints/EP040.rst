@@ -23,8 +23,8 @@ Problem being solved
 Although a proxy port for each UNI of an EVC unlocked full INT visibility on all hops of an path. It has the following practical downsides:
 
 - Financially, it can be expensive.
-- Consumes another port of a switch just for this (looped) purpose.
-- Certain switches might not have available ports to be allocated as a proxy port.
+- Consumes another port of a switch just for this (looped) purpose, and certain switches might not have available ports.
+- OPEX: network operators have to setup this physical loop, have to maintain the configuration, document and monitor.
 
 Therefore, it's desirable to make the use of a proxy port optional at the expense of not having INT adding INT metadata on the last hop, and then network operators can make a decision whether or not they want to use a proxy port when enabling INT on an EVC.
 
