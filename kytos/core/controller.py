@@ -1057,9 +1057,9 @@ class Controller:
     def get_links_from_interfaces(
         self,
         interfaces: Iterable[Interface]
-    ) -> list[Link]:
+    ) -> dict[str, Link]:
         """Get a list of links that matched to all/any given interfaces."""
-        links_found = []
+        links_found = {}
         with self.links_lock:
             for interface in interfaces:
                 for link in self.links.copy().values():
@@ -1067,5 +1067,5 @@ class Controller:
                         interface.id == link.endpoint_a.id,
                         interface.id == link.endpoint_b.id,
                     )):
-                        links_found.append(link)
+                        links_found[link.id] = link
             return links_found
