@@ -52,6 +52,10 @@ from kytos.core.pacing import Pacer
 from kytos.core.queue_monitor import QueueMonitorWindow
 from kytos.core.switch import Switch
 
+from kytos.core.link import Link
+from kytos.core.interface import Interface
+from typing import Optional, Iterable
+
 __all__ = ('Controller',)
 
 
@@ -129,7 +133,7 @@ class Controller:
         #: dict: Current existing switches.
         #:
         #: The key is the switch dpid, while the value is a Switch object.
-        self.switches = {}  # dpid: Switch()
+        self.switches: dict[str, Switch] = {}
         self._switches_lock = threading.Lock()
 
         #: datetime.datetime: Time when the controller finished starting.
@@ -167,6 +171,9 @@ class Controller:
 
         #: Pacer for controlling the rate which actions can be executed
         self.pacer = Pacer("memory://")
+
+        self.links: dict[str, Link] = {}
+        self.links_lock = threading.Lock()
 
     def start_auth(self):
         """Initialize Auth() and its services"""
@@ -1022,3 +1029,43 @@ class Controller:
                 f"{message}\nFull KytosEventBuffers counters: {counter}"
             )
         return message
+
+    def get_link_or_create(self, endpoint_a: Interface, endpoint_b: Interface) -> tuple[Link, bool]: # SAFE FUNCTION
+        """Get an existing link or create a new one.
+
+        Returns:
+            Tuple(Link, bool): Link and a boolean whether it has been created.
+        """
+        with self.links_lock:
+            new_link = Link(endpoint_a, endpoint_b)
+
+            if new_link.id in self.links:
+                return (self.links[new_link.id], False)
+
+            self.links[new_link.id] = new_link
+
+        return (new_link, True)
+    
+    def get_link(self, link_id: str) -> Optional[Link]:
+        """Return a link by its ID.
+        
+        Returns:
+            Optional[Link]: Link if found, None otherwise.
+        """
+        return self.links.get(link_id)
+
+    def get_links_from_interfaces(
+        self,
+        interfaces: Iterable[Interface]
+    ) -> list[Link]:
+        """Get a list of links that matched to all/any given interfaces."""
+        links_found = []
+        with self.links_lock:
+            for interface in interfaces:
+                for link in self.links.copy().values():
+                    if any((
+                        interface.id == link.endpoint_a.id,
+                        interface.id == link.endpoint_b.id,
+                    )):
+                        links_found.append(link)
+            return links_found

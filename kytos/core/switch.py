@@ -80,7 +80,7 @@ class Switch(GenericEntity):
         #:     (eth_type, mac_src, mac_dst) and the value is the timestamp of
         #:     the last flood.
         self.flood_table = {}
-        self.interfaces = {}
+        self.interfaces: dict[int, Interface] = {}
         self.flows = []
         self.description = {}
         self._id = dpid

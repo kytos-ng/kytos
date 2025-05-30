@@ -13,6 +13,7 @@ from threading import Event, Thread
 
 from kytos.core.events import KytosEvent
 from kytos.core.logs import NAppLog
+import kytos.core.controller as controller
 
 __all__ = ('KytosNApp',)
 
@@ -165,7 +166,7 @@ class NApp:
 class KytosNApp(Thread, metaclass=ABCMeta):
     """Base class for any KytosNApp to be developed."""
 
-    def __init__(self, controller, **kwargs):
+    def __init__(self, controller: "controller.Controller", **kwargs):
         """Contructor of KytosNapps.
 
         Go through all of the instance methods and selects those that have
