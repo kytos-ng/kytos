@@ -42,6 +42,7 @@ def get_link_mock(endpoint_a, endpoint_b):
     link.endpoint_a = endpoint_a
     link.endpoint_b = endpoint_b
     link.metadata = {"A": 0, "BB": 0.0, "CCC": "test"}
+    link.link_lock = MagicMock()
     return link
 
 

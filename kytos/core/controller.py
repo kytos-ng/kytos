@@ -28,6 +28,7 @@ from importlib import import_module
 from importlib import reload as reload_module
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from typing import Iterable, Optional
 
 from pyof.foundation.exceptions import PackException
 
@@ -44,6 +45,8 @@ from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosAPMInitException, KytosDBInitException,
                                    KytosNAppSetupException)
 from kytos.core.helpers import executors, now
+from kytos.core.interface import Interface
+from kytos.core.link import Link
 from kytos.core.logs import LogManager
 from kytos.core.napps.base import NApp
 from kytos.core.napps.manager import NAppsManager
@@ -51,10 +54,6 @@ from kytos.core.napps.napp_dir_listener import NAppDirListener
 from kytos.core.pacing import Pacer
 from kytos.core.queue_monitor import QueueMonitorWindow
 from kytos.core.switch import Switch
-
-from kytos.core.link import Link
-from kytos.core.interface import Interface
-from typing import Optional, Iterable
 
 __all__ = ('Controller',)
 
@@ -1030,7 +1029,11 @@ class Controller:
             )
         return message
 
-    def get_link_or_create(self, endpoint_a: Interface, endpoint_b: Interface) -> tuple[Link, bool]: # SAFE FUNCTION
+    def get_link_or_create(
+        self,
+        endpoint_a: Interface,
+        endpoint_b: Interface
+    ) -> tuple[Link, bool]:
         """Get an existing link or create a new one.
 
         Returns:
@@ -1045,10 +1048,10 @@ class Controller:
             self.links[new_link.id] = new_link
 
         return (new_link, True)
-    
+
     def get_link(self, link_id: str) -> Optional[Link]:
         """Return a link by its ID.
-        
+
         Returns:
             Optional[Link]: Link if found, None otherwise.
         """
@@ -1057,9 +1060,9 @@ class Controller:
     def get_links_from_interfaces(
         self,
         interfaces: Iterable[Interface]
-    ) -> list[Link]:
+    ) -> dict[str, Link]:
         """Get a list of links that matched to all/any given interfaces."""
-        links_found = []
+        links_found = {}
         with self.links_lock:
             for interface in interfaces:
                 for link in self.links.copy().values():
@@ -1067,5 +1070,5 @@ class Controller:
                         interface.id == link.endpoint_a.id,
                         interface.id == link.endpoint_b.id,
                     )):
-                        links_found.append(link)
+                        links_found[link.id] = link
             return links_found
