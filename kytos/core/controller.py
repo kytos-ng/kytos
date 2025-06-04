@@ -28,6 +28,7 @@ from importlib import import_module
 from importlib import reload as reload_module
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from typing import Iterable, Optional
 
 from pyof.foundation.exceptions import PackException
 
@@ -44,6 +45,8 @@ from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosAPMInitException, KytosDBInitException,
                                    KytosNAppSetupException)
 from kytos.core.helpers import executors, now
+from kytos.core.interface import Interface
+from kytos.core.link import Link
 from kytos.core.logs import LogManager
 from kytos.core.napps.base import NApp
 from kytos.core.napps.manager import NAppsManager
@@ -129,7 +132,7 @@ class Controller:
         #: dict: Current existing switches.
         #:
         #: The key is the switch dpid, while the value is a Switch object.
-        self.switches = {}  # dpid: Switch()
+        self.switches: dict[str, Switch] = {}
         self._switches_lock = threading.Lock()
 
         #: datetime.datetime: Time when the controller finished starting.
@@ -167,6 +170,9 @@ class Controller:
 
         #: Pacer for controlling the rate which actions can be executed
         self.pacer = Pacer("memory://")
+
+        self.links: dict[str, Link] = {}
+        self.links_lock = threading.Lock()
 
     def start_auth(self):
         """Initialize Auth() and its services"""
@@ -1022,3 +1028,61 @@ class Controller:
                 f"{message}\nFull KytosEventBuffers counters: {counter}"
             )
         return message
+
+    def get_link_or_create(
+        self,
+        endpoint_a: Interface,
+        endpoint_b: Interface,
+        link_dict: Optional[dict] = None,
+    ) -> tuple[Link, bool]:
+        """Get an existing link or create a new one.
+
+        Returns:
+            Tuple(Link, bool): Link and a boolean whether it has been created.
+        """
+        with self.links_lock:
+            new_link = Link(endpoint_a, endpoint_b)
+
+            if new_link.id in self.links:
+                return (self.links[new_link.id], False)
+
+            self.links[new_link.id] = new_link
+
+            with new_link.link_lock:
+                endpoint_a.update_link(new_link)
+                endpoint_b.update_link(new_link)
+                new_link.endpoint_a = endpoint_a
+                new_link.endpoint_b = endpoint_b
+                endpoint_a.nni = True
+                endpoint_b.nni = True
+
+                if link_dict and link_dict['enabled']:
+                    new_link.enable()
+                elif link_dict and not link_dict['enabled']:
+                    new_link.disable()
+
+        return (new_link, True)
+
+    def get_link(self, link_id: str) -> Optional[Link]:
+        """Return a link by its ID.
+
+        Returns:
+            Optional[Link]: Link if found, None otherwise.
+        """
+        return self.links.get(link_id)
+
+    def get_links_from_interfaces(
+        self,
+        interfaces: Iterable[Interface]
+    ) -> dict[str, Link]:
+        """Get a list of links that matched to all/any given interfaces."""
+        links_found = {}
+        with self.links_lock:
+            for link in self.links.copy().values():
+                for interface in interfaces:
+                    if any((
+                        interface.id == link.endpoint_a.id,
+                        interface.id == link.endpoint_b.id,
+                    )):
+                        links_found[link.id] = link
+            return links_found
