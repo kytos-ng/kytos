@@ -1032,7 +1032,8 @@ class Controller:
     def get_link_or_create(
         self,
         endpoint_a: Interface,
-        endpoint_b: Interface
+        endpoint_b: Interface,
+        link_dict: Optional[dict] = None,
     ) -> tuple[Link, bool]:
         """Get an existing link or create a new one.
 
@@ -1046,6 +1047,19 @@ class Controller:
                 return (self.links[new_link.id], False)
 
             self.links[new_link.id] = new_link
+
+            with new_link.link_lock:
+                endpoint_a.update_link(new_link)
+                endpoint_b.update_link(new_link)
+                new_link.endpoint_a = endpoint_a
+                new_link.endpoint_b = endpoint_b
+                endpoint_a.nni = True
+                endpoint_b.nni = True
+
+                if link_dict and link_dict['enabled']:
+                    new_link.enable()
+                elif link_dict and not link_dict['enabled']:
+                    new_link.disable()
 
         return (new_link, True)
 
