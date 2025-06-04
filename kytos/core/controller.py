@@ -1056,10 +1056,11 @@ class Controller:
                 endpoint_a.nni = True
                 endpoint_b.nni = True
 
-                if link_dict and link_dict['enabled']:
-                    new_link.enable()
-                elif link_dict and not link_dict['enabled']:
-                    new_link.disable()
+                if link_dict:
+                    if link_dict['enabled']:
+                        new_link.enable()
+                    else:
+                        new_link.disable()
 
         return (new_link, True)
 

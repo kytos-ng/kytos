@@ -11,9 +11,10 @@ from pathlib import Path
 from random import randint
 from threading import Event, Thread
 
+# pylint: disable=consider-using-from-import,redefined-outer-name
+import kytos.core.controller as controller
 from kytos.core.events import KytosEvent
 from kytos.core.logs import NAppLog
-import kytos.core.controller as controller
 
 __all__ = ('KytosNApp',)
 
