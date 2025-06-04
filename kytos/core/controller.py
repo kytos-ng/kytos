@@ -1046,20 +1046,21 @@ class Controller:
             if new_link.id in self.links:
                 return (self.links[new_link.id], False)
 
-            self.links[new_link.id] = new_link
-
             with new_link.link_lock:
                 if link_dict:
                     if link_dict['enabled']:
                         new_link.enable()
                     else:
                         new_link.disable()
+                    new_link.extend_metadata(link_dict["metadata"])
                 endpoint_a.update_link(new_link)
                 endpoint_b.update_link(new_link)
                 new_link.endpoint_a = endpoint_a
                 new_link.endpoint_b = endpoint_b
                 endpoint_a.nni = True
                 endpoint_b.nni = True
+
+            self.links[new_link.id] = new_link
 
         return (new_link, True)
 
