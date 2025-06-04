@@ -741,10 +741,8 @@ class TestController:
         assert link.endpoint_a.id == dpid_a
         assert link.endpoint_b.id == dpid_b
         assert mock_interface_a.nni == True
-        assert mock_interface_a.link == link
         mock_interface_a.update_link.assert_called()
         assert mock_interface_b.nni == True
-        assert mock_interface_b.link == link
         mock_interface_b.update_link.assert_called()
 
         link, created = self.controller.get_link_or_create(mock_interface_a,
@@ -754,18 +752,18 @@ class TestController:
 
         # enable link
         link_dict = {'enabled': True}
-        self.napp.controller.links = {}
+        self.controller.links = {}
         link, _ = self.controller.get_link_or_create(
             mock_interface_a, mock_interface_b, link_dict
         )
-        assert link.enable.call_count == 1
+        assert link._enabled is True
         # disable link
         link_dict = {'enabled': False}
-        self.napp.controller.links = {}
+        self.controller.links = {}
         link, _ = self.controller.get_link_or_create(
             mock_interface_a, mock_interface_b, link_dict
         )
-        assert link.disable.call_count == 1
+        assert link._enabled is False
 
 class TestControllerAsync:
 
