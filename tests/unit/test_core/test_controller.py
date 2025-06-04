@@ -20,7 +20,8 @@ from kytos.core.events import KytosEvent
 from kytos.core.exceptions import KytosNAppSetupException
 from kytos.core.logs import LogManager
 from kytos.core.rest_api import Request
-
+from kytos.lib.helpers import (get_interface_mock, get_link_mock,
+                               get_switch_mock)
 
 # pylint: disable=protected-access, too-many-public-methods
 class TestController:
@@ -722,6 +723,26 @@ class TestController:
         response = self.controller.get_links_from_interfaces(interfaces[:2])
         assert response == {"link1": links["link1"]}
 
+    def test_get_link_or_create(self):
+        """Test _get_link_or_create."""
+        dpid_a = "00:00:00:00:00:00:00:01"
+        dpid_b = "00:00:00:00:00:00:00:02"
+        mock_switch_a = get_switch_mock(dpid_a, 0x04)
+        mock_switch_b = get_switch_mock(dpid_b, 0x04)
+        mock_interface_a = get_interface_mock('s1-eth1', 1, mock_switch_a)
+        mock_interface_b = get_interface_mock('s2-eth1', 1, mock_switch_b)
+        mock_interface_a.id = dpid_a
+        mock_interface_b.id = dpid_b
+
+        link, created = self.controller.get_link_or_create(mock_interface_a,
+                                                           mock_interface_b)
+        assert created
+        assert link.endpoint_a.id == dpid_a
+        assert link.endpoint_b.id == dpid_b
+
+        link, created = self.controller.get_link_or_create(mock_interface_a,
+                                                           mock_interface_b)
+        assert not created
 
 class TestControllerAsync:
 
