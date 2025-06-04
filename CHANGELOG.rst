@@ -6,6 +6,11 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Changed
+=======
+- ``controller`` now holds the dictionary of ``links`` and it can be accessed by other NApps by calling ``self.controller.links``.
+- Each ``Link`` now has a ``threading.Lock`` to perform any change or check on its attributes.
+
 [2025.1.0] - 2025-04-15
 ***********************
 

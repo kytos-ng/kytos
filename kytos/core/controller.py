@@ -1064,8 +1064,8 @@ class Controller:
         """Get a list of links that matched to all/any given interfaces."""
         links_found = {}
         with self.links_lock:
-            for interface in interfaces:
-                for link in self.links.copy().values():
+            for link in self.links.copy().values():
+                for interface in interfaces:
                     if any((
                         interface.id == link.endpoint_a.id,
                         interface.id == link.endpoint_b.id,
