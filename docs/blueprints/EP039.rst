@@ -345,33 +345,68 @@ The following requirements clarify certain details and expected behavior for ``k
 
 X. Benchmarks
 
-The following benchmarks were the product of sending 400 requests (split across 10 threads) to the `mef_eline` endpoint to create `kytos/mef_eline.created` events naturally through `kytos`.
-The following benchmarks were the product of sending a request to a REST API endpoint to create 50_000 `KytosEvents` like the following:
+The following scenarios were tested in a virtual machine used a Intel(R) Xeon(R) Gold 5420+ to have a minimum baseline for throughput figures, mimicking average and worse case loads.
 
-.. code-block:: python
+  1. Results
 
-    KytosEvent("kytos/sample_ui.do_work", content={"value": "x" * 10_000})
+  Scenario 1: Linearly increasing load of 10,000 messages, where each message is 1000 characters long (~1KB each).
 
-EPS
----
-:Mean: 510.3469387755102
-:Median: 529.5
-:Standard Deviation: 504.16585184252443
+  EPS
+  ---
+  :Mean: 1811.1379310344828
+  :Median: 2217.0
+  :Standard Deviation: 1090.3425505439811
+
+  CPU Usage
+  ---
+  :Mean: 71.06896551724138%
+  :Median: 91.9%
+  :Standard Deviation: 39.322610004303314%
+
+  Memory Usage
+  ---
+  :Mean: 172.5926724137931 MB
+  :Median: 174.55859375 MB
+  :Standard Deviation: 16.31160414466545 MB
+
+  Scenario 2: 500 EVCs converging due to a link down event.
+
+  EPS:
+  ---
+  :Mean: 453.25
+  :Median: 498.0
+  :Standard Deviation: 120.59099261553493
+
+  CPU Usage:
+  ---
+  :Mean: 107.95500000000001%
+  :Median: 108.25 % 
+  :Standard Deviation: 3.128494046662067 % 
+
+  Memory Usage:
+  ---
+  :Mean: 241.7111328125 MB
+  :Median: 241.93359375 MB
+  :Standard Deviation: 2.7810921202007104 MB
+
+  2. Conclusions
+
+  Data drawn from *scenario 1* indicates a strong performance for a moderately heavy load on Kytos with a moderately performant CPU core. A median score of 2217 events per second while not consuming all CPU resources would indicate that the new `kafka_events` would not bottleneck `Kytos` with its addition, albeit with a higher memory utilization due to serialization and network requests. It should also be noted that performance increased as other higher priority `async` in `Kytos` finished, such as the processing `KytosEvents` or processing the requests received at REST API endpoints.
+
+  Looking at *scenario 2*, we see an acceptable performance for a worse-case scenario, where 500 ethernet virtual circuits (EVCs) that all share a common path must perform a topology search for a new path during a link down event. Even with `Kytos` consuming a high ratio resources (including the CPU) as it searches for new paths, `kafka_events` still performs to desired expectations, hitting a ~500 EPS through this event. Similarly to *scenario 1*, the EPS picked up speed after higher-priority processing was finished. 
 
 XI. Open Questions / Future Work
 =================================
 
   1. Error codes
   2. Route messages to their partitions based on key usage
-  3. When filtering events, use Regex patterns instead of Set.
-    - Eliminates redundancy by excluding all events from particular groups, instead of listing each individually.
-  4. Add endpoints that provide clients with useful data
+  3. Add endpoints that provide clients with useful data
     - Currently the endpoints have been removed as there is no use. However, this can change with future work.
-  5. Use a TBD `async shutdown` method instead of the synchronous version
+  4. Use a TBD `async shutdown` method instead of the synchronous version
     - This would allow `AIOKafkaProducer` to be shut down gracefully
-  6. Use a TBD `async setup` method instead of the synchronous version
+  5. Use a TBD `async setup` method instead of the synchronous version
     - This would allow `AIOKafkaProducer` to be awaited gracefully instead of awaiting within the event listener.
-  7. If scalability becomes a concern, we can split topics are continue creating more partitions.
+  6. If scalability becomes a concern, we can split topics are continue creating more partitions.
     - How this would work would be to logically split target events into specific topics and to add a key to each exported event so they have their own partition.
     - For example, if the amount of unique events from `flow_manager` or `mef_eline` become to big to handle on one topic, we can make a separate topic for them and continue adding partitions.\
-  8. In the case of a `Kafka` outage, memory consumption could spike and cause `Kytos` to freeze if not handled properly.
+  7. In the case of a `Kafka` outage, memory consumption could spike and cause `Kytos` to freeze if not handled properly.
