@@ -12,6 +12,8 @@ do
 done
 echo "All mongo nodes are up"
 
+set -e
+
 echo "Applying replicaSet rs0 config on ${MONGO_NODES[0]} at `date +"%T" `..."
 mongosh --host ${MONGO_NODES[0]} <<EOF
 var config = {
@@ -47,10 +49,13 @@ while (curStatus.members[0].stateStr !== 'PRIMARY') {
 }
 if (!curStatus) {
   print("rs.status() failed, exiting, check the logs");
-  exit();
+  exit(1);
 }
 print("Done. Primary node stateStr is PRIMARY.")
+EOF
 
+echo "Creating DBs and users on ${MONGO_NODES[0]} at `date +"%T" `..."
+mongosh --host ${MONGO_NODES[0]} <<EOF
 admin = db.getSiblingDB("admin");
 admin.createUser(
   {
