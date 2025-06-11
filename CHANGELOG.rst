@@ -8,7 +8,7 @@ UNRELEASED - Under development
 
 Fixed
 =====
-- Enhanced docker mongo setu script (rs-init.sh) to properly run on PRIMARY node
+- Enhanced docker mongo setup script (rs-init.sh) to properly run on PRIMARY node
 
 [2025.1.0] - 2025-04-15
 ***********************
