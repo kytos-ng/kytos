@@ -15,6 +15,7 @@ from pyof.foundation.exceptions import PackException
 from kytos.core import Controller
 from kytos.core.auth import Auth
 from kytos.core.buffers import KytosBuffers, KytosEventBuffer
+from kytos.core.common import EntityStatus
 from kytos.core.config import KytosConfig
 from kytos.core.events import KytosEvent
 from kytos.core.exceptions import KytosNAppSetupException
@@ -24,7 +25,7 @@ from kytos.lib.helpers import (get_interface_mock, get_link_mock,
                                get_switch_mock)
 
 
-# pylint: disable=protected-access, too-many-public-methods
+# pylint: disable=protected-access, too-many-public-methods, too-many-lines
 class TestController:
     """Controller tests."""
 
@@ -746,10 +747,14 @@ class TestController:
         mock_interface_a = get_interface_mock('s1-eth1', 1, mock_switch_a)
         mock_interface_b = get_interface_mock('s2-eth1', 1, mock_switch_b)
         mock_interface_a.id = dpid_a
+        mock_interface_a.link = None
         mock_interface_b.id = dpid_b
+        mock_interface_b.link = None
 
         link, created = self.controller.get_link_or_create(mock_interface_a,
                                                            mock_interface_b)
+        mock_interface_a.link = link
+        mock_interface_b.link = link
         assert created
         assert len(self.controller.links) == 1
         assert link.endpoint_a.id == dpid_a
@@ -778,6 +783,119 @@ class TestController:
             mock_interface_a, mock_interface_b, link_dict
         )
         assert link._enabled is False
+
+    def test_detect_mismatched_link(self):
+        """Test detect_mismatched_link"""
+        mock_link_1 = MagicMock(id='link_1')
+        mock_link_1.endpoint_a = MagicMock(link=mock_link_1)
+        mock_link_1.endpoint_b = MagicMock(link=None)
+        assert self.controller.detect_mismatched_link(mock_link_1)
+
+        mock_link_1.endpoint_a.link = None
+        mock_link_1.endpoint_b.link = mock_link_1
+        assert self.controller.detect_mismatched_link(mock_link_1)
+
+        mock_link_2 = MagicMock(id='link_2')
+        mock_link_1.endpoint_a.link = mock_link_2
+        assert self.controller.detect_mismatched_link(mock_link_1)
+
+        mock_link_1.endpoint_a.link = mock_link_1
+        assert not self.controller.detect_mismatched_link(mock_link_1)
+
+    @patch('kytos.core.controller.Controller.detect_mismatched_link')
+    def test_link_status_mismatched(self, mock_detect_mismatched_link):
+        """Test link_status_mismatched"""
+        mock_link_1 = MagicMock()
+        mock_detect_mismatched_link.return_value = True
+        assert (self.controller.link_status_mismatched(mock_link_1)
+                == EntityStatus.DOWN)
+
+        mock_detect_mismatched_link.return_value = False
+        assert self.controller.link_status_mismatched(mock_link_1) is None
+
+    def test_get_link_or_create_old_mismatched_link(self):
+        """Test _get_link_or_create with recently added old link
+         which was mismatched.
+         Also testing detect_mismatched_link."""
+        dpid_a = "00:00:00:00:00:00:00:01"
+        dpid_b = "00:00:00:00:00:00:00:02"
+        mock_switch_a = get_switch_mock(dpid_a, 0x04)
+        mock_switch_b = get_switch_mock(dpid_b, 0x04)
+        mock_interface_a = get_interface_mock('s1-eth1', 1, mock_switch_a)
+        mock_interface_b = get_interface_mock('s2-eth1', 1, mock_switch_b)
+        mock_interface_c = get_interface_mock('s2-eth2', 2, mock_switch_b)
+        mock_interface_a.id = dpid_a + ':1'
+        mock_interface_a.link = None
+        mock_interface_b.id = dpid_b + ':1'
+        mock_interface_b.link = None
+        mock_interface_c.id = dpid_b + ':2'
+        mock_interface_c.link = None
+        link1, _ = self.controller.get_link_or_create(mock_interface_a,
+                                                      mock_interface_b)
+        mock_interface_a.link = link1
+        mock_interface_b.link = link1
+
+        # Create mismatching
+        link2, _ = self.controller.get_link_or_create(mock_interface_a,
+                                                      mock_interface_c)
+        mock_interface_a.link = link2
+        mock_interface_c.link = link2
+
+        assert self.controller.detect_mismatched_link(link1)
+        link1.add_metadata('old_data', 'important_data')
+        assert link1.metadata.get('old_data')
+
+        # Clean link1 mismatch and make link2 mismatched
+        actual_link, _ = self.controller.get_link_or_create(mock_interface_a,
+                                                            mock_interface_b)
+        mock_interface_a.link = actual_link
+        mock_interface_b.link = actual_link
+
+        assert actual_link == link1
+        assert self.controller.detect_mismatched_link(link2)
+        assert not self.controller.detect_mismatched_link(link1)
+
+    def test_get_link_or_create_mismatched(self):
+        """Test _get_link_or_create with mismatched link."""
+        dpid_a = "00:00:00:00:00:00:00:01"
+        dpid_b = "00:00:00:00:00:00:00:02"
+        mock_switch_a = get_switch_mock(dpid_a, 0x04)
+        mock_switch_b = get_switch_mock(dpid_b, 0x04)
+        mock_interface_a = get_interface_mock('s1-eth1', 1, mock_switch_a)
+        mock_interface_b = get_interface_mock('s2-eth1', 1, mock_switch_b)
+        mock_interface_c = get_interface_mock('s2-eth2', 2, mock_switch_b)
+        mock_interface_a.id = dpid_a + ':1'
+        mock_interface_a.link = None
+        mock_interface_b.id = dpid_b + ':1'
+        mock_interface_b.link = None
+        mock_interface_c.id = dpid_b + ':2'
+        mock_interface_c.link = None
+
+        link1, created = self.controller.get_link_or_create(mock_interface_a,
+                                                            mock_interface_b)
+        assert created
+        assert link1.endpoint_a.id == mock_interface_a.id
+        assert link1.endpoint_b.id == mock_interface_b.id
+
+        mock_interface_a.link = link1
+        mock_interface_b.link = link1
+
+        link2, created = self.controller.get_link_or_create(mock_interface_a,
+                                                            mock_interface_c)
+        assert created
+        assert self.controller.log.warning.call_count == 1
+        assert link2.endpoint_a.id == mock_interface_a.id
+        assert link2.endpoint_b.id == mock_interface_c.id
+
+        mock_interface_a.link = link2
+        mock_interface_c.link = link2
+
+        link3, created = self.controller.get_link_or_create(mock_interface_b,
+                                                            mock_interface_c)
+        assert created
+        assert self.controller.log.warning.call_count == 3
+        assert link3.endpoint_a.id == mock_interface_b.id
+        assert link3.endpoint_b.id == mock_interface_c.id
 
 
 class TestControllerAsync:
