@@ -1,6 +1,7 @@
 """Link tests."""
 import logging
 import time
+from collections import OrderedDict
 from unittest.mock import Mock
 
 import pytest
@@ -96,6 +97,8 @@ class TestLink():
     def test_status_funcs(self) -> None:
         """Test status_funcs."""
         # If it's enabled and active but a func returns DOWN, then DOWN
+        Link.status_funcs = OrderedDict()
+        Link.status_reason_funcs = OrderedDict()
         Link.register_status_func(
             "some_napp_some_func",
             lambda link: EntityStatus.DOWN
@@ -158,6 +161,8 @@ class TestLink():
     def test_multiple_status_funcs(self) -> None:
         """Test multiple status_funcs."""
         # If it's enabled and active but a func returns DOWN, then DOWN
+        Link.status_funcs = OrderedDict()
+        Link.status_reason_funcs = OrderedDict()
         Link.register_status_func(
             "some_napp_some_func",
             lambda link: None
