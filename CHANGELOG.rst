@@ -11,6 +11,10 @@ Changed
 - ``controller`` now holds the dictionary of ``links`` and it can be accessed by other NApps by calling ``self.controller.links``.
 - Each ``Link`` now has a ``threading.Lock`` to perform any change or check on its attributes.
 
+Fixed
+=====
+- Enhanced docker mongo setup script (rs-init.sh) to properly run on PRIMARY node
+
 [2025.1.0] - 2025-04-15
 ***********************
 
