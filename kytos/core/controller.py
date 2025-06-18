@@ -174,9 +174,9 @@ class Controller:
 
         self.links: dict[str, Link] = {}
         self.links_lock = threading.Lock()
-        Link.register_status_reason_func(f"controller_mismatched_reason",
+        Link.register_status_reason_func("controller_mismatched_reason",
                                          self.detect_mismatched_link)
-        Link.register_status_func(f"controller_mismatched_status",
+        Link.register_status_func("controller_mismatched_status",
                                   self.link_status_mismatched)
 
     def start_auth(self):
