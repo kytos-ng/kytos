@@ -118,7 +118,7 @@ III. How kafka_events interacts with Kafka
     - Each message is sent to the same topic, but divided into their respective partitions based on keys.
       - The amount of partitions is equal to the amount of different event types that need to be consumed.
       - The amount of partitions that can be created safely is relatively high, so short-term to medium-term concerns over scalability are covered.
-        - If scalability becomes a concern, we can split topics are continue creating more partitions.
+        - If scalability becomes a concern, we can split topics and create more partitions.
   - Key Components
     - KafkaSendOperations: Handles the Kafka functionality like event publishing.
 
@@ -155,9 +155,14 @@ IV. Configurations in settings.py
   - DEFAULT_NUM_PARTITIONS
     - Description: Sets the default number of partitions per Kafka topic.
     - Usage: Influences the parallelism and throughput of message processing.
-  - IGNORED_EVENTS
-    - Description: Defines a set of event names that should be filtered out and not processed.
-    - Usage: Helps in ignoring events that are not relevant to the application's processing logic.
+  - RULE_SET
+    - Description: Sets the default, immutable Filters that should be applied on every launch.
+    - Usage: Using regular expressions, it establishes patterns that should be allowed to be sent to Kafka.\
+    - Syntax: Each dictionary entry acts as its own filter, using the format:
+      - "pattern": str
+        - A regular expression pattern. This is what is used as the Filter
+      - "description": str
+        - A human-readable description of the Filter. Does not affect the Filter logic.
   - REPLICATION_FACTOR
     - Description: Specifies the number of times each partition is replicated across Kafka brokers.
     - Usage: Enhances data redundancy and fault tolerance.
@@ -169,6 +174,16 @@ IV. Configurations in settings.py
     - Description: The type of compression applied to messages sent to Kafka.
     - Example: "gzip"
     - Usage: Reduces network load and improves performance by compressing message data.
+  - BATCH_SIZE
+    - Description: The total size (in bytes) allocated per batch request
+    - Usage: Reduces total network activity and improves performance by sending more data per request.
+  - LINGER_MS
+    - Description: The amount of time (in milliseconds) the producer will wait before sending a batch request
+    - Usage: Reduces total network requests by making the producer wait before sending each batch.
+      - By default, this is set to 0. This does not mean that batching is turned off however, as 
+  - MAX_REQUEST_SIZE
+    - Description: The maximum amount (in bytes) allowed to be sent per request.
+    - Usage: The producer will try and send messages up to BATCH_SIZE, but this setting allows for rare, massive messages to also be sent (beyond 1,2 or 3 MB).
 
 V. `managers/``
 =============
@@ -181,6 +196,11 @@ This folder contains the relevant domain specific classes that manage data accor
 - Mainly `async`, following conventions and directives from `kytos` advances in `asyncio`.
   - Uses the `aiokafka` framework instead of `kafka-python` or `kafka-python-ng`.
 
+2. `regex.py`
+
+- This contains the RegexOperations class, which handles Filter logic, allowing specific events to be processed.
+- Mainly `async`, similar in logic to `kafka_ops.py`.
+
 VI. Events
 ==========
 
@@ -190,28 +210,22 @@ VI. Events
     - Events are to be filtered using regular expressions (regex)
       - This allows for flexibility in rejecting some or all of a given producer's events.
     - Some events may not be necessary to downstream consumers, thus ignoring them would reduce Kafka's burden and improve throughput.
-    - Events can be dynamically added/listed/removed at runtime by interacting with the endpoints `/v1/create`, `/v1/list`, and `/v1/delete` respectively.
+    - Filters can be listed at runtime by interacting with the GET endpoint at `/v1/filters`.
+      - Adding or removing filters is explained below.
 
-VII. Endpoints
+  2. This section describes how filters are to be stored in `Kytos`
+
+  - Storage
+    - Filters are to be stored statically in `settings.py`, removing the need for persistence.
+    - To change filters, network operators indicated that they would schedule a maintainence window and quickly add regex rules to export NApps to Kafka.
+
+VII. Endpoint
 ==============
 
-  1. `/v1/create`
-
-  - Allows operators to create new filters to allow different NApps to be serialized.
-  - Requires JSON data to work
-    - Mandatory: "pattern": The regex pattern to be added
-    - Optional: "description": The human readable description for the Filter
-
-  2. `/v1/list`
+  1. `/v1/filters` - GET
 
   - Allows operators to list the currently running filters
   - Does not require JSON data
-
-  3. `/v1/delete`
-
-  - Allows operators to remove filters from the pipeline, restricting what is allowed.
-  - Requires JSON data to work
-    - Mandatory: "pattern": The regex pattern to be removed
 
 VIII. Dependencies
 =================
@@ -225,7 +239,7 @@ IX. Kafka message structure
 
 1. Overview
 ------------
-A Kafka message consists of **a key, value, headers, timestamp, and metadata**. The **AIOKafkaProducer** sends messages as **ProducerRecord** objects.
+A Kafka message consists of a **topic, partition, offset, headers, timestamp, key, value**. The **AIOKafkaProducer** sends messages as **ProducerRecord** objects.
 
 2. Kafka Message Format
 ------------------------
@@ -235,27 +249,32 @@ Each message follows this structure:
    :widths: 20 20 60
    :header-rows: 1
 
-   * - Field
-     - Type
-     - Description
-   * - **Key**
-     - ``bytes`` or ``None``
-     - Used for partitioning. If ``None``, Kafka assigns a random partition.
-   * - **Value**
-     - ``bytes``
-     - The actual message payload (usually JSON in our case).
-   * - **Headers**
-     - ``list[(str, bytes)]``
+ConsumerRecord(topic='event_logs', partition=0, offset=159360, timestamp=1749654862640, timestamp_type=0, key=None, value=b'{"event": "kytos/mef_eline.evcs_loaded", "type": "kytos/mef_eline.evcs_loaded", "message": {}}',
+checksum=None, serialized_key_size=-1, serialized_value_size=94, headers=())                 
+
+{'event': 'kytos/mef_eline.evcs_loaded', 'type': 'kytos/mef_eline.evcs_loaded', 'message': {}}
+
+   * - **topic**
+     - ``str``
+     - Name of the topic you pulled the data from.
+   * - **partition**
+     - ``int``
+     - The partition you pulled the data from. Mostly considered metadata unless you need to pull from a specific partition.
+   * - **offset**
+     - ``int``
+     - The position in the list of data that you pull from.
+   * - **headers**
+     - ``list[(str, str)]``
      - Optional metadata as key-value pairs.
-   * - **Timestamp**
+   * - **timestamp**
      - ``int`` (ms) or ``None``
      - Event creation time (epoch milliseconds).
-   * - **Topic**
-     - ``str``
-     - Destination topic name.
-   * - **Partition**
-     - ``int`` or ``None``
-     - If specified, sends the message to that partition; otherwise, Kafka decides.
+   * - **key**
+     - ``bytes`` or ``None``
+     - Used for partitioning. If ``None``, Kafka assigns a random partition.
+   * - **value**
+     - ``bytes``
+     - Payload message sent from Kytos
 
 3. Example Message Structure (JSON Payload)
 --------------------------------------------
@@ -264,29 +283,22 @@ When ``handle_events()`` sends a Kafka message, the value is typically JSON-enco
 .. code-block:: json
 
     {
-      "name": str,
-      "content": dict,
-      "timestamp": str,
-      "id": str
+      'event': 'kytos/mef_eline.evcs_loaded',
+      'message': {}
     }
 
-- **name** ``str`` The name of the KytosEvent being emitted.
-- **content** ``dict`` The contents of the message, preserved from the original KytosEvent.
-- **timestamp** ``str`` The ISO formatted (like 2025-04-15T20:49:05.196851) timestamp associated to when the KytosEvent was emitted.
-- **id:** ``str`` The UUID identifier (in str format) that the KytosEvent was originally emitted with.
+- **event** ``str`` The name of the KytosEvent being emitted.
+- **message** ``None`` or ``dict[(str, str)]`` The message being emitted.
 
 4. AIOKafkaProducer Example
 ----------------------------
-How the message is sent inside the Kytos event handler:
+How the message is sent inside the KafkaSendOperations handler:
 
 .. code-block:: python
 
     await self._producer.send(
-        topic="kytos_events",
-        key=None,  # Kafka decides the partition
-        value=json.dumps(event_data).encode(),  # Convert JSON to bytes
-        headers=[("source", "kytos".encode())],  # Custom headers
-        timestamp_ms=int(time.time() * 1000)  # Timestamp in ms
+      topic=topic,
+      value=value
     )
 
 5. How Kafka Stores the Message
@@ -304,7 +316,7 @@ Kafka writes the message to a partition inside a topic. The message is stored in
 
 6. Message Retrieval (Kafka Consumer Example)
 ----------------------------------------------
-A consumer reads the message and decodes it:
+While consumers may need to use the accompanying metadata (such as timestamp, offset, etc.), the actual data will be found in the ``value`` component:
 
 .. code-block:: python
 
@@ -320,16 +332,16 @@ The following requirements clarify certain details and expected behavior for ``k
 
 1. Initialization (setup())
   - Log the startup process: "SETUP Kytos/Kafka"
-  - Create Kafka Producer and Admin Client:
-  - Instantiate KafkaSendOperations, which sets up:
-    - _setup_admin(): Creates a KafkaAdminClient, retrying up to 3 times if Kafka isn't available.
+  - Create a KafkaSendOperations instance
+  - Create a RegexOperations instance
   - Grab MainThread event loop.
-    - Retrieves the MainThread event loop for usage on KafkaSendOperations.
-    - Enqueue's KafkaSendOperations' setup() function.
+    - Instantiate KafkaSendOperations by enqueueing into the event loop, setting up the producer.
+    - Instantiate RegexOperations by enqueueing into the event loop, grabbing all Filters from RULE_SET.
 
 2. Event Handling (handle_events())
-  - Triggered when a switch connects (or other event matches the regex pattern .*).
-  - Check if the event needs to be filtered out; if so, ignore it.
+  - Triggered when any KytosEvent is fired
+  - Check if the event is allowed to be filtered; If not, ignore it.
+    - Uses regular expressions to implement filters.
   - Send the event data to Kafka via _send_ops.send_message()
     - Message sending is to be enqueued on the event loop.
 
@@ -341,7 +353,7 @@ The following requirements clarify certain details and expected behavior for ``k
 3. Shutdown (shutdown())
   - Log the shutdown process: "SHUTDOWN Kafka/Kytos"
   - Cancel all pending async tasks. 
-  - Wait for the AIOKafkaProducer's shutdown sequence to be successful.
+  - Currently does not have an async shutdown sequence, thus AIOKafkaProducer is not sufficiently stopped.
 
 X. Benchmarks
 
@@ -395,18 +407,26 @@ The following scenarios were tested in a virtual machine used a Intel(R) Xeon(R)
 
   Looking at *scenario 2*, we see an acceptable performance for a worse-case scenario, where 500 ethernet virtual circuits (EVCs) that all share a common path must perform a topology search for a new path during a link down event. Even with `Kytos` consuming a high ratio resources (including the CPU) as it searches for new paths, `kafka_events` still performs to desired expectations, hitting a ~500 EPS through this event. Similarly to *scenario 1*, the EPS picked up speed after higher-priority processing was finished. 
 
-XI. Open Questions / Future Work
+XI. Testing
+
+To address testing validation, `kafka_events` will be shipped with a `docker-compose.yml` file to launch a `Kafka` cluster for testing. This would be primarily used in E2E testing, but also in integration tests within the application itself. The cluster will try and mirror what is running currently, but will strive to have the following properties:
+
+  1. Multi-broker
+  2. Fault tolerant
+  3. Highly available
+
+These objectives would allow us to simulate broker issues, going from single instance to entire cluster failures. This would allow us to validate that the NApp will still be operational during slight outages, as well as validating that `Kytos` would continue to be operational when a cluster failure occurs.
+
+XII. Open Questions / Future Work
 =================================
 
   1. Error codes
   2. Route messages to their partitions based on key usage
-  3. Add endpoints that provide clients with useful data
-    - Currently the endpoints have been removed as there is no use. However, this can change with future work.
-  4. Use a TBD `async shutdown` method instead of the synchronous version
+  3. Use a TBD `async shutdown` method instead of the synchronous version
     - This would allow `AIOKafkaProducer` to be shut down gracefully
-  5. Use a TBD `async setup` method instead of the synchronous version
+  4. Use a TBD `async setup` method instead of the synchronous version
     - This would allow `AIOKafkaProducer` to be awaited gracefully instead of awaiting within the event listener.
-  6. If scalability becomes a concern, we can split topics are continue creating more partitions.
+  5. If scalability becomes a concern, we can split topics are continue creating more partitions.
     - How this would work would be to logically split target events into specific topics and to add a key to each exported event so they have their own partition.
-    - For example, if the amount of unique events from `flow_manager` or `mef_eline` become to big to handle on one topic, we can make a separate topic for them and continue adding partitions.\
-  7. In the case of a `Kafka` outage, memory consumption could spike and cause `Kytos` to freeze if not handled properly.
+    - For example, if the amount of unique events from `flow_manager` or `mef_eline` become to big to handle on one topic, we can make a separate topic for them and continue adding partitions.
+  6. In the case of a `Kafka` outage, memory consumption could spike and cause `Kytos` to freeze if not handled properly.
