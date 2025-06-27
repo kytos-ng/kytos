@@ -175,6 +175,10 @@ class TAGCapable:
             self.default_tag_ranges[tag_type] = tag_ranges
             self.tag_ranges[tag_type] = tag_ranges
             self.available_tags[tag_type] = tag_ranges
+
+            self.default_special_tags[tag_type] = []
+            self.special_tags[tag_type] = []
+            self.special_available_tags[tag_type] = []
             return
 
         inactive_tags = self.get_inactive_tags(tag_type)
@@ -186,13 +190,17 @@ class TAGCapable:
             ignore_missing
         )
 
-        if not tag_ranges:
+        self.default_tag_ranges = tag_ranges
+
+        if not tag_ranges and not self.default_special_tags[tag_type]:
             del self.default_tag_ranges[tag_type]
             del self.tag_ranges[tag_type]
             del self.available_tags[tag_type]
-            return
 
-        self.default_tag_ranges = tag_ranges
+            del self.default_special_tags[tag_type]
+            del self.special_tags[tag_type]
+            del self.special_available_tags[tag_type]
+            return
 
     def set_tag_ranges(
         self,
@@ -258,6 +266,10 @@ class TAGCapable:
         if not special_tags and not self.is_tag_type_supported(tag_type):
             return
         if not self.is_tag_type_supported(tag_type):
+            self.default_tag_ranges[tag_type] = []
+            self.tag_ranges[tag_type] = []
+            self.available_tags[tag_type] = []
+
             self.default_special_tags[tag_type] = special_tags
             self.special_tags[tag_type] = special_tags
             self.special_available_tags[tag_type] = special_tags
@@ -273,13 +285,17 @@ class TAGCapable:
             False
         )
 
-        if not special_tags:
+        self.default_special_tags = special_tags
+
+        if not special_tags and not self.default_tag_ranges[tag_type]:
             del self.default_tag_ranges[tag_type]
             del self.tag_ranges[tag_type]
             del self.available_tags[tag_type]
-            return
 
-        self.default_special_tags = special_tags
+            del self.default_special_tags[tag_type]
+            del self.special_tags[tag_type]
+            del self.special_available_tags[tag_type]
+            return
 
     def set_special_tags(
         self,
