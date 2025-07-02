@@ -52,6 +52,8 @@ from kytos.core.pacing import Pacer
 from kytos.core.queue_monitor import QueueMonitorWindow
 from kytos.core.switch import Switch
 
+import kytos.core.interface
+
 __all__ = ('Controller',)
 
 
@@ -129,7 +131,7 @@ class Controller:
         #: dict: Current existing switches.
         #:
         #: The key is the switch dpid, while the value is a Switch object.
-        self.switches = {}  # dpid: Switch()
+        self.switches = dict[str, Switch]() # dpid: Switch()
         self._switches_lock = threading.Lock()
 
         #: datetime.datetime: Time when the controller finished starting.
@@ -676,7 +678,10 @@ class Controller:
                 self.log.exception("Unhandled exception on msg_out",
                                    exc_info=exc)
 
-    def get_interface_by_id(self, interface_id):
+    def get_interface_by_id(
+        self,
+        interface_id: str
+    ) -> "kytos.core.interface.Interface":
         """Find a Interface  with interface_id.
 
         Args:

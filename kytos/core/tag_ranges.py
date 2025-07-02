@@ -150,8 +150,8 @@ def range_intersection(
     return intersections
 
 def range_difference(
-    ranges_a: list[Optional[list[int]]],
-    ranges_b: list[Optional[list[int]]]
+    ranges_a: list[list[int]],
+    ranges_b: list[list[int]]
 ) -> list[list[int]]:
     """The operation is two validated list of ranges
      (ranges_a - ranges_b).
@@ -240,8 +240,8 @@ def range_difference(
 
 
 def range_addition(
-    ranges_a: list[Optional[list[int]]],
-    ranges_b: list[Optional[list[int]]]
+    ranges_a: list[list[int]],
+    ranges_b: list[list[int]]
 ) -> tuple[list[list[int]], list[list[int]]]:
     """Addition between two validated list of ranges.
      Simulates the addition between two sets.
@@ -280,28 +280,28 @@ def range_addition(
     merged_ranges = list[list[int]]()
     intersections = list[list[int]]()
 
-    top = ordered_ranges[0]
+    if ordered_ranges:
+        top = ordered_ranges[0]
 
-    for tag_range in ordered_ranges[1:]:
-        match top, tag_range:
-            case [a_start, a_end], [b_start, b_end] if (
-                a_end + 1 == b_start
-            ):
-                top = [a_start, b_end]
-            case [a_start, a_end], [b_start, b_end] if (
-                b_start <= a_end and a_end <= b_end
-            ):
-                top = [a_start, b_end]
-                intersections.append([b_start, a_end])
-            case [a_start, a_end], [b_start, b_end] if (
-                b_end < a_end
-            ):
-                intersections.append([b_start, b_end])
-            case _, _:
-                merged_ranges.append(top)
-                top = tag_range
-
-    merged_ranges.append(top)
+        for tag_range in ordered_ranges[1:]:
+            match top, tag_range:
+                case [a_start, a_end], [b_start, b_end] if (
+                    a_end + 1 == b_start
+                ):
+                    top = [a_start, b_end]
+                case [a_start, a_end], [b_start, b_end] if (
+                    b_start <= a_end and a_end <= b_end
+                ):
+                    top = [a_start, b_end]
+                    intersections.append([b_start, a_end])
+                case [a_start, a_end], [b_start, b_end] if (
+                    b_end < a_end
+                ):
+                    intersections.append([b_start, b_end])
+                case _, _:
+                    merged_ranges.append(top)
+                    top = tag_range
+        merged_ranges.append(top)
 
     return (
         [
