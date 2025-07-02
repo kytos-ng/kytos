@@ -190,7 +190,7 @@ class TAGCapable:
             ignore_missing
         )
 
-        self.default_tag_ranges = tag_ranges
+        self.default_tag_ranges[tag_type] = tag_ranges
 
         if not tag_ranges and not self.default_special_tags[tag_type]:
             del self.default_tag_ranges[tag_type]
@@ -285,7 +285,7 @@ class TAGCapable:
             False
         )
 
-        self.default_special_tags = special_tags
+        self.default_special_tags[tag_type] = special_tags
 
         if not special_tags and not self.default_tag_ranges[tag_type]:
             del self.default_tag_ranges[tag_type]
