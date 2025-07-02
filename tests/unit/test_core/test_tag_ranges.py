@@ -87,30 +87,28 @@ def test_range_intersection():
     tags_b = [
         [1, 3], [6, 6], [10, 10], [12, 13], [15, 15], [17, 20], [22, 30]
     ]
-    result = []
-    iterator_result = range_intersection(tags_a, tags_b)
-    for tag_range in iterator_result:
-        result.append(tag_range)
+
+    result = range_intersection(tags_a, tags_b)
     expected = [
         [3, 3], [12, 13], [15, 15], [22, 23], [25, 25], [27, 28], [30, 30]
     ]
     assert result == expected
 
-    result = []
-    iterator_result = range_intersection(tags_a, tags_b, reverse=True)
-    for tag_range in iterator_result:
-        result.append(tag_range)
+    result = range_intersection(tags_a, tags_b)
+    result_reversed = list(reversed(result))
     expected = [
         [30, 30], [27, 28], [25, 25], [22, 23], [15, 15], [12, 13], [3, 3]
     ]
-    assert result == expected
+    assert result_reversed == expected
 
     tags = range_intersection(tags_a, tags_b)
-    first, _ = next(tags)
+    ranges_iter = iter(tags)
+    first, _ = next(ranges_iter)
     assert first == 3
 
-    tags = range_intersection(tags_a, tags_b, reverse=True)
-    _, last = next(tags)
+    tags = range_intersection(tags_a, tags_b)
+    ranges_iter = reversed(tags)
+    _, last = next(ranges_iter)
     assert last == 30
 
 
