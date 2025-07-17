@@ -44,6 +44,7 @@ from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosAPMInitException, KytosDBInitException,
                                    KytosNAppSetupException)
 from kytos.core.helpers import executors, now
+from kytos.core.interface import Interface
 from kytos.core.logs import LogManager
 from kytos.core.napps.base import NApp
 from kytos.core.napps.manager import NAppsManager
@@ -51,8 +52,6 @@ from kytos.core.napps.napp_dir_listener import NAppDirListener
 from kytos.core.pacing import Pacer
 from kytos.core.queue_monitor import QueueMonitorWindow
 from kytos.core.switch import Switch
-
-import kytos.core.interface
 
 __all__ = ('Controller',)
 
@@ -131,7 +130,7 @@ class Controller:
         #: dict: Current existing switches.
         #:
         #: The key is the switch dpid, while the value is a Switch object.
-        self.switches = dict[str, Switch]() # dpid: Switch()
+        self.switches = dict[str, Switch]()  # dpid: Switch()
         self._switches_lock = threading.Lock()
 
         #: datetime.datetime: Time when the controller finished starting.
@@ -681,7 +680,7 @@ class Controller:
     def get_interface_by_id(
         self,
         interface_id: str
-    ) -> "kytos.core.interface.Interface":
+    ) -> Interface:
         """Find a Interface  with interface_id.
 
         Args:

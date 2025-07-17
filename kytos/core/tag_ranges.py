@@ -1,5 +1,4 @@
 """Methods for list of ranges [inclusive, inclusive]"""
-# pylint: disable=too-many-branches
 import bisect
 from itertools import chain
 from typing import Optional, Union
@@ -109,10 +108,10 @@ def range_intersection(
     if not ranges_b:
         return []
 
-    a_bounds = (ranges_a[0][0], ranges_b[-1][1])
-    b_bounds = (ranges_b[0][0], ranges_b[-1][1])
+    lower_bound = max(ranges_a[0][0], ranges_b[0][0])
+    upper_bound = min(ranges_a[-1][1], ranges_b[-1][1])
 
-    true_bounds = max(a_bounds[0], b_bounds[0]), min(a_bounds[1], b_bounds[1])
+    true_bounds = lower_bound, upper_bound
 
     # Could optimize the process to only require at most 2 cuts,
     # rather than the 4 currently done.
@@ -131,24 +130,27 @@ def range_intersection(
 
     intersections = list[list[int]]()
 
-    top = ordered_ranges[0]
+    if ordered_ranges:
+        top = ordered_ranges[0]
 
-    for tag_range in ordered_ranges[1:]:
-        match top, tag_range:
-            case [a_start, a_end], [b_start, b_end] if (
-                b_start <= a_end and a_end <= b_end
-            ):
-                top = [a_start, b_end]
-                intersections.append([b_start, a_end])
-            case [a_start, a_end], [b_start, b_end] if (
-                b_end < a_end
-            ):
-                intersections.append([b_start, b_end])
-            case _, _:
-                top = tag_range
+        for tag_range in ordered_ranges[1:]:
+            match top, tag_range:
+                case [a_start, a_end], [b_start, b_end] if (
+                    b_start <= a_end <= b_end
+                ):
+                    top = [a_start, b_end]
+                    intersections.append([b_start, a_end])
+                case [a_start, a_end], [b_start, b_end] if (
+                    b_end < a_end
+                ):
+                    intersections.append([b_start, b_end])
+                case _, _:
+                    top = tag_range
 
     return intersections
 
+
+# pylint: disable=too-many-locals
 def range_difference(
     ranges_a: list[list[int]],
     ranges_b: list[list[int]]
@@ -168,14 +170,15 @@ def range_difference(
     if not ranges_b:
         return ranges_a
 
-    a_bounds = (ranges_a[0][0], ranges_b[-1][1])
-    b_bounds = (ranges_b[0][0], ranges_b[-1][1])
+    lower_bound = max(ranges_a[0][0], ranges_b[0][0])
+    upper_bound = min(ranges_a[-1][1], ranges_b[-1][1])
 
-    true_bounds = max(a_bounds[0], b_bounds[0]), min(a_bounds[1], b_bounds[1])
+    true_bounds = lower_bound, upper_bound
 
-    unaffected_left, bounded_a, unaffected_right = partition_by_relevant_bounds(
-        ranges_a, *true_bounds
-    )
+    unaffected_left, bounded_a, unaffected_right =\
+        partition_by_relevant_bounds(
+            ranges_a, *true_bounds
+        )
 
     _, bounded_b, _ = partition_by_relevant_bounds(
         ranges_b, *true_bounds
@@ -188,53 +191,50 @@ def range_difference(
 
     merged_ranges = list[list[int]]()
 
-    top = ordered_ranges[0]
+    if ordered_ranges:
+        top = ordered_ranges[0]
 
-    for tag_range in ordered_ranges[1:]:
-        # implied a_start <= b_start
-        match top, tag_range:
-            case [a_start, a_end, subtract_a], [b_start, b_end, subtract_b] if (
-                subtract_a and subtract_b
-            ):
-                top = tag_range
-            # subtract_a implies not substract_b
-            # subtract_b implies not subtract_a
-            case [a_start, a_end, subtract_a], [b_start, b_end, subtract_b] if (
-                subtract_a and b_end <= a_end
-            ):
-                pass
-            case [a_start, a_end, subtract_a], [b_start, b_end, subtract_b] if (
-                subtract_a and b_start <= a_end
-            ):
-                top = [a_end + 1, b_end, False]
-            case [a_start, a_end, subtract_a], [b_start, b_end, subtract_b] if (
-                subtract_b and a_start == b_start and a_end <= b_end
-            ):
-                top = tag_range
-            case [a_start, a_end, subtract_a], [b_start, b_end, subtract_b] if (
-                subtract_b and a_start == b_start
-            ):
-                top = [b_end + 1, a_end, False]
-            case [a_start, a_end, subtract_a], [b_start, b_end, subtract_b] if (
-                subtract_b and b_end < a_end
-            ):
-                merged_ranges.append([a_start, b_start - 1])
-                top = [b_end + 1, a_end, False]
-            case [a_start, a_end, subtract_a], [b_start, b_end, subtract_b] if (
-                subtract_b and b_start <= a_end
-            ):
-                merged_ranges.append([a_start, b_start - 1])
-                top = tag_range
-            case [a_start, a_end, subtract_a], [b_start, b_end, subtract_b] if (
-                not subtract_a
-            ):
-                merged_ranges.append([top[0], top[1]])
-                top = tag_range
-            case _, _:
-                top = tag_range
+        for tag_range in ordered_ranges[1:]:
+            # implied a_start <= b_start
+            match top, tag_range:
+                case [a_start, a_end, True], [b_start, b_end, True]:
+                    top = tag_range
+                # subtract_a implies not substract_b
+                # subtract_b implies not subtract_a
+                case [a_start, a_end, True], [b_start, b_end, _] if (
+                    b_end <= a_end
+                ):
+                    pass
+                case [a_start, a_end, True], [b_start, b_end, _] if (
+                    b_start <= a_end
+                ):
+                    top = [a_end + 1, b_end, False]
+                case [a_start, a_end, _], [b_start, b_end, True] if (
+                    a_start == b_start and a_end <= b_end
+                ):
+                    top = tag_range
+                case [a_start, a_end, _], [b_start, b_end, True] if (
+                    a_start == b_start
+                ):
+                    top = [b_end + 1, a_end, False]
+                case [a_start, a_end, _], [b_start, b_end, True] if (
+                    b_end < a_end
+                ):
+                    merged_ranges.append([a_start, b_start - 1])
+                    top = [b_end + 1, a_end, False]
+                case [a_start, a_end, _], [b_start, b_end, True] if (
+                    b_start <= a_end
+                ):
+                    merged_ranges.append([a_start, b_start - 1])
+                    top = tag_range
+                case [a_start, a_end, False], [b_start, b_end, _]:
+                    merged_ranges.append([a_start, a_end])
+                    top = tag_range
+                case _, _:
+                    top = tag_range
 
-    if not top[2]:
-        merged_ranges.append([top[0], top[1]])
+        if not top[2]:
+            merged_ranges.append([top[0], top[1]])
 
     return [*unaffected_left, *merged_ranges, *unaffected_right]
 
@@ -258,19 +258,21 @@ def range_addition(
     if not ranges_b:
         return ranges_a, []
 
-    a_bounds = (ranges_a[0][0], ranges_b[-1][1])
-    b_bounds = (ranges_b[0][0], ranges_b[-1][1])
+    # Slightly adjusted to incorporate merges along boundaries
+    lower_bound = max(ranges_a[0][0], ranges_b[0][0]) - 1
+    upper_bound = min(ranges_a[-1][1], ranges_b[-1][1]) + 1
 
-    # Slightly adjusted to incorporate merges along boundaries e.g. [[1,2]] + [[3,4]]
-    true_bounds = max(a_bounds[0], b_bounds[0]) - 1, min(a_bounds[1], b_bounds[1]) + 1
+    true_bounds = lower_bound, upper_bound
 
-    unaffected_left_a, bounded_a, unaffected_right_a = partition_by_relevant_bounds(
-        ranges_a, *true_bounds
-    )
+    unaffected_left_a, bounded_a, unaffected_right_a =\
+        partition_by_relevant_bounds(
+            ranges_a, *true_bounds
+        )
 
-    unaffected_left_b, bounded_b, unaffected_right_b = partition_by_relevant_bounds(
-        ranges_b, *true_bounds
-    )
+    unaffected_left_b, bounded_b, unaffected_right_b =\
+        partition_by_relevant_bounds(
+            ranges_b, *true_bounds
+        )
 
     ordered_ranges = sorted(chain(
         bounded_a,
@@ -290,7 +292,7 @@ def range_addition(
                 ):
                     top = [a_start, b_end]
                 case [a_start, a_end], [b_start, b_end] if (
-                    b_start <= a_end and a_end <= b_end
+                    b_start <= a_end <= b_end
                 ):
                     top = [a_start, b_end]
                     intersections.append([b_start, a_end])
@@ -350,6 +352,9 @@ def partition_by_leftmost(
     tag_ranges: list[list[int]],
     bound: int
 ):
+    """Split tag ranges on boundary,
+    such that the right set includes the bounds value.
+    """
     bound_range = [bound, bound]
     index = bisect.bisect_left(tag_ranges, bound_range)
     if index == 0:
@@ -369,6 +374,9 @@ def partition_by_rightmost(
     tag_ranges: list[list[int]],
     bound: int
 ):
+    """Split tag ranges on boundary,
+    such that the left set includes the bounds value.
+    """
     bound_range = [bound, bound]
     index = bisect.bisect_left(tag_ranges, bound_range)
     if index == len(tag_ranges):
@@ -385,6 +393,13 @@ def partition_by_rightmost(
 
 
 def partition_by_relevant_bounds(ranges, start, end):
+    """
+    Partition tag ranges into three sets such that:
+     - the first set contains all ranges less than the start bound.
+     - the second set contains all ranges less than the end bound,
+       but not in the first set.
+     - The third set contains all ranges not in the first two sets.
+    """
     left, unkwown = partition_by_leftmost(
         ranges, start
     )

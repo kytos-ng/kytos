@@ -205,3 +205,84 @@ async def test_get_validated_tags() -> None:
         get_validated_tags([1, 2, 3])
     with pytest.raises(KytosInvalidTagRanges):
         get_validated_tags([5, 2])
+
+
+async def test_range_operations():
+    """Test more range operations."""
+
+    range_a = [[1, 5]]
+    range_b = [[6, 10]]
+
+    expected_addtion = [[1, 10]]
+    expected_intersection = []
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_a,
+        range_b
+    )
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_b,
+        range_a
+    )
+
+    assert expected_intersection == range_intersection(
+        range_a,
+        range_b
+    )
+
+    assert expected_intersection == range_intersection(
+        range_b,
+        range_a
+    )
+
+    range_a = [[1, 5], [9, 9]]
+    range_b = [[8, 8], [11, 15]]
+
+    expected_addtion = [[1, 5], [8, 9], [11, 15]]
+    expected_intersection = []
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_a,
+        range_b
+    )
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_b,
+        range_a
+    )
+
+    assert expected_intersection == range_intersection(
+        range_a,
+        range_b
+    )
+
+    assert expected_intersection == range_intersection(
+        range_b,
+        range_a
+    )
+    range_a = [[1, 5], [8, 8]]
+    range_b = [[8, 8], [11, 15]]
+
+    expected_addtion = [[1, 5], [8, 8], [11, 15]]
+    expected_intersection = [[8, 8]]
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_a,
+        range_b
+    )
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_b,
+        range_a
+    )
+
+    assert expected_intersection == range_intersection(
+        range_a,
+        range_b
+    )
+
+    assert expected_intersection == range_intersection(
+        range_b,
+        range_a
+    )
