@@ -15,6 +15,10 @@ Fixed
 =====
 - Enhanced docker mongo setup script (rs-init.sh) to properly run on PRIMARY node
 
+Added
+=====
+- Added headers to NApp file response which tells browsers not to cache them.
+
 [2025.1.0] - 2025-04-15
 ***********************
 
