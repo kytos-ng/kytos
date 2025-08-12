@@ -1,11 +1,13 @@
 """Module with main classes related to Interfaces."""
+from __future__ import annotations
+
 import json
 import logging
 import operator
 from collections import OrderedDict
 from enum import Enum
 from functools import reduce
-from typing import Union
+from typing import Optional, TYPE_CHECKING, Union
 
 from pyof.v0x01.common.phy_port import Port as PortNo01
 from pyof.v0x01.common.phy_port import PortFeatures as PortFeatures01
@@ -17,6 +19,9 @@ from kytos.core.events import KytosEvent
 from kytos.core.helpers import now
 from kytos.core.id import InterfaceID
 from kytos.core.tag_capable import TAGCapable
+
+if TYPE_CHECKING:
+    from kytos.core.link import Link
 
 __all__ = ('Interface',)
 
@@ -141,7 +146,7 @@ class Interface(GenericEntity, TAGCapable):
         self.nni = False
         self.endpoints = []
         self.stats = None
-        self.link = None
+        self.link: Optional[Link] = None
         self.lldp = True
         self._id = InterfaceID(switch.id, port_number)
         self._custom_speed = speed

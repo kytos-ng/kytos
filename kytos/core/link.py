@@ -22,7 +22,11 @@ class Link(GenericEntity, TAGCapable):
     status_funcs = OrderedDict()
     status_reason_funcs = OrderedDict()
 
-    def __init__(self, endpoint_a, endpoint_b):
+    def __init__(
+        self,
+        endpoint_a: Interface,
+        endpoint_b: Interface
+    ):
         """Create a Link instance and set its attributes.
 
         Two kytos.core.interface.Interface are required as parameters.
@@ -33,11 +37,11 @@ class Link(GenericEntity, TAGCapable):
             raise KytosLinkCreationError("endpoint_b cannot be None")
         self._id = LinkID(endpoint_a.id, endpoint_b.id)
         if self._id.interfaces[0] == endpoint_b.id:
-            self.endpoint_a: Interface = endpoint_b
-            self.endpoint_b: Interface = endpoint_a
+            self.endpoint_a = endpoint_b
+            self.endpoint_b = endpoint_a
         else:
-            self.endpoint_a: Interface = endpoint_a
-            self.endpoint_b: Interface = endpoint_b
+            self.endpoint_a = endpoint_a
+            self.endpoint_b = endpoint_b
 
         TAGCapable.__init__(self, {}, {})
         GenericEntity.__init__(self)
