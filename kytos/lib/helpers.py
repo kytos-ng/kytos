@@ -33,6 +33,7 @@ def get_interface_mock(name, port_number, switch, address="00:00:00:00:00:00"):
     interface.switch = switch
     interface.address = address
     interface.lldp = True
+    interface.lock = MagicMock()
     return interface
 
 
@@ -53,6 +54,8 @@ def get_switch_mock(dpid, of_version=None):
     if of_version:
         switch.ofp_version = '0x0' + str(of_version)
         switch.connection = get_connection_mock(of_version, switch)
+    switch.lock = MagicMock()
+    switch.interfaces_lock = MagicMock()
     return switch
 
 
