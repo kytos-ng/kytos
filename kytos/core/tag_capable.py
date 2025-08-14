@@ -187,7 +187,8 @@ class TAGCapable:
         self.set_tag_ranges(
             tag_type,
             new_active_tags,
-            ignore_missing
+            ignore_missing,
+            False
         )
 
         self.default_tag_ranges[tag_type] = tag_ranges
