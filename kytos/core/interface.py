@@ -532,15 +532,11 @@ class UNI:
     def is_valid(self):
         """Check if TAG is possible for this interface TAG pool."""
         if self.user_tag:
-            tag = self.user_tag.value
-            if isinstance(tag, str):
-                return self._is_reserved_valid_tag()
-            if isinstance(tag, int):
-                with self.interface.tag_lock:
-                    return self.interface.is_tag_available(
-                        self.user_tag.tag_type,
-                        tag,
-                    )
+            tag = self.user_tag
+            return self.interface.atomic_is_tag_available(
+                tag.tag_type,
+                tag.value,
+            )
         return True
 
     def as_dict(self):
