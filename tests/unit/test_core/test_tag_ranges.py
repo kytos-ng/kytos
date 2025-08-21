@@ -87,30 +87,28 @@ def test_range_intersection():
     tags_b = [
         [1, 3], [6, 6], [10, 10], [12, 13], [15, 15], [17, 20], [22, 30]
     ]
-    result = []
-    iterator_result = range_intersection(tags_a, tags_b)
-    for tag_range in iterator_result:
-        result.append(tag_range)
+
+    result = range_intersection(tags_a, tags_b)
     expected = [
         [3, 3], [12, 13], [15, 15], [22, 23], [25, 25], [27, 28], [30, 30]
     ]
     assert result == expected
 
-    result = []
-    iterator_result = range_intersection(tags_a, tags_b, reverse=True)
-    for tag_range in iterator_result:
-        result.append(tag_range)
+    result = range_intersection(tags_a, tags_b)
+    result_reversed = list(reversed(result))
     expected = [
         [30, 30], [27, 28], [25, 25], [22, 23], [15, 15], [12, 13], [3, 3]
     ]
-    assert result == expected
+    assert result_reversed == expected
 
     tags = range_intersection(tags_a, tags_b)
-    first, _ = next(tags)
+    ranges_iter = iter(tags)
+    first, _ = next(ranges_iter)
     assert first == 3
 
-    tags = range_intersection(tags_a, tags_b, reverse=True)
-    _, last = next(tags)
+    tags = range_intersection(tags_a, tags_b)
+    ranges_iter = reversed(tags)
+    _, last = next(ranges_iter)
     assert last == 30
 
 
@@ -207,3 +205,84 @@ async def test_get_validated_tags() -> None:
         get_validated_tags([1, 2, 3])
     with pytest.raises(KytosInvalidTagRanges):
         get_validated_tags([5, 2])
+
+
+async def test_range_operations():
+    """Test more range operations."""
+
+    range_a = [[1, 5]]
+    range_b = [[6, 10]]
+
+    expected_addtion = [[1, 10]]
+    expected_intersection = []
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_a,
+        range_b
+    )
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_b,
+        range_a
+    )
+
+    assert expected_intersection == range_intersection(
+        range_a,
+        range_b
+    )
+
+    assert expected_intersection == range_intersection(
+        range_b,
+        range_a
+    )
+
+    range_a = [[1, 5], [9, 9]]
+    range_b = [[8, 8], [11, 15]]
+
+    expected_addtion = [[1, 5], [8, 9], [11, 15]]
+    expected_intersection = []
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_a,
+        range_b
+    )
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_b,
+        range_a
+    )
+
+    assert expected_intersection == range_intersection(
+        range_a,
+        range_b
+    )
+
+    assert expected_intersection == range_intersection(
+        range_b,
+        range_a
+    )
+    range_a = [[1, 5], [8, 8]]
+    range_b = [[8, 8], [11, 15]]
+
+    expected_addtion = [[1, 5], [8, 8], [11, 15]]
+    expected_intersection = [[8, 8]]
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_a,
+        range_b
+    )
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_b,
+        range_a
+    )
+
+    assert expected_intersection == range_intersection(
+        range_a,
+        range_b
+    )
+
+    assert expected_intersection == range_intersection(
+        range_b,
+        range_a
+    )
