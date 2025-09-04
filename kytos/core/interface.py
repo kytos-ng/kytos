@@ -161,6 +161,7 @@ class Interface(GenericEntity, TAGCapable):
             {
                 "vlan": ["untagged", "any"],
             },
+            frozenset({"vlan"}),
         )
         GenericEntity.__init__(self)
 

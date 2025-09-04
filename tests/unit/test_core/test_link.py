@@ -212,6 +212,7 @@ class TestLink():
             default_special,
             default_special,
             default_special,
+            frozenset({"vlan"}),
         )
 
         tag = link.get_next_available_tag("vlan")
@@ -231,6 +232,7 @@ class TestLink():
             default_special,
             default_special,
             default_special,
+            frozenset({"vlan"}),
         )
 
         tag = link.get_next_available_tag("vlan", True)
@@ -250,6 +252,7 @@ class TestLink():
             default_special,
             default_special,
             default_special,
+            frozenset({"vlan"}),
         )
         avoid_vlan = 1
 
@@ -304,6 +307,7 @@ class TestLink():
             default_special,
             default_special,
             default_special,
+            frozenset({"vlan"}),
         )
 
         tag = link.get_next_available_tag("vlan")
@@ -329,6 +333,7 @@ class TestLink():
             default_special,
             default_special,
             default_special,
+            frozenset({"vlan"}),
         )
 
         _i = []

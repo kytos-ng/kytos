@@ -169,7 +169,8 @@ class TestInterface():
         custom_special_tags = {'vlan': ["any"]}
         self.iface.set_available_tags_tag_ranges(
             custom_available, custom_tag_ranges, custom_tag_ranges,
-            custom_special_vlans, custom_special_tags, custom_special_tags
+            custom_special_vlans, custom_special_tags, custom_special_tags,
+            frozenset({"vlan"}),
         )
         assert self.iface.available_tags == custom_available
         assert self.iface.tag_ranges == custom_tag_ranges
@@ -341,6 +342,7 @@ class TestInterface():
         self.iface.set_available_tags_tag_ranges(
             available, tag_ranges, tag_ranges,
             special_available_tags, special_tags, special_tags,
+            frozenset({"vlan"}),
         )
         assert self.iface.available_tags == available
         assert self.iface.tag_ranges == tag_ranges

@@ -43,7 +43,7 @@ class Link(GenericEntity, TAGCapable):
             self.endpoint_a = endpoint_a
             self.endpoint_b = endpoint_b
 
-        TAGCapable.__init__(self, {}, {})
+        TAGCapable.__init__(self, {}, {}, frozenset())
         GenericEntity.__init__(self)
 
     def __hash__(self):

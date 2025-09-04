@@ -70,6 +70,7 @@ class TAGCapable:
         "special_available_tags",
         "special_tags",
         "default_special_tags",
+        "supported_tag_types",
         "tag_lock",
     )
 
@@ -81,12 +82,15 @@ class TAGCapable:
     special_tags: dict[str, list[str]]
     default_special_tags: dict[str, list[str]]
 
+    supported_tag_types: frozenset[str]
+
     tag_lock: Lock
 
     def __init__(
         self,
-        default_tag_ranges: dict,
-        default_special_tags: dict,
+        default_tag_ranges: dict[str, list[list[int]]],
+        default_special_tags: dict[str, list[str]],
+        supported_tag_types: frozenset[str],
     ):
         self.default_tag_ranges = deepcopy(default_tag_ranges)
         self.tag_ranges = deepcopy(default_tag_ranges)
@@ -95,6 +99,8 @@ class TAGCapable:
         self.default_special_tags = deepcopy(default_special_tags)
         self.special_tags = deepcopy(default_special_tags)
         self.special_available_tags = deepcopy(default_special_tags)
+
+        self.supported_tag_types = supported_tag_types
 
         self.tag_lock = Lock()
 
@@ -118,6 +124,7 @@ class TAGCapable:
         special_available_tags: dict[str, list[str]],
         special_tags: dict[str, list[str]],
         default_special_tags: dict[str, list[str]],
+        supported_tag_types: frozenset[str],
     ):
         """
         Set the range of tags to be used by this device.
@@ -128,6 +135,7 @@ class TAGCapable:
         self.special_available_tags = deepcopy(special_available_tags)
         self.special_tags = deepcopy(special_tags)
         self.default_special_tags = deepcopy(default_special_tags)
+        self.supported_tag_types = supported_tag_types
 
     def all_tags_available(self) -> bool:
         """
@@ -181,7 +189,7 @@ class TAGCapable:
         """
         Check if the given tag type is supported.
         """
-        return tag_type in self.default_tag_ranges
+        return tag_type in self.supported_tag_types
 
     def is_tag_available(
         self,
@@ -220,17 +228,7 @@ class TAGCapable:
         """
         Set the default tag ranges.
         """
-        if not tag_ranges and not self.is_tag_type_supported(tag_type):
-            return
-        if not self.is_tag_type_supported(tag_type):
-            self.default_tag_ranges[tag_type] = tag_ranges
-            self.tag_ranges[tag_type] = tag_ranges
-            self.available_tags[tag_type] = tag_ranges
-
-            self.default_special_tags[tag_type] = []
-            self.special_tags[tag_type] = []
-            self.special_available_tags[tag_type] = []
-            return
+        self.assert_tag_type_supported(tag_type)
 
         inactive_tags = self.get_inactive_tags(tag_type)
         new_active_tags = range_difference(tag_ranges, inactive_tags)
@@ -243,16 +241,6 @@ class TAGCapable:
         )
 
         self.default_tag_ranges[tag_type] = tag_ranges
-
-        if not tag_ranges and not self.default_special_tags[tag_type]:
-            del self.default_tag_ranges[tag_type]
-            del self.tag_ranges[tag_type]
-            del self.available_tags[tag_type]
-
-            del self.default_special_tags[tag_type]
-            del self.special_tags[tag_type]
-            del self.special_available_tags[tag_type]
-            return
 
     def set_tag_ranges(
         self,
@@ -315,17 +303,7 @@ class TAGCapable:
         """
         Set the default special tag ranges.
         """
-        if not special_tags and not self.is_tag_type_supported(tag_type):
-            return
-        if not self.is_tag_type_supported(tag_type):
-            self.default_tag_ranges[tag_type] = []
-            self.tag_ranges[tag_type] = []
-            self.available_tags[tag_type] = []
-
-            self.default_special_tags[tag_type] = special_tags
-            self.special_tags[tag_type] = special_tags
-            self.special_available_tags[tag_type] = special_tags
-            return
+        self.assert_tag_type_supported(tag_type)
 
         inactive_tags = self.get_inactive_special_tags(tag_type)
         new_active_tags = frozenset(special_tags) - inactive_tags
@@ -338,16 +316,6 @@ class TAGCapable:
         )
 
         self.default_special_tags[tag_type] = special_tags
-
-        if not special_tags and not self.default_tag_ranges[tag_type]:
-            del self.default_tag_ranges[tag_type]
-            del self.tag_ranges[tag_type]
-            del self.available_tags[tag_type]
-
-            del self.default_special_tags[tag_type]
-            del self.special_tags[tag_type]
-            del self.special_available_tags[tag_type]
-            return
 
     def set_special_tags(
         self,
