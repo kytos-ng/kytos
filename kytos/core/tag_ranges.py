@@ -42,8 +42,7 @@ def get_tag_ranges(ranges: list[list[int]]):
 
     The ranges are understood as [inclusive, inclusive]"""
     if len(ranges) < 1:
-        msg = "Tag range is empty"
-        raise KytosInvalidTagRanges(msg)
+        return ranges
     last_tag = 0
     ranges_n = len(ranges)
     for i in range(0, ranges_n):
