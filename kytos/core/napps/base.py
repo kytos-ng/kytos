@@ -10,7 +10,7 @@ from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from random import randint
 from threading import Event, Thread
-
+import asyncio
 # pylint: disable=consider-using-from-import,redefined-outer-name
 import kytos.core.controller as controller
 from kytos.core.events import KytosEvent
@@ -270,7 +270,7 @@ class KytosNApp(Thread, metaclass=ABCMeta):
         self.controller.buffers.meta.put(event)
 
     # all listeners receive event
-    def _shutdown_handler(self, event):  # pylint: disable=unused-argument
+    async def _shutdown_handler(self, event):  # pylint: disable=unused-argument
         """Listen shutdown event from kytos.
 
         This method listens the kytos/core.shutdown event and call the shutdown
@@ -280,7 +280,10 @@ class KytosNApp(Thread, metaclass=ABCMeta):
             event (:class:`KytosEvent`): event to be listened.
         """
         if not self.__event.is_set():
-            self.shutdown()
+            if asyncio.iscoroutinefunction(self.shutdown):
+                await self.shutdown()
+            else:
+                self.shutdown()
             self.__event.set()
 
     @abstractmethod
