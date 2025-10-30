@@ -275,6 +275,7 @@ class KytosNApp(Thread, metaclass=ABCMeta):
 
         This method listens the kytos/core.shutdown event and call the shutdown
         method from napp subclass implementation.
+        Also it identifies which shutdown method should run asynchronously.
 
         Paramters
             event (:class:`KytosEvent`): event to be listened.

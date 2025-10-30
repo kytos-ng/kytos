@@ -395,8 +395,6 @@ class Controller:
 
         self.log.info("Starting API server")
         self.api_task = self.loop.create_task(self.api_server.serve())
-        
-        #self._tasks.append(task)
         await self._wait_api_server_started()
 
         self.log.info(f"Starting TCP server: {self.server}")
@@ -533,10 +531,12 @@ class Controller:
         # self.server.socket.close()
 
         self.started_at = None
-        await self.unload_napps()
-        self.log.warning("ALL NAPPS UNLOADED")
-        # Cancel all async tasks (event handlers and servers)
-        self.log.warning("CANCELLING TASKS")
+        napps = await self.unload_napps()
+        self.log.info("Waiting for NApps shutdown confirmation...")
+        for napp in napps:
+            self.log.info(f"NApp {napp} shutdown confirmation...")
+            napp.__dict__['_KytosNApp__event'].wait()
+            self.log.info(f"{napp} was shutdown.")
 
         # Wait for API server to shutdown gracefully
         self.log.info("Stopping API Server...")
@@ -545,12 +545,10 @@ class Controller:
             await self.api_task
         self.log.info("Stopped API Server")
 
-        self.log.warning(f"ALL TASKS -> {self._tasks}")
+        # Cancel all async tasks (event handlers and servers)
         for task in self._tasks:
-            self.log.warning(f"CANCELLING {task}")
             task.cancel()
             await task
-        self.log.warning("ALL TASKS CANCELLED")
 
         # ASYNC TODO: close connections
         # self.server.server_close()
@@ -645,8 +643,8 @@ class Controller:
                 except Exception as exc:
                     self.log.exception(f"Unhandled exception on {buffer_name}",
                                        exc_info=exc)
-        except asyncio.CancelledError as err:
-            self.log.warning(f"EVENT HANDLER {buffer_name} CANCELLED")
+        except asyncio.CancelledError:
+            self.log.warning(f"Event handler {buffer_name} cancelled")
 
     async def publish_connection_error(self, event):
         """Publish connection error event.
@@ -976,6 +974,7 @@ class Controller:
                 if not event_listeners:
                     del self.events_listeners[event_type]
             # pylint: enable=protected-access
+        return napp
 
     async def unload_napps(self):
         """Unload all loaded NApps that are not core NApps
@@ -983,8 +982,11 @@ class Controller:
         NApps are unloaded in the reverse order that they are enabled to
         facilitate to shutdown gracefully.
         """
+        napps = []
         for napp in reversed(self.napps_manager.get_enabled_napps()):
-            await self.unload_napp(napp.username, napp.name)
+            if napp := await self.unload_napp(napp.username, napp.name):
+                napps.append(napp)
+        return napps
 
     def reload_napp_module(self, username, napp_name, napp_file):
         """Reload a NApp Module."""
