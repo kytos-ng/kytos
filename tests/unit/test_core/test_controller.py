@@ -589,10 +589,12 @@ class TestController:
             enabled_napps.append(mock)
             expected_calls.append(call(mock.username, mock.name))
         self.napps_manager.get_enabled_napps.return_value = enabled_napps
+        mock_unload.side_effect = enabled_napps
 
-        self.controller.unload_napps()
+        napps = self.controller.unload_napps()
         assert mock_unload.call_count == len(enabled_napps)
         assert mock_unload.mock_calls == list(reversed(expected_calls))
+        assert napps == enabled_napps
 
     @patch('kytos.core.controller.import_module')
     def test_reload_napp_module__module_not_found(self, mock_import_module):
