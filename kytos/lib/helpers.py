@@ -55,7 +55,6 @@ def get_switch_mock(dpid, of_version=None):
         switch.ofp_version = '0x0' + str(of_version)
         switch.connection = get_connection_mock(of_version, switch)
     switch.lock = MagicMock()
-    switch.interfaces_lock = MagicMock()
     return switch
 
 

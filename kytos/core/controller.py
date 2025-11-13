@@ -173,13 +173,10 @@ class Controller:
         self.pacer = Pacer("memory://")
 
         self.links: dict[str, Link] = {}
-        self.links_lock = threading.Lock()
         Link.register_status_reason_func("controller_mismatched_reason",
                                          self.detect_mismatched_link)
         Link.register_status_func("controller_mismatched_status",
                                   self.link_status_mismatched)
-
-        self.multi_tag_lock = threading.Lock()
 
     def start_auth(self):
         """Initialize Auth() and its services"""

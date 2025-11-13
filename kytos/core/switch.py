@@ -84,7 +84,6 @@ class Switch(GenericEntity):
         self.flows = []
         self.description = {}
         self._id = dpid
-        self.interfaces_lock = Lock()
 
         if connection:
             connection.switch = self
@@ -190,7 +189,7 @@ class Switch(GenericEntity):
                                    state=None, features=None, speed=None,
                                    config=None):
         """Get and upated an interface or create one if it does not exist."""
-        with self.interfaces_lock:
+        with self.lock:
             interface = self.get_interface_by_port_no(port_no)
             if interface:
                 interface.name = name or interface.name
