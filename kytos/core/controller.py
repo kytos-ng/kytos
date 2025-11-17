@@ -531,7 +531,14 @@ class Controller:
         # self.server.socket.close()
 
         self.started_at = None
-        self.unload_napps()
+        napps = self.unload_napps()
+        self.log.info(
+            f"Waiting for {len(napps)} NApps shutdown confirmation..."
+        )
+        for napp in napps:
+            self.log.info(f"Waiting {napp} shutdown confirmation...")
+            napp.__dict__['_KytosNApp__event'].wait()
+            self.log.info(f"{napp} was shutdown")
 
         # Cancel all async tasks (event handlers and servers)
         for task in self._tasks:
@@ -962,14 +969,19 @@ class Controller:
                     del self.events_listeners[event_type]
             # pylint: enable=protected-access
 
+        return napp
+
     def unload_napps(self):
         """Unload all loaded NApps that are not core NApps
 
         NApps are unloaded in the reverse order that they are enabled to
         facilitate to shutdown gracefully.
         """
+        napps = []
         for napp in reversed(self.napps_manager.get_enabled_napps()):
-            self.unload_napp(napp.username, napp.name)
+            if napp := self.unload_napp(napp.username, napp.name):
+                napps.append(napp)
+        return napps
 
     def reload_napp_module(self, username, napp_name, napp_file):
         """Reload a NApp Module."""
