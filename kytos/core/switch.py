@@ -4,7 +4,6 @@ import logging
 import operator
 from collections import OrderedDict
 from functools import reduce
-from threading import Lock
 
 from kytos.core.common import EntityStatus, GenericEntity
 from kytos.core.constants import CONNECTION_TIMEOUT, FLOOD_TIMEOUT

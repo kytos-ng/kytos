@@ -7,7 +7,7 @@ import operator
 from collections import OrderedDict
 from enum import Enum
 from functools import reduce
-from typing import Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from pyof.v0x01.common.phy_port import Port as PortNo01
 from pyof.v0x01.common.phy_port import PortFeatures as PortFeatures01

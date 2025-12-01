@@ -28,7 +28,7 @@ from importlib import import_module
 from importlib import reload as reload_module
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 from pyof.foundation.exceptions import PackException
 
@@ -1058,21 +1058,29 @@ class Controller:
             # The other endpoint of the link is the leftover interface
             if endpoint_a.link and endpoint_a.link != new_link:
                 old_link = endpoint_a.link
-                leftover_interface = (old_link.endpoint_a
-                                        if old_link.endpoint_a != endpoint_a
-                                        else old_link.endpoint_b)
-                self.log.warning(f"Leftover mismatched link"
-                                    f" {endpoint_a.link} in interface"
-                                    f" {leftover_interface}")
+                leftover_interface = (
+                    old_link.endpoint_a
+                    if old_link.endpoint_a != endpoint_a
+                    else old_link.endpoint_b
+                )
+                self.log.warning(
+                    f"Leftover mismatched link"
+                    f" {endpoint_a.link} in interface"
+                    f" {leftover_interface}"
+                )
 
             if endpoint_b.link and endpoint_b.link != new_link:
                 old_link = endpoint_b.link
-                leftover_interface = (old_link.endpoint_b
-                                        if old_link.endpoint_b != endpoint_b
-                                        else old_link.endpoint_a)
-                self.log.warning(f"Leftover mismatched link "
-                                    f" {endpoint_b.link} in interface"
-                                    f" {leftover_interface}")
+                leftover_interface = (
+                    old_link.endpoint_b
+                    if old_link.endpoint_b != endpoint_b
+                    else old_link.endpoint_a
+                )
+                self.log.warning(
+                    f"Leftover mismatched link "
+                    f" {endpoint_b.link} in interface"
+                    f" {leftover_interface}"
+                )
 
             if new_link.id not in self.links:
                 self.links[new_link.id] = new_link

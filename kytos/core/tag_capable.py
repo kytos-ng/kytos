@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from functools import wraps
 from threading import Lock
-from typing import Callable, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosInvalidTagRanges,
@@ -38,6 +37,7 @@ def _atomic_modify_wrapper(func: Callable):
             return result
 
     return new_function
+
 
 def _atomic_read_wrapper(func: Callable):
     def wrapped_function(
@@ -107,7 +107,7 @@ class TAGCapable:
     def notify_tag_listeners(
             self,
             controller: Controller
-        ):
+    ):
         """Notify changes to tags"""
         controller.buffers.app.put(
             KytosEvent(
@@ -594,19 +594,24 @@ class TAGCapable:
     atomic_all_tags_available = _atomic_read_wrapper(all_tags_available)
     atomic_get_inactive_tags = _atomic_read_wrapper(get_inactive_tags)
     atomic_get_used_tags = _atomic_read_wrapper(get_used_tags)
-    atomic_get_inactive_special_tags = _atomic_read_wrapper(get_inactive_special_tags)
+    atomic_get_inactive_special_tags =\
+        _atomic_read_wrapper(get_inactive_special_tags)
     atomic_get_used_special_tags = _atomic_read_wrapper(get_used_special_tags)
     atomic_is_tag_available = _atomic_read_wrapper(is_tag_available)
 
-    atomic_set_available_tags_tag_ranges = _atomic_modify_wrapper(set_available_tags_tag_ranges)
-    atomic_set_default_tag_ranges = _atomic_modify_wrapper(set_default_tag_ranges)
+    atomic_set_available_tags_tag_ranges =\
+        _atomic_modify_wrapper(set_available_tags_tag_ranges)
+    atomic_set_default_tag_ranges =\
+        _atomic_modify_wrapper(set_default_tag_ranges)
     atomic_set_tag_ranges = _atomic_modify_wrapper(set_tag_ranges)
     atomic_reset_tag_ranges = _atomic_modify_wrapper(reset_tag_ranges)
     atomic_remove_tag_ranges = _atomic_modify_wrapper(remove_tag_ranges)
-    atomic_set_default_special_tags = _atomic_modify_wrapper(set_default_special_tags)
+    atomic_set_default_special_tags =\
+        _atomic_modify_wrapper(set_default_special_tags)
     atomic_set_special_tags = _atomic_modify_wrapper(set_special_tags)
     atomic_reset_special_tags = _atomic_modify_wrapper(reset_special_tags)
     atomic_remove_special_tags = _atomic_modify_wrapper(remove_special_tags)
     atomic_use_tags = _atomic_modify_wrapper(use_tags)
-    atomic_get_next_available_tag = _atomic_modify_wrapper(get_next_available_tag)
+    atomic_get_next_available_tag =\
+        _atomic_modify_wrapper(get_next_available_tag)
     atomic_make_tags_available = _atomic_modify_wrapper(make_tags_available)

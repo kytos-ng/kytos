@@ -46,7 +46,7 @@ def test_get_tag_ranges():
     # Empty
     mock_ranges = []
     result = get_tag_ranges(mock_ranges)
-    assert result == []
+    assert not result
 
     # Range not ordered
     mock_ranges = [[20, 19]]
