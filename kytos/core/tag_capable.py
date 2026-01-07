@@ -61,6 +61,29 @@ class TAGCapable:
 
     Add this as a super class, and make sure to call
     this class's initializer.
+
+    To make use of the capabilities provided by this class,
+    most operations should in a protected context,
+    that being holding the `tag_lock`,
+    or by using the `atomic_*` operations.
+
+    The `atomic_*` operations will hold the `tag_lock`
+    and also send out events to listeners when modifying
+    the state of the class.
+    `atomic_*` operations can't be perfomed
+    if the `tag_lock` is being held,
+    and will cause a deadlock if the running thread
+    is already holding the `tag_lock`.
+
+    If multiple complex operations need to be performed,
+    then the `tag_lock` should be held instead of trying to
+    use the `atomic_*` operations.
+    If updates are performed, while holding the `tag_lock`,
+    then the `notify_tag_listeners` function should be called.
+
+    Also to note, classes which inherit from `TAGCapable`
+    should override the `notify_tag_listeners` method,
+    in order to ensure that the correct event is  produced.
     """
 
     __slots__ = (
