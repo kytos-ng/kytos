@@ -167,7 +167,7 @@ class TAGCapable:
         """
         if self.available_tags != self.tag_ranges:
             return False
-        for field, ranges in self.special_tags.items():
+        for field, ranges in self.special_available_tags.items():
             if set(ranges) != set(self.special_tags[field]):
                 return False
         return True

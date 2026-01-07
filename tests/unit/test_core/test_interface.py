@@ -191,32 +191,34 @@ class TestInterface():
 
     async def test_interface_use_tags(self):
         """Test all use_tags on Interface class."""
-        # self.iface._notify_tag_listeners = MagicMock()
+        self.iface.notify_tag_listeners = MagicMock()
         tags = [100, 200]
         # check use tag for the first time
         self.iface.use_tags("vlan", tags)
-        # assert self.iface._notify_tag_listeners.call_count == 1
+
+        assert not self.iface.all_tags_available()
 
         # check use tag for the second time
         with pytest.raises(KytosTagsAreNotAvailable):
             self.iface.use_tags("vlan", tags)
-        # assert self.iface._notify_tag_listeners.call_count == 1
 
         # check use tag after returning the tag to the pool as list
         self.iface.make_tags_available("vlan", [tags])
+        assert self.iface.all_tags_available()
         self.iface.use_tags("vlan", [tags])
-        # assert self.iface._notify_tag_listeners.call_count == 3
+
+        assert not self.iface.all_tags_available()
 
         with pytest.raises(KytosTagsAreNotAvailable):
             self.iface.use_tags("vlan", [tags])
-        # assert self.iface._notify_tag_listeners.call_count == 3
 
-        with pytest.raises(KytosTagsAreNotAvailable):
-            self.iface.use_tags("vlan", [tags])
-        # assert self.iface._notify_tag_listeners.call_count == 3
-
+        self.iface.make_tags_available("vlan", [tags])
+        assert self.iface.all_tags_available()
         self.iface.use_tags("vlan", "untagged")
         assert "untagged" not in self.iface.special_available_tags["vlan"]
+        assert not self.iface.all_tags_available()
+
+        self.iface.notify_tag_listeners.assert_not_called()
 
     async def test_get_endpoint(self):
         """Test get_endpoint method."""
