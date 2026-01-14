@@ -349,16 +349,15 @@ class TestInterface():
         assert self.iface.available_tags == available
         assert self.iface.tag_ranges == tag_ranges
 
+        assert not self.iface.all_tags_available()
+
         with pytest.raises(KytosTagsNotInTagRanges):
             self.iface.make_tags_available("vlan", [1, 20])
-        # assert self.iface._notify_tag_listeners.call_count == 0
 
         with pytest.raises(KytosTagsNotInTagRanges):
             self.iface.make_tags_available("vlan", [[1, 20]])
-        # assert self.iface._notify_tag_listeners.call_count == 0
 
         assert not self.iface.make_tags_available("vlan", [250, 280])
-        # assert self.iface._notify_tag_listeners.call_count == 1
 
         with pytest.raises(KytosTagsNotInTagRanges):
             self.iface.make_tags_available("vlan", [1, 1])
@@ -373,6 +372,14 @@ class TestInterface():
         assert "any" in self.iface.special_available_tags["vlan"]
         conflict = self.iface.make_tags_available("vlan", "any")
         assert conflict == "any"
+
+        conflict = self.iface.make_tags_available(
+            "vlan", [[20, 20], [200, 3000]]
+        )
+
+        assert conflict == [[250, 280], [300, 3000]]
+
+        assert self.iface.all_tags_available()
 
     async def test_set_tag_ranges(self) -> None:
         """Test set_tag_ranges"""
