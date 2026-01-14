@@ -120,6 +120,12 @@ def test_range_difference():
     actual = range_difference(ranges_a, ranges_b)
     assert expected == actual
 
+    ranges_a = [[1, 1], [8, 8]]
+    ranges_b = [[2, 2], [4, 4]]
+    expected = [[1, 1], [8, 8]]
+    actual = range_difference(ranges_a, ranges_b)
+    assert expected == actual
+
 
 def test_find_index_remove():
     """Test find_index_remove"""
@@ -266,6 +272,32 @@ async def test_range_operations():
 
     expected_addtion = [[1, 5], [8, 8], [11, 15]]
     expected_intersection = [[8, 8]]
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_a,
+        range_b
+    )
+
+    assert expected_addtion, expected_addtion == range_addition(
+        range_b,
+        range_a
+    )
+
+    assert expected_intersection == range_intersection(
+        range_a,
+        range_b
+    )
+
+    assert expected_intersection == range_intersection(
+        range_b,
+        range_a
+    )
+
+    range_a = [[1, 5], [8, 8]]
+    range_b = []
+
+    expected_addtion = [[1, 5], [8, 8]]
+    expected_intersection = []
 
     assert expected_addtion, expected_addtion == range_addition(
         range_a,
