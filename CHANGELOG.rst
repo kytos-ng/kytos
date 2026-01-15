@@ -11,6 +11,8 @@ Changed
 - ``controller`` now holds the dictionary of ``links`` and it can be accessed by other NApps by calling ``self.controller.links``.
 - Each ``Link`` now has a ``threading.Lock`` to perform any change or check on its attributes.
 - Kytos shutdown will now wait for every NApp to shutdown completely.
+- ``Links`` now have a separate tag pool from ``Interfaces``.
+- ``Interfaces`` should now use the lock of their ``Switch`` to maintain consistency.
 
 Fixed
 =====
@@ -19,6 +21,7 @@ Fixed
 Added
 =====
 - Added headers to NApp file response which tells browsers not to cache them.
+- Added ``TAGCapable``, a new mixin for providing tag functionality for interfaces and links.
 
 [2025.1.0] - 2025-04-15
 ***********************
