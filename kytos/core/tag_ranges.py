@@ -1,5 +1,7 @@
 """Methods for list of ranges [inclusive, inclusive]"""
+# pylint: disable=too-many-branches
 import bisect
+from copy import deepcopy
 from itertools import chain
 from typing import Optional, Union
 
@@ -149,7 +151,6 @@ def range_intersection(
     return intersections
 
 
-# pylint: disable=too-many-locals
 def range_difference(
     ranges_a: list[list[int]],
     ranges_b: list[list[int]]
@@ -165,77 +166,43 @@ def range_difference(
             get_validated_tags() for also list[int]
     """
     if not ranges_a:
-        return ranges_a
+        return []
     if not ranges_b:
-        return ranges_a
-
-    lower_bound = max(ranges_a[0][0], ranges_b[0][0])
-    upper_bound = min(ranges_a[-1][1], ranges_b[-1][1])
-
-    true_bounds = lower_bound, upper_bound
-
-    unaffected_left, bounded_a, unaffected_right =\
-        partition_by_relevant_bounds(
-            ranges_a, *true_bounds
-        )
-
-    _, bounded_b, _ = partition_by_relevant_bounds(
-        ranges_b, *true_bounds
-    )
-
-    ordered_ranges = sorted(chain(
-        [[*range_a, False] for range_a in bounded_a],
-        [[*range_b, True] for range_b in bounded_b]
-    ))
-
-    merged_ranges = list[list[int]]()
-
-    if ordered_ranges:
-        top = ordered_ranges[0]
-
-        for tag_range in ordered_ranges[1:]:
-            # implied a_start <= b_start
-            match top, tag_range:
-                case [a_start, a_end, True], [b_start, b_end, True]:
-                    top = tag_range
-                # subtract_a implies not substract_b
-                # subtract_b implies not subtract_a
-                case [a_start, a_end, True], [b_start, b_end, _] if (
-                    b_end <= a_end
-                ):
-                    pass
-                case [a_start, a_end, True], [b_start, b_end, _] if (
-                    b_start <= a_end
-                ):
-                    top = [a_end + 1, b_end, False]
-                case [a_start, a_end, _], [b_start, b_end, True] if (
-                    a_start == b_start and a_end <= b_end
-                ):
-                    top = tag_range
-                case [a_start, a_end, _], [b_start, b_end, True] if (
-                    a_start == b_start
-                ):
-                    top = [b_end + 1, a_end, False]
-                case [a_start, a_end, _], [b_start, b_end, True] if (
-                    b_end < a_end
-                ):
-                    merged_ranges.append([a_start, b_start - 1])
-                    top = [b_end + 1, a_end, False]
-                case [a_start, a_end, _], [b_start, b_end, True] if (
-                    b_start <= a_end
-                ):
-                    merged_ranges.append([a_start, b_start - 1])
-                    top = tag_range
-                case [a_start, a_end, False], [b_start, b_end, _]:
-                    merged_ranges.append([a_start, a_end])
-                    top = tag_range
-                case _, _:
-                    top = tag_range
-
-        if not top[2]:
-            merged_ranges.append([top[0], top[1]])
-
-    return [*unaffected_left, *merged_ranges, *unaffected_right]
+        return deepcopy(ranges_a)
+    result = []
+    a_i, b_i = 0, 0
+    update = True
+    while a_i < len(ranges_a) and b_i < len(ranges_b):
+        if update:
+            start_a, end_a = ranges_a[a_i]
+        else:
+            update = True
+        start_b, end_b = ranges_b[b_i]
+        # Moving forward with non-intersection
+        if end_a < start_b:
+            result.append([start_a, end_a])
+            a_i += 1
+        elif end_b < start_a:
+            b_i += 1
+        else:
+            # Intersection
+            if start_a < start_b:
+                result.append([start_a, start_b - 1])
+            if end_a > end_b:
+                start_a = end_b + 1
+                update = False
+                b_i += 1
+            else:
+                a_i += 1
+    # Append last intersection and the rest of ranges_a
+    while a_i < len(ranges_a):
+        if update:
+            start_a, end_a = ranges_a[a_i]
+        else:
+            update = True
+        result.append([start_a, end_a])
+        a_i += 1
+    return result
 
 
 def range_addition(
@@ -253,67 +220,56 @@ def range_addition(
             get_validated_tags() for also list[int]
      """
     if not ranges_a:
-        return ranges_b, []
+        return deepcopy(ranges_b), []
     if not ranges_b:
-        return ranges_a, []
-
-    # Slightly adjusted to incorporate merges along boundaries
-    lower_bound = max(ranges_a[0][0], ranges_b[0][0]) - 1
-    upper_bound = min(ranges_a[-1][1], ranges_b[-1][1]) + 1
-
-    true_bounds = lower_bound, upper_bound
-
-    unaffected_left_a, bounded_a, unaffected_right_a =\
-        partition_by_relevant_bounds(
-            ranges_a, *true_bounds
-        )
-
-    unaffected_left_b, bounded_b, unaffected_right_b =\
-        partition_by_relevant_bounds(
-            ranges_b, *true_bounds
-        )
-
-    ordered_ranges = sorted(chain(
-        bounded_a,
-        bounded_b
-    ))
-
-    merged_ranges = list[list[int]]()
-    intersections = list[list[int]]()
-
-    if ordered_ranges:
-        top = ordered_ranges[0]
-
-        for tag_range in ordered_ranges[1:]:
-            match top, tag_range:
-                case [a_start, a_end], [b_start, b_end] if (
-                    a_end + 1 == b_start
-                ):
-                    top = [a_start, b_end]
-                case [a_start, a_end], [b_start, b_end] if (
-                    b_start <= a_end <= b_end
-                ):
-                    top = [a_start, b_end]
-                    intersections.append([b_start, a_end])
-                case [a_start, a_end], [b_start, b_end] if (
-                    b_end < a_end
-                ):
-                    intersections.append([b_start, b_end])
-                case _, _:
-                    merged_ranges.append(top)
-                    top = tag_range
-        merged_ranges.append(top)
-
-    return (
-        [
-            *unaffected_left_a,
-            *unaffected_left_b,
-            *merged_ranges,
-            *unaffected_right_a,
-            *unaffected_right_b,
-        ],
-        intersections
-    )
+        return deepcopy(ranges_a), []
+    result = []
+    conflict = []
+    a_i = b_i = 0
+    len_a = len(ranges_a)
+    len_b = len(ranges_b)
+    while a_i < len_a or b_i < len_b:
+        if (a_i < len_a and
+                (b_i >= len_b or ranges_a[a_i][1] < ranges_b[b_i][0] - 1)):
+            result.append(ranges_a[a_i])
+            a_i += 1
+        elif (b_i < len_b and
+                (a_i >= len_a or ranges_b[b_i][1] < ranges_a[a_i][0] - 1)):
+            result.append(ranges_b[b_i])
+            b_i += 1
+        # Intersection and continuos ranges
+        else:
+            fst = max(ranges_a[a_i][0], ranges_b[b_i][0])
+            snd = min(ranges_a[a_i][1], ranges_b[b_i][1])
+            if fst <= snd:
+                conflict.append([fst, snd])
+            new_range = [
+                min(ranges_a[a_i][0], ranges_b[b_i][0]),
+                max(ranges_a[a_i][1], ranges_b[b_i][1])
+            ]
+            a_i += 1
+            b_i += 1
+            while a_i < len_a or b_i < len_b:
+                if a_i < len_a and (ranges_a[a_i][0] <= new_range[1] + 1):
+                    if ranges_a[a_i][0] <= new_range[1]:
+                        conflict.append([
+                            max(ranges_a[a_i][0], new_range[0]),
+                            min(ranges_a[a_i][1], new_range[1])
+                        ])
+                    new_range[1] = max(ranges_a[a_i][1], new_range[1])
+                    a_i += 1
+                elif b_i < len_b and (ranges_b[b_i][0] <= new_range[1] + 1):
+                    if ranges_b[b_i][0] <= new_range[1]:
+                        conflict.append([
+                            max(ranges_b[b_i][0], new_range[0]),
+                            min(ranges_b[b_i][1], new_range[1])
+                        ])
+                    new_range[1] = max(ranges_b[b_i][1], new_range[1])
+                    b_i += 1
+                else:
+                    break
+            result.append(new_range)
+    return result, conflict
 
 
 def find_index_remove(
