@@ -153,15 +153,15 @@ class Interface(GenericEntity, TAGCapable):
 
         TAGCapable.__init__(
             self,
-            {
+            default_tag_ranges={
                 "vlan": [[1, 4094]],
                 # "vlan_qinq": [[1, 4094]],
                 # "mpls": [[1, 1048575]],
             },
-            {
+            default_special_tags={
                 "vlan": ["untagged", "any"],
             },
-            frozenset({"vlan"}),
+            supported_tag_types=frozenset({"vlan"}),
         )
         GenericEntity.__init__(self)
 
