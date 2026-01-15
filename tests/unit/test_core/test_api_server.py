@@ -85,7 +85,7 @@ class TestAPIServer:
         """Test static_web_ui method to success case."""
         monkeypatch.setattr("os.path.exists", lambda x: file_exist)
         monkeypatch.setattr("kytos.core.api_server.FileResponse",
-                            lambda x: JSONResponse({}))
+                            lambda x, headers: JSONResponse({}))
 
         endpoint = f"/ui/kytos/napp/{self.api_server.napps_dir}"
         client = AsyncClient(app=self.app, base_url="http://127.0.0.1")

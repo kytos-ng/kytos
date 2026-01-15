@@ -180,7 +180,12 @@ class APIServer:
         filename = request.path_params["filename"]
         path = f"{self.napps_dir}/{username}/{napp_name}/ui/{filename}"
         if os.path.exists(path):
-            return FileResponse(path)
+            headers = {
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+            return FileResponse(path, headers=headers)
         return JSONResponse("", status_code=HTTPStatus.NOT_FOUND.value)
 
     def get_ui_components(self, request: Request) -> JSONResponse:
