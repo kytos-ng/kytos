@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from functools import wraps
 from threading import Lock
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Union
 
 from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosInvalidTagRanges,
@@ -19,8 +20,13 @@ if TYPE_CHECKING:
     from kytos.core.controller import Controller
 
 
-def _atomic_modify_wrapper(func: Callable):
+def _atomic_modify_wrapper(func):
+    """
+    Wrapper for methods which modify the state of
+    a TAGCapable object.
+    """
 
+    @wraps(func)
     def new_function(
         self: TAGCapable,
         controller: Controller,
@@ -39,7 +45,13 @@ def _atomic_modify_wrapper(func: Callable):
     return new_function
 
 
-def _atomic_read_wrapper(func: Callable):
+def _atomic_read_wrapper(func):
+    """
+    Wrapper for methods which read the state of
+    a TAGCapable object.
+    """
+
+    @wraps(func)
     def wrapped_function(
         self: TAGCapable,
         *args,
