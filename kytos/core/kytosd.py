@@ -156,8 +156,6 @@ def async_main(config):
     if controller.options.debug:
         loop.set_debug(True)
 
-    loop.run_until_complete(controller.start())
-
     shell_task = None
     if controller.options.foreground:
         executor = ThreadPoolExecutor(max_workers=1)
@@ -168,6 +166,7 @@ def async_main(config):
     loop.add_signal_handler(signal.SIGTERM, kill_handler)
 
     try:
+        loop.run_until_complete(controller.start())
         loop.run_forever()
     except SystemExit as exc:
         print(exc)
