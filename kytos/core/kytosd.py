@@ -147,26 +147,30 @@ async def start_shell_async(controller, executor):
 
 
 def async_main(config):
-    """Start main Kytos Daemon with asyncio loop."""
+    """Start main Kytos Daemon with asyncio loop.
+    1. Run controller first. To ensure any installation issues are caught.
+       The controller will exit if any problem is found which is caught in
+       SystemExit.
+    2. Create task for the shell so it starts immediately after loop.
+    3. Loop run forever.
+    """
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
     controller = Controller(config, loop)
-
     if controller.options.debug:
         loop.set_debug(True)
-
     shell_task = None
-    if controller.options.foreground:
-        executor = ThreadPoolExecutor(max_workers=1)
-        shell_task = loop.create_task(start_shell_async(controller, executor))
-
-    kill_handler = functools.partial(stop_controller, controller, shell_task)
-    loop.add_signal_handler(signal.SIGINT, kill_handler)
-    loop.add_signal_handler(signal.SIGTERM, kill_handler)
 
     try:
         loop.run_until_complete(controller.start())
+        if controller.options.foreground:
+            executor = ThreadPoolExecutor(max_workers=1)
+            shell_task = loop.create_task(start_shell_async(controller, executor))
+
+        kill_handler = functools.partial(stop_controller, controller, shell_task)
+        loop.add_signal_handler(signal.SIGINT, kill_handler)
+        loop.add_signal_handler(signal.SIGTERM, kill_handler)
+
         loop.run_forever()
     except SystemExit as exc:
         print(exc)
