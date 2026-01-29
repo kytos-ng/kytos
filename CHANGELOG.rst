@@ -15,6 +15,7 @@ Changed
 Fixed
 =====
 - Enhanced docker mongo setup script (rs-init.sh) to properly run on PRIMARY node
+- Fixed hanging when NApp startup raised an Exception.
 
 Added
 =====
