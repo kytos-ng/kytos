@@ -165,9 +165,13 @@ def async_main(config):
         loop.run_until_complete(controller.start())
         if controller.options.foreground:
             executor = ThreadPoolExecutor(max_workers=1)
-            shell_task = loop.create_task(start_shell_async(controller, executor))
+            shell_task = loop.create_task(
+                start_shell_async(controller, executor)
+            )
 
-        kill_handler = functools.partial(stop_controller, controller, shell_task)
+        kill_handler = functools.partial(
+            stop_controller, controller, shell_task
+        )
         loop.add_signal_handler(signal.SIGINT, kill_handler)
         loop.add_signal_handler(signal.SIGTERM, kill_handler)
 
