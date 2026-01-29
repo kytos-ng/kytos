@@ -8,7 +8,7 @@ import pytest
 
 from kytos.core.common import EntityStatus
 from kytos.core.exceptions import KytosLinkCreationError
-from kytos.core.interface import Interface, TAGType
+from kytos.core.interface import Interface
 from kytos.core.link import Link
 from kytos.core.switch import Switch
 
@@ -200,111 +200,161 @@ class TestLink():
         assert link.status == EntityStatus.UP
         assert link.status_reason == set()
 
-    def test_available_tags(self):
-        """Test available_tags property."""
-        link = Link(self.iface1, self.iface2)
-        link.endpoint_a.available_tags['vlan'] = [[1, 100]]
-        link.endpoint_b.available_tags['vlan'] = [[50, 200]]
-
-        vlans = link.available_tags()
-        assert vlans == [[50, 100]]
-
-    def test_get_next_available_tag(self, controller):
+    def test_get_next_available_tag(self):
         """Test get next available tags returns different tags"""
         link = Link(self.iface1, self.iface2)
-        tag = link.get_next_available_tag(controller, "link_id")
-        next_tag = link.get_next_available_tag(controller, "link_id")
+        default_ranges = {"vlan": [[1, 4094]]}
+        default_special = {"vlan": ["any", "untagged"]}
+        link.set_available_tags_tag_ranges(
+            default_ranges,
+            default_ranges,
+            default_ranges,
+            default_special,
+            default_special,
+            default_special,
+            frozenset({"vlan"}),
+        )
+
+        tag = link.get_next_available_tag("vlan")
+        next_tag = link.get_next_available_tag("vlan")
         assert tag == 1
         assert next_tag == 2
 
-    def test_get_next_available_tag_reverse(self, controller):
+    def test_get_next_available_tag_reverse(self):
         """Test get last available tags returns different tags"""
         link = Link(self.iface1, self.iface2)
-        tag = link.get_next_available_tag(controller, "link_id", True)
-        next_tag = link.get_next_available_tag(controller, "link_id", True)
+        default_ranges = {"vlan": [[1, 4094]]}
+        default_special = {"vlan": ["any", "untagged"]}
+        link.set_available_tags_tag_ranges(
+            default_ranges,
+            default_ranges,
+            default_ranges,
+            default_special,
+            default_special,
+            default_special,
+            frozenset({"vlan"}),
+        )
+
+        tag = link.get_next_available_tag("vlan", True)
+        next_tag = link.get_next_available_tag("vlan", True)
         assert tag == 4094
         assert next_tag == 4093
 
-    def test_get_next_available_tag_avoid_tag(self, controller):
+    def test_get_next_available_tag_avoid_tag(self):
         """Test get next available tag avoiding a tag"""
         link = Link(self.iface1, self.iface2)
+        default_ranges = {"vlan": [[1, 4094]]}
+        default_special = {"vlan": ["any", "untagged"]}
+        link.set_available_tags_tag_ranges(
+            default_ranges,
+            default_ranges,
+            default_ranges,
+            default_special,
+            default_special,
+            default_special,
+            frozenset({"vlan"}),
+        )
         avoid_vlan = 1
 
         # Tag different that avoid tag is available in the same range
-        link.endpoint_a.available_tags['vlan'] = [[1, 5]]
+        link.available_tags['vlan'] = [[1, 5]]
         tag = link.get_next_available_tag(
-            controller, "link_id", try_avoid_value=avoid_vlan
+            "vlan", try_avoid_value=avoid_vlan
         )
         assert tag == 2
 
         # The next tag is the next range
-        link.endpoint_a.available_tags['vlan'] = [[1, 1], [100, 300]]
+        link.available_tags['vlan'] = [[1, 1], [100, 300]]
         tag = link.get_next_available_tag(
-            controller, "link_id", try_avoid_value=avoid_vlan
+            "vlan", try_avoid_value=avoid_vlan
         )
         assert tag == 100
 
         # No more tags available
-        link.endpoint_a.available_tags['vlan'] = [[1, 1]]
+        link.available_tags['vlan'] = [[1, 1]]
         tag = link.get_next_available_tag(
-            controller, "link_id", try_avoid_value=avoid_vlan
+            "vlan", try_avoid_value=avoid_vlan
         )
         assert tag == 1
 
         # Same cases but with reversed
         avoid_vlan = 50
-        link.endpoint_a.available_tags['vlan'] = [[3, 50]]
+        link.available_tags['vlan'] = [[3, 50]]
         tag = link.get_next_available_tag(
-            controller, "link_id", True, try_avoid_value=avoid_vlan
+            "vlan", True, try_avoid_value=avoid_vlan
         )
         assert tag == 49
-        link.endpoint_a.available_tags['vlan'] = [[1, 20], [50, 50]]
+        link.available_tags['vlan'] = [[1, 20], [50, 50]]
         tag = link.get_next_available_tag(
-            controller, "link_id", True, try_avoid_value=avoid_vlan
+            "vlan", True, try_avoid_value=avoid_vlan
         )
         assert tag == 20
-        link.endpoint_a.available_tags['vlan'] = [[50, 50]]
+        link.available_tags['vlan'] = [[50, 50]]
         tag = link.get_next_available_tag(
-            controller, "link_id", True, try_avoid_value=avoid_vlan
+            "vlan", True, try_avoid_value=avoid_vlan
         )
         assert tag == 50
 
-    def test_tag_life_cicle(self, controller):
+    def test_tag_life_cicle(self):
         """Test get next available tags returns different tags"""
         link = Link(self.iface1, self.iface2)
-        tag = link.get_next_available_tag(controller, "link_id")
+        default_ranges = {"vlan": [[1, 4094]]}
+        default_special = {"vlan": ["any", "untagged"]}
+        link.set_available_tags_tag_ranges(
+            default_ranges,
+            default_ranges,
+            default_ranges,
+            default_special,
+            default_special,
+            default_special,
+            frozenset({"vlan"}),
+        )
 
-        is_available = link.is_tag_available(tag)
-        assert is_available is False
+        tag = link.get_next_available_tag("vlan")
 
-        link.make_tags_available(controller, tag, "link_id")
-        is_available = link.is_tag_available(tag)
-        assert is_available
+        available = link.is_tag_available("vlan", tag)
+        assert not available
 
-    def test_concurrent_get_next_tag(self, controller):
+        link.make_tags_available("vlan", tag)
+        available = link.is_tag_available("vlan", tag)
+        assert available
+
+    def test_concurrent_get_next_tag(self):
         """Test get next available tags in concurrent execution"""
         # pylint: disable=import-outside-toplevel
         from tests.helper import test_concurrently
         _link = Link(self.iface1, self.iface2)
+        default_ranges = {"vlan": [[1, 4094]]}
+        default_special = {"vlan": ["any", "untagged"]}
+        _link.set_available_tags_tag_ranges(
+            default_ranges,
+            default_ranges,
+            default_ranges,
+            default_special,
+            default_special,
+            default_special,
+            frozenset({"vlan"}),
+        )
 
         _i = []
-        available_tags = _link.endpoint_a.available_tags['vlan']
+        available_tags = _link.available_tags['vlan']
         _initial_size = 0
         for i, j in available_tags:
             _initial_size += j - i + 1
 
         @test_concurrently(20)
-        def test_get_next_available_tag(controller):
+        def test_get_next_available_tag():
             """Assert that get_next_available_tag() returns different tags."""
             _i.append(1)
-            tag = _link.get_next_available_tag(controller, "link_id")
+            # with _link.tag_lock:
+            tag = _link.get_next_available_tag("vlan")
             time.sleep(0.0001)
 
-            next_tag = _link.get_next_available_tag(controller, "link_id")
+            next_tag = _link.get_next_available_tag("vlan")
 
             assert tag != next_tag
 
-        test_get_next_available_tag(controller)
+        test_get_next_available_tag()
 
         # sleep not needed because test_concurrently waits for all threads
         # to finish before returning.
@@ -312,25 +362,8 @@ class TestLink():
 
         # Check if after the 20th iteration we have 40 tags
         # It happens because we get 2 tags for every iteration
-        available_tags = _link.endpoint_a.available_tags['vlan']
+        available_tags = _link.available_tags['vlan']
         _final_size = 0
         for i, j in available_tags:
             _final_size += j - i + 1
         assert _initial_size == _final_size + 40
-
-    def test_available_vlans(self):
-        """Test available_vlans method."""
-        link = Link(self.iface1, self.iface2)
-        link.endpoint_a.available_tags[TAGType.MPLS.value] = [[1, 100]]
-        link.endpoint_b.available_tags[TAGType.MPLS.value] = [[50, 200]]
-
-        vlans = link.available_vlans()
-        assert vlans == [TAGType.VLAN.value]
-
-    def test_get_available_vlans(self):
-        """Test _get_available_vlans method."""
-        link = Link(self.iface1, self.iface2)
-        link.endpoint_a.available_tags[TAGType.VLAN_QINQ.value] = [[1, 1]]
-        link.endpoint_a.available_tags[TAGType.MPLS.value] = [[1, 1]]
-        vlans = link._get_available_vlans(link.endpoint_a)
-        assert vlans == [TAGType.VLAN.value]

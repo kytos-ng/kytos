@@ -168,8 +168,9 @@ class TestInterface():
         custom_special_vlans = {'vlan': ["any"]}
         custom_special_tags = {'vlan': ["any"]}
         self.iface.set_available_tags_tag_ranges(
-            custom_available, custom_tag_ranges,
-            custom_special_vlans, custom_special_tags
+            custom_available, custom_tag_ranges, custom_tag_ranges,
+            custom_special_vlans, custom_special_tags, custom_special_tags,
+            frozenset({"vlan"}),
         )
         assert self.iface.available_tags == custom_available
         assert self.iface.tag_ranges == custom_tag_ranges
@@ -180,42 +181,44 @@ class TestInterface():
         """Test is_tag_available on Interface class."""
         max_range = 4095
         for tag in range(1, max_range):
-            next_tag = self.iface.is_tag_available(tag)
+            next_tag = self.iface.is_tag_available("vlan", tag)
             assert next_tag
 
         # test lower limit
-        assert self.iface.is_tag_available(0) is False
+        assert not self.iface.is_tag_available("vlan", 0)
         # test upper limit
-        assert self.iface.is_tag_available(max_range) is False
+        assert not self.iface.is_tag_available("vlan", max_range)
 
-    async def test_interface_use_tags(self, controller):
+    async def test_interface_use_tags(self):
         """Test all use_tags on Interface class."""
-        self.iface._notify_interface_tags = MagicMock()
+        self.iface.notify_tag_listeners = MagicMock()
         tags = [100, 200]
         # check use tag for the first time
-        self.iface.use_tags(controller, tags)
-        assert self.iface._notify_interface_tags.call_count == 1
+        self.iface.use_tags("vlan", tags)
+
+        assert not self.iface.all_tags_available()
 
         # check use tag for the second time
         with pytest.raises(KytosTagsAreNotAvailable):
-            self.iface.use_tags(controller, tags)
-        assert self.iface._notify_interface_tags.call_count == 1
+            self.iface.use_tags("vlan", tags)
 
         # check use tag after returning the tag to the pool as list
-        self.iface.make_tags_available(controller, [tags])
-        self.iface.use_tags(controller, [tags])
-        assert self.iface._notify_interface_tags.call_count == 3
+        self.iface.make_tags_available("vlan", [tags])
+        assert self.iface.all_tags_available()
+        self.iface.use_tags("vlan", [tags])
+
+        assert not self.iface.all_tags_available()
 
         with pytest.raises(KytosTagsAreNotAvailable):
-            self.iface.use_tags(controller, [tags])
-        assert self.iface._notify_interface_tags.call_count == 3
+            self.iface.use_tags("vlan", [tags])
 
-        with pytest.raises(KytosTagsAreNotAvailable):
-            self.iface.use_tags(controller, [tags], use_lock=False)
-        assert self.iface._notify_interface_tags.call_count == 3
-
-        self.iface.use_tags(controller, "untagged")
+        self.iface.make_tags_available("vlan", [tags])
+        assert self.iface.all_tags_available()
+        self.iface.use_tags("vlan", "untagged")
         assert "untagged" not in self.iface.special_available_tags["vlan"]
+        assert not self.iface.all_tags_available()
+
+        self.iface.notify_tag_listeners.assert_not_called()
 
     async def test_get_endpoint(self):
         """Test get_endpoint method."""
@@ -326,74 +329,84 @@ class TestInterface():
         """Test default_tag_values property"""
         expected = {
             "vlan": [[1, 4094]],
-            "vlan_qinq": [[1, 4094]],
-            "mpls": [[1, 1048575]],
+            # "vlan_qinq": [[1, 4094]],
+            # "mpls": [[1, 1048575]],
         }
-        assert self.iface.default_tag_values == expected
+        assert self.iface.default_tag_ranges == expected
 
-    async def test_make_tags_available(self, controller) -> None:
+    async def test_make_tags_available(self) -> None:
         """Test make_tags_available"""
         available = {'vlan': [[300, 3000]]}
         tag_ranges = {'vlan': [[20, 20], [200, 3000]]}
         special_available_tags = {'vlan': []}
         special_tags = {'vlan': ["any"]}
-        self.iface._notify_interface_tags = MagicMock()
+        # self.iface._notify_tag_listeners = MagicMock()
         self.iface.set_available_tags_tag_ranges(
-            available, tag_ranges,
-            special_available_tags, special_tags
+            available, tag_ranges, tag_ranges,
+            special_available_tags, special_tags, special_tags,
+            frozenset({"vlan"}),
         )
         assert self.iface.available_tags == available
         assert self.iface.tag_ranges == tag_ranges
 
-        with pytest.raises(KytosTagsNotInTagRanges):
-            self.iface.make_tags_available(controller, [1, 20])
-        assert self.iface._notify_interface_tags.call_count == 0
+        assert not self.iface.all_tags_available()
 
         with pytest.raises(KytosTagsNotInTagRanges):
-            self.iface.make_tags_available(controller, [[1, 20]])
-        assert self.iface._notify_interface_tags.call_count == 0
-
-        assert not self.iface.make_tags_available(controller, [250, 280])
-        assert self.iface._notify_interface_tags.call_count == 1
+            self.iface.make_tags_available("vlan", [1, 20])
 
         with pytest.raises(KytosTagsNotInTagRanges):
-            self.iface.make_tags_available(controller, [1, 1], use_lock=False)
+            self.iface.make_tags_available("vlan", [[1, 20]])
 
-        assert self.iface.make_tags_available(controller, 300) == [[300, 300]]
+        assert not self.iface.make_tags_available("vlan", [250, 280])
 
         with pytest.raises(KytosTagsNotInTagRanges):
-            self.iface.make_tags_available(controller, "untagged")
+            self.iface.make_tags_available("vlan", [1, 1])
 
-        assert self.iface.make_tags_available(controller, "any") is None
+        conflict = self.iface.make_tags_available("vlan", 300)
+        assert conflict == [[300, 300]]
+
+        with pytest.raises(KytosTagsNotInTagRanges):
+            self.iface.make_tags_available("vlan", "untagged")
+
+        assert not self.iface.make_tags_available("vlan", "any")
         assert "any" in self.iface.special_available_tags["vlan"]
-        assert self.iface.make_tags_available(controller, "any") == "any"
+        conflict = self.iface.make_tags_available("vlan", "any")
+        assert conflict == "any"
 
-    async def test_set_tag_ranges(self, controller) -> None:
+        conflict = self.iface.make_tags_available(
+            "vlan", [[20, 20], [200, 3000]]
+        )
+
+        assert conflict == [[250, 280], [300, 3000]]
+
+        assert self.iface.all_tags_available()
+
+    async def test_set_tag_ranges(self) -> None:
         """Test set_tag_ranges"""
         tag_ranges = [[20, 20], [200, 3000]]
         with pytest.raises(KytosTagtypeNotSupported):
-            self.iface.set_tag_ranges(tag_ranges, 'vlan_qinq')
+            self.iface.set_tag_ranges('vlan_qinq', tag_ranges)
 
-        self.iface.set_tag_ranges(tag_ranges, 'vlan')
-        self.iface.use_tags(controller, [200, 250])
+        self.iface.set_tag_ranges('vlan', tag_ranges)
+        self.iface.use_tags("vlan", [200, 250])
         ava_expected = [[20, 20], [251, 3000]]
         assert self.iface.tag_ranges['vlan'] == tag_ranges
         assert self.iface.available_tags['vlan'] == ava_expected
 
         tag_ranges = [[20, 20], [400, 1000]]
         with pytest.raises(KytosSetTagRangeError):
-            self.iface.set_tag_ranges(tag_ranges, 'vlan')
+            self.iface.set_tag_ranges('vlan', tag_ranges)
 
-    async def test_remove_tag_ranges(self) -> None:
+    async def test_reset_tag_ranges(self) -> None:
         """Test remove_tag_ranges"""
         tag_ranges = [[20, 20], [200, 3000]]
-        self.iface.set_tag_ranges(tag_ranges, 'vlan')
+        self.iface.set_tag_ranges('vlan', tag_ranges)
         assert self.iface.tag_ranges['vlan'] == tag_ranges
 
         with pytest.raises(KytosTagtypeNotSupported):
-            self.iface.remove_tag_ranges('vlan_qinq')
+            self.iface.reset_tag_ranges('vlan_qinq')
 
-        self.iface.remove_tag_ranges('vlan')
+        self.iface.reset_tag_ranges('vlan')
         default = [[1, 4094]]
         assert self.iface.tag_ranges['vlan'] == default
 
@@ -415,108 +428,11 @@ class TestInterface():
         assert self.iface.special_available_tags["vlan"] == []
         assert self.iface.special_tags["vlan"] == ["any"]
 
-    async def test_remove_tags(self) -> None:
-        """Test _remove_tags"""
-        available_tag = [[20, 20], [200, 3000]]
-        tag_ranges = [[1, 4095]]
-        self.iface.set_available_tags_tag_ranges(
-            {'vlan': available_tag},
-            {'vlan': tag_ranges},
-            {'vlan': ["untagged", "any"]},
-            {'vlan': ["untagged", "any"]}
-        )
-        ava_expected = [[20, 20], [241, 3000]]
-        assert self.iface._remove_tags([200, 240])
-        assert self.iface.available_tags['vlan'] == ava_expected
-        ava_expected = [[241, 3000]]
-        assert self.iface._remove_tags([20, 20])
-        assert self.iface.available_tags['vlan'] == ava_expected
-        ava_expected = [[241, 250], [400, 3000]]
-        assert self.iface._remove_tags([251, 399])
-        assert self.iface.available_tags['vlan'] == ava_expected
-        assert self.iface._remove_tags([200, 240]) is False
-        ava_expected = [[241, 250], [400, 499]]
-        assert self.iface._remove_tags([500, 3000])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-    async def test_remove_tags_empty(self) -> None:
-        """Test _remove_tags when available_tags is empty"""
-        available_tag = []
-        tag_ranges = [[1, 4095]]
-        parameters = {
-            "available_tag": {'vlan': available_tag},
-            "tag_ranges": {'vlan': tag_ranges},
-            "special_available_tags": {'vlan': ["untagged", "any"]},
-            "special_tags": {'vlan': ["untagged", "any"]}
-        }
-        self.iface.set_available_tags_tag_ranges(**parameters)
-        assert self.iface._remove_tags([4, 6]) is False
-        assert self.iface.available_tags['vlan'] == []
-
-    async def test_add_tags(self) -> None:
-        """Test _add_tags"""
-        available_tag = [[7, 10], [20, 30]]
-        tag_ranges = [[1, 4095]]
-        parameters = {
-            "available_tag": {'vlan': available_tag},
-            "tag_ranges": {'vlan': tag_ranges},
-            "special_available_tags": {'vlan': ["untagged", "any"]},
-            "special_tags": {'vlan': ["untagged", "any"]}
-        }
-        self.iface.set_available_tags_tag_ranges(**parameters)
-        ava_expected = [[4, 10], [20, 30]]
-        assert self.iface._add_tags([4, 6])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-        ava_expected = [[1, 2], [4, 10], [20, 30]]
-        assert self.iface._add_tags([1, 2])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-        ava_expected = [[1, 2], [4, 10], [20, 35]]
-        assert self.iface._add_tags([31, 35])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-        ava_expected = [[1, 2], [4, 10], [20, 35], [90, 90]]
-        assert self.iface._add_tags([90, 90])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-        ava_expected = [[1, 2], [4, 10], [20, 90]]
-        assert self.iface._add_tags([36, 89])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-        ava_expected = [[1, 2], [4, 12], [20, 90]]
-        assert self.iface._add_tags([11, 12])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-        ava_expected = [[1, 2], [4, 12], [17, 90]]
-        assert self.iface._add_tags([17, 19])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-        ava_expected = [[1, 2], [4, 12], [15, 15], [17, 90]]
-        assert self.iface._add_tags([15, 15])
-        assert self.iface.available_tags['vlan'] == ava_expected
-
-        assert self.iface._add_tags([35, 98]) is False
-
-    async def test_add_tags_empty(self) -> None:
-        """Test _add_tags when available_tags is empty"""
-        available_tag = []
-        tag_ranges = [[1, 4095]]
-        parameters = {
-            "available_tag": {'vlan': available_tag},
-            "tag_ranges": {'vlan': tag_ranges},
-            "special_available_tags": {'vlan': ["untagged", "any"]},
-            "special_tags": {'vlan': ["untagged", "any"]}
-        }
-        self.iface.set_available_tags_tag_ranges(**parameters)
-        assert self.iface._add_tags([4, 6])
-        assert self.iface.available_tags['vlan'] == [[4, 6]]
-
-    async def test_notify_interface_tags(self, controller) -> None:
-        """Test _notify_interface_tags"""
+    async def test_notify_tag_listeners(self, controller) -> None:
+        """Test _notify_tag_listeners"""
         name = "kytos/core.interface_tags"
         content = {"interface": self.iface}
-        self.iface._notify_interface_tags(controller)
+        self.iface.notify_tag_listeners(controller)
         event = controller.buffers.app.put.call_args[0][0]
         assert event.name == name
         assert event.content == content
