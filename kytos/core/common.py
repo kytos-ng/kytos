@@ -18,11 +18,11 @@ class EntityStatus(Enum):
 class GenericEntity:
     """Generic class that represents any Entity."""
 
-    def __init__(self):
+    def __init__(self, lock: Lock=None):
         """Create the GenericEntity object with empty metadata dictionary."""
         options = KytosConfig().options['daemon']
         self.metadata = {}
-        self.lock = Lock()
+        self.lock = lock if lock else Lock()
 
         self._active: bool = True
         self._enabled: bool = options.enable_entities_by_default

@@ -52,7 +52,7 @@ class Switch(GenericEntity):
     status_funcs = OrderedDict()
     status_reason_funcs = OrderedDict()
 
-    def __init__(self, dpid, connection=None, features=None):
+    def __init__(self, dpid, connection=None, features=None, lock=None):
         """Contructor of switches have the below parameters.
 
         Args:
@@ -87,7 +87,7 @@ class Switch(GenericEntity):
         if connection:
             connection.switch = self
 
-        super().__init__()
+        GenericEntity.__init__(self, lock=lock)
 
     def __repr__(self):
         return f"Switch('{self.dpid}')"
@@ -188,27 +188,26 @@ class Switch(GenericEntity):
                                    state=None, features=None, speed=None,
                                    config=None):
         """Get and upated an interface or create one if it does not exist."""
-        with self.lock:
-            interface = self.get_interface_by_port_no(port_no)
-            if interface:
-                interface.name = name or interface.name
-                interface.address = address or interface.address
-                interface.state = state or interface.state
-                interface.features = features or interface.features
-                interface.config = config
-                if speed:
-                    interface.set_custom_speed(speed)
-            else:
-                interface = Interface(name=name,
-                                      address=address,
-                                      port_number=port_no,
-                                      switch=self,
-                                      state=state,
-                                      features=features,
-                                      speed=speed,
-                                      config=config)
-                self.update_interface(interface)
-            return interface
+        interface = self.get_interface_by_port_no(port_no)
+        if interface:
+            interface.name = name or interface.name
+            interface.address = address or interface.address
+            interface.state = state or interface.state
+            interface.features = features or interface.features
+            interface.config = config
+            if speed:
+                interface.set_custom_speed(speed)
+        else:
+            interface = Interface(name=name,
+                                    address=address,
+                                    port_number=port_no,
+                                    switch=self,
+                                    state=state,
+                                    features=features,
+                                    speed=speed,
+                                    config=config)
+            self.update_interface(interface)
+        return interface
 
     def get_flow_by_id(self, flow_id):
         """Return a Flow using the flow_id given. None if not found in flows.

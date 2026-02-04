@@ -46,7 +46,9 @@ from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosAPMInitException, KytosDBInitException,
                                    KytosNAppSetupException)
 from kytos.core.helpers import executors, now
+from kytos.core.id import LinkID
 from kytos.core.interface import Interface
+from kytos.core.lock import LockGroup
 from kytos.core.link import Link
 from kytos.core.logs import LogManager
 from kytos.core.napps.base import NApp
@@ -134,7 +136,10 @@ class Controller:
         #:
         #: The key is the switch dpid, while the value is a Switch object.
         self.switches: dict[str, Switch] = {}
-        self.switches_lock = threading.Lock()
+        self.general_locks = LockGroup("general_locks", threading.Lock())
+        self.switches_lock = self.general_locks["group_0000:switches_lock"]
+        self.switch_locks = self.general_locks
+        self.link_locks = self.general_locks
 
         #: datetime.datetime: Time when the controller finished starting.
         self.started_at = None
@@ -749,7 +754,7 @@ class Controller:
             event_name = 'kytos/core.switch.'
 
             if switch is None:
-                switch = Switch(dpid=dpid)
+                switch = Switch(dpid=dpid, lock=self.switch_locks[f"group_0001:{dpid}"])
                 self.add_new_switch(switch)
                 event_name += 'new'
             else:
@@ -1056,7 +1061,8 @@ class Controller:
         Returns:
             Tuple(Link, bool): Link and a boolean whether it has been created.
         """
-        new_link = Link(endpoint_a, endpoint_b)
+        link_id = LinkID(endpoint_a.id, endpoint_b.id)
+        new_link = Link(endpoint_a, endpoint_b, lock=self.link_locks[f"group_0002:{link_id}"])
 
         # If new_link is an old link but mismatched,
         # then treat it as a new link
