@@ -1,0 +1,652 @@
+"""Module for adding tag capabilities"""
+from __future__ import annotations
+
+from copy import deepcopy
+from functools import wraps
+from threading import Lock
+from typing import TYPE_CHECKING, Union
+
+from kytos.core.events import KytosEvent
+from kytos.core.exceptions import (KytosInvalidTagRanges,
+                                   KytosNoTagAvailableError,
+                                   KytosSetTagRangeError,
+                                   KytosTagsAreNotAvailable,
+                                   KytosTagsNotInTagRanges,
+                                   KytosTagtypeNotSupported)
+from kytos.core.tag_ranges import (find_index_remove, get_validated_tags,
+                                   range_addition, range_difference)
+
+if TYPE_CHECKING:
+    from kytos.core.controller import Controller
+
+
+def _atomic_modify_wrapper(func):
+    """
+    Wrapper for methods which modify the state of
+    a TAGCapable object.
+    """
+
+    @wraps(func)
+    def new_function(
+        self: TAGCapable,
+        controller: Controller,
+        *args,
+        **kwargs
+    ):
+        with self.tag_lock:
+            result = func(
+                self,
+                *args,
+                **kwargs
+            )
+            self.notify_tag_listeners(controller)
+            return result
+
+    return new_function
+
+
+def _atomic_read_wrapper(func):
+    """
+    Wrapper for methods which read the state of
+    a TAGCapable object.
+    """
+
+    @wraps(func)
+    def wrapped_function(
+        self: TAGCapable,
+        *args,
+        **kwargs
+    ):
+        with self.tag_lock:
+            return func(
+                self,
+                *args,
+                **kwargs
+            )
+
+    return wrapped_function
+
+
+class TAGCapable:
+    """
+    Class which adds capabilities for tracking tag usage.
+
+    Add this as a super class, and make sure to call
+    this class's initializer.
+
+    To make use of the capabilities provided by this class,
+    most operations should in a protected context,
+    that being holding the `tag_lock`,
+    or by using the `atomic_*` operations.
+
+    The `atomic_*` operations will hold the `tag_lock`
+    and also send out events to listeners when modifying
+    the state of the class.
+    `atomic_*` operations can't be perfomed
+    if the `tag_lock` is being held,
+    and will cause a deadlock if the running thread
+    is already holding the `tag_lock`.
+
+    If multiple complex operations need to be performed,
+    then the `tag_lock` should be held instead of trying to
+    use the `atomic_*` operations.
+    If updates are performed, while holding the `tag_lock`,
+    then the `notify_tag_listeners` function should be called.
+
+    Also to note, classes which inherit from `TAGCapable`
+    should override the `notify_tag_listeners` method,
+    in order to ensure that the correct event is  produced.
+    """
+
+    __slots__ = (
+        "available_tags",
+        "tag_ranges",
+        "default_tag_ranges",
+        "special_available_tags",
+        "special_tags",
+        "default_special_tags",
+        "supported_tag_types",
+        "tag_lock",
+    )
+
+    available_tags: dict[str, list[list[int]]]
+    tag_ranges: dict[str, list[list[int]]]
+    default_tag_ranges: dict[str, list[list[int]]]
+
+    special_available_tags: dict[str, list[str]]
+    special_tags: dict[str, list[str]]
+    default_special_tags: dict[str, list[str]]
+
+    supported_tag_types: frozenset[str]
+
+    tag_lock: Lock
+
+    def __init__(
+        self,
+        default_tag_ranges: dict[str, list[list[int]]],
+        default_special_tags: dict[str, list[str]],
+        supported_tag_types: frozenset[str],
+    ):
+        self.default_tag_ranges = deepcopy(default_tag_ranges)
+        self.tag_ranges = deepcopy(default_tag_ranges)
+        self.available_tags = deepcopy(default_tag_ranges)
+
+        self.default_special_tags = deepcopy(default_special_tags)
+        self.special_tags = deepcopy(default_special_tags)
+        self.special_available_tags = deepcopy(default_special_tags)
+
+        self.supported_tag_types = supported_tag_types
+
+        self.tag_lock = Lock()
+
+    def notify_tag_listeners(
+            self,
+            controller: Controller
+    ):
+        """Notify changes to tags"""
+        controller.buffers.app.put(
+            KytosEvent(
+                name="kytos/core.generic_tags",
+                content={"generic": self}
+            )
+        )
+
+    def set_available_tags_tag_ranges(
+        self,
+        available_tag: dict[str, list[list[int]]],
+        tag_ranges: dict[str, list[list[int]]],
+        default_tag_ranges: dict[str, list[list[int]]],
+        special_available_tags: dict[str, list[str]],
+        special_tags: dict[str, list[str]],
+        default_special_tags: dict[str, list[str]],
+        supported_tag_types: frozenset[str],
+    ):
+        """
+        Set the range of tags to be used by this device.
+        """
+        self.available_tags = deepcopy(available_tag)
+        self.tag_ranges = deepcopy(tag_ranges)
+        self.default_tag_ranges = deepcopy(default_tag_ranges)
+        self.special_available_tags = deepcopy(special_available_tags)
+        self.special_tags = deepcopy(special_tags)
+        self.default_special_tags = deepcopy(default_special_tags)
+        self.supported_tag_types = supported_tag_types
+
+    def all_tags_available(self) -> bool:
+        """
+        Return True if all tags are avaiable (no tags used),
+        False otherwise.
+        """
+        if self.available_tags != self.tag_ranges:
+            return False
+        for field, ranges in self.special_available_tags.items():
+            if set(ranges) != set(self.special_tags[field]):
+                return False
+        return True
+
+    def get_inactive_tags(self, tag_type: str) -> list[list[int]]:
+        """
+        Get the set of tags from default_tags that are not available
+        for use in tag_ranges in use.
+        """
+        return range_difference(
+            self.default_tag_ranges[tag_type],
+            self.tag_ranges[tag_type],
+        )
+
+    def get_used_tags(self, tag_type: str) -> list[list[int]]:
+        """
+        Get the set of tags from tag_ranges that are currently in use.
+        """
+        return range_difference(
+            self.tag_ranges[tag_type],
+            self.available_tags[tag_type],
+        )
+
+    def get_inactive_special_tags(self, tag_type: str) -> list[list[int]]:
+        """
+        Get the set of tags from default_tags that are not available
+        for use in tag_ranges in use.
+        """
+        full_set = frozenset(self.default_special_tags[tag_type])
+        active_set = frozenset(self.special_tags[tag_type])
+        return full_set - active_set
+
+    def get_used_special_tags(self, tag_type: str) -> frozenset[str]:
+        """
+        Get the set of tags from special_tags that are currently in use.
+        """
+        old_set = frozenset(self.special_tags[tag_type])
+        available_set = frozenset(self.special_available_tags[tag_type])
+        return old_set - available_set
+
+    def is_tag_type_supported(self, tag_type: str) -> bool:
+        """
+        Check if the given tag type is supported.
+        """
+        return tag_type in self.supported_tag_types
+
+    def is_tag_available(
+        self,
+        tag_type: str,
+        tag: Union[int, str]
+    ) -> bool:
+        """
+        Check if the given tag is available for use.
+        """
+        if isinstance(tag, int):
+            index = find_index_remove(
+                self.available_tags[tag_type],
+                [tag, tag]
+            )
+            return index is not None
+        if isinstance(tag, str):
+            return tag in self.special_available_tags[tag_type]
+        return False
+
+    def assert_tag_type_supported(self, tag_type: str):
+        """
+        Assert that a given tag type is supported,
+        if not raise a KytosTagtypeNotSupported exception.
+        """
+        if not self.is_tag_type_supported(tag_type):
+            raise KytosTagtypeNotSupported(
+                f"Tag type {tag_type} is not supported"
+            )
+
+    def set_default_tag_ranges(
+        self,
+        tag_type: str,
+        tag_ranges: list[list[int]],
+        ignore_missing: bool = False
+    ):
+        """
+        Set the default tag ranges.
+        """
+        self.assert_tag_type_supported(tag_type)
+
+        inactive_tags = self.get_inactive_tags(tag_type)
+        new_active_tags = range_difference(tag_ranges, inactive_tags)
+
+        self.set_tag_ranges(
+            tag_type,
+            new_active_tags,
+            ignore_missing,
+            False
+        )
+
+        self.default_tag_ranges[tag_type] = tag_ranges
+
+    def set_tag_ranges(
+        self,
+        tag_type: str,
+        tag_ranges: list[list[int]],
+        ignore_missing: bool = False,
+        validate_with_default: bool = True,
+    ):
+        """Set new restriction, tag_ranges."""
+        self.assert_tag_type_supported(tag_type)
+
+        used_tags = self.get_used_tags(tag_type)
+
+        if validate_with_default:
+            default_ranges = self.default_tag_ranges[tag_type]
+            invalid = range_difference(
+                tag_ranges,
+                default_ranges
+            )
+            if invalid:
+                raise KytosInvalidTagRanges(
+                    f"The tags {invalid} are not supported"
+                )
+
+        if not ignore_missing:
+            missing = range_difference(used_tags, tag_ranges)
+            if missing:
+                raise KytosSetTagRangeError(
+                    f"Missing tags in tag_range: {missing}"
+                )
+
+        new_available_tags = range_difference(tag_ranges, used_tags)
+        self.available_tags[tag_type] = new_available_tags
+        self.tag_ranges[tag_type] = tag_ranges
+
+    def reset_tag_ranges(self, tag_type: str):
+        """Sets tag_ranges[tag_type] to default_tag_ranges[tag_type]"""
+        self.assert_tag_type_supported(tag_type)
+
+        self.set_tag_ranges(
+            tag_type,
+            self.default_tag_ranges[tag_type],
+            True
+        )
+
+    def remove_tag_ranges(self, tag_type: str):
+        """Clear tag_ranges[tag_type]"""
+        self.set_tag_ranges(
+            tag_type,
+            [],
+            True
+        )
+
+    def set_default_special_tags(
+        self,
+        tag_type: str,
+        special_tags: list[str],
+        ignore_missing: bool = False
+    ):
+        """
+        Set the default special tag ranges.
+        """
+        self.assert_tag_type_supported(tag_type)
+
+        inactive_tags = self.get_inactive_special_tags(tag_type)
+        new_active_tags = frozenset(special_tags) - inactive_tags
+
+        self.set_special_tags(
+            tag_type,
+            list(new_active_tags),
+            ignore_missing,
+            False
+        )
+
+        self.default_special_tags[tag_type] = special_tags
+
+    def set_special_tags(
+        self,
+        tag_type: str,
+        special_tags: list[str],
+        ignore_missing: bool = False,
+        validate_with_default: bool = True,
+    ):
+        """Set new restriction, special_tags"""
+        self.assert_tag_type_supported(tag_type)
+
+        used_set = self.get_used_special_tags(tag_type)
+        incoming_set = frozenset(special_tags)
+
+        if len(incoming_set) < len(special_tags):
+            raise KytosInvalidTagRanges(
+                "There are duplicated values in the range."
+            )
+
+        if validate_with_default:
+            default_set = frozenset(self.default_special_tags[tag_type])
+            invalid = incoming_set - default_set
+            if invalid:
+                raise KytosInvalidTagRanges(
+                    f"The tags {invalid} are not supported"
+                )
+
+        if not ignore_missing:
+            missing = used_set - incoming_set
+            if missing:
+                raise KytosSetTagRangeError(
+                    f"Missing tags in tag_range: {missing}"
+                )
+
+        new_available_set = incoming_set - used_set
+
+        self.special_available_tags[tag_type] = list(new_available_set)
+
+        self.special_tags[tag_type] = list(incoming_set)
+
+    def reset_special_tags(self, tag_type: str):
+        """Sets special_tags[tag_type] to default_special_tags[tag_type]"""
+        self.assert_tag_type_supported(tag_type)
+
+        self.set_special_tags(
+            tag_type,
+            self.default_special_tags[tag_type],
+            True
+        )
+
+    def remove_special_tags(self, tag_type: str):
+        """Clear tag_ranges[tag_type]"""
+        self.set_special_tags(tag_type, [], True)
+
+    def _use_tag_ranges(self, tag_type: str, tag_ranges: list[list[int]]):
+        available_tags = self.available_tags[tag_type]
+        missing = range_difference(tag_ranges, available_tags)
+        if missing:
+            raise KytosTagsAreNotAvailable(missing, self)
+        new_available = range_difference(available_tags, tag_ranges)
+        self.available_tags[tag_type] = new_available
+
+    def _use_special_tag(self, tag_type: str, special_tag: str):
+        scratch_set = set(self.special_available_tags[tag_type])
+        try:
+            scratch_set.remove(special_tag)
+        except KeyError as exc:
+            raise KytosTagsAreNotAvailable(
+                special_tag,
+                self
+            ) from exc
+        self.special_available_tags[tag_type] = list(scratch_set)
+
+    def use_tags(
+        self,
+        tag_type: str,
+        tags: Union[
+            str,
+            int,
+            list[int],
+            list[list[int]],
+        ],
+        check_order: bool = True,
+    ):
+        """Remove a specific tag from available_tags if it is there.
+        Exception raised in case the tags were not able to be removed.
+
+        Args:
+            tags: value to be removed, multiple types for compatibility:
+                (str): Special vlan, "untagged" or "vlan"
+                (int): Single tag
+                (list[int]): Single range of tags
+                (list[list[int]]): List of ranges of tags
+            tag_type: TAG type value
+            check_order: Boolean to whether validate tags(list). Check order,
+                type and length. Set to false when invocated internally.
+
+        Exceptions:
+            KytosTagsAreNotAvailable if tags can't be acquired.
+        """
+        self.assert_tag_type_supported(tag_type)
+
+        # This kind of validation seems out of place here,
+        # the ranges should already be valid before reaching this point.
+        if check_order and isinstance(tags, list):
+            tags = get_validated_tags(tags)
+
+        match tags:
+            case str(special_tag):
+                self._use_special_tag(
+                    tag_type,
+                    special_tag
+                )
+            case int(tag_value):
+                self._use_tag_ranges(
+                    tag_type,
+                    [[tag_value, tag_value]]
+                )
+            case [[*_], *_] as tag_ranges:
+                self._use_tag_ranges(
+                    tag_type,
+                    tag_ranges
+                )
+            case [int(), int()] as tag_range:
+                self._use_tag_ranges(
+                    tag_type,
+                    [tag_range]
+                )
+            case _:
+                # NOTE: Maybe add some kind of exception here?
+                pass
+
+    def get_next_available_tag(
+        self,
+        tag_type: str,
+        take_last: bool = False,
+        try_avoid_value: int = None,
+    ) -> int:
+        """Return the next available tag if exists. By default this
+         method returns the smallest tag available. Apply options to
+         change behavior.
+         Options:
+           - take_last (bool): Choose the largest tag available.
+           - try_avoid_value (int): Avoid given tag if possible. Otherwise
+             return what is available.
+        """
+        self.assert_tag_type_supported(tag_type)
+        available_tags = self.available_tags[tag_type]
+
+        if take_last:
+            available_tags = reversed(available_tags)
+
+        best_value = None
+
+        for tag_range in available_tags:
+            match tag_range, take_last:
+                case [range_start, range_end], _ if (
+                    range_start == range_end
+                    and range_start == try_avoid_value
+                ):
+                    best_value = range_start
+                    continue
+                case [range_start, range_end], False if (
+                    range_start == try_avoid_value
+                ):
+                    best_value = range_start + 1
+                    break
+                case [range_start, range_end], True if (
+                    range_end == try_avoid_value
+                ):
+                    best_value = range_end - 1
+                    break
+                case [range_start, range_end], False:
+                    best_value = range_start
+                    break
+                case [range_start, range_end], True:
+                    best_value = range_end
+                    break
+
+        if best_value is None:
+            raise KytosNoTagAvailableError(self)
+
+        self._use_tag_ranges(
+            tag_type,
+            [[best_value, best_value]]
+        )
+
+        return best_value
+
+    def _make_tag_ranges_available(
+        self,
+        tag_type: str,
+        tag_ranges: list[list[int]]
+    ) -> list[list[int]]:
+        allocatable_tags = self.tag_ranges[tag_type]
+
+        unfreeable = range_difference(tag_ranges, allocatable_tags)
+
+        if unfreeable:
+            raise KytosTagsNotInTagRanges(unfreeable, self)
+
+        free_tags = self.available_tags[tag_type]
+
+        new_free, already_freed = range_addition(free_tags, tag_ranges)
+
+        self.available_tags[tag_type] = new_free
+
+        return already_freed
+
+    def _make_special_tag_available(self, tag_type: str, special_tag: str):
+        if special_tag not in self.special_tags[tag_type]:
+            raise KytosTagsNotInTagRanges(special_tag, self)
+        if special_tag not in self.special_available_tags[tag_type]:
+            self.special_available_tags[tag_type].append(special_tag)
+            return None
+        return special_tag
+
+    def make_tags_available(
+        self,
+        tag_type: str,
+        tags: Union[
+            str,
+            int,
+            list[int],
+            list[list[int]],
+        ],
+        check_order: bool = True,
+    ):
+        """Add a tags in available_tags.
+
+        Args:
+            tags: value to be added, multiple types for compatibility:
+                (str): Special vlan, "untagged" or "vlan"
+                (int): Single tag
+                (list[int]): Single range of tags
+                (list[list[int]]): List of ranges of tags
+            tag_type: TAG type value
+            check_order: Boolean to whether validate tags(list). Check order,
+                type and length. Set to false when invocated internally.
+
+        Return:
+            conflict: Return any values that were not added.
+
+        Exeptions:
+            KytosTagsNotInTagRanges if tag is not an active tag.
+        """
+        self.assert_tag_type_supported(tag_type)
+
+        if check_order and isinstance(tags, list):
+            tags = get_validated_tags(tags)
+
+        match tags:
+            case str(special_tag):
+                return self._make_special_tag_available(
+                    tag_type,
+                    special_tag
+                )
+            case int(tag_value):
+                return self._make_tag_ranges_available(
+                    tag_type,
+                    [[tag_value, tag_value]]
+                )
+            case [[*_], *_] as tag_ranges:
+                return self._make_tag_ranges_available(
+                    tag_type,
+                    tag_ranges
+                )
+            case [int(), int()] as tag_range:
+                return self._make_tag_ranges_available(
+                    tag_type,
+                    [tag_range]
+                )
+            case _:
+                return tags
+
+    atomic_all_tags_available = _atomic_read_wrapper(all_tags_available)
+    atomic_get_inactive_tags = _atomic_read_wrapper(get_inactive_tags)
+    atomic_get_used_tags = _atomic_read_wrapper(get_used_tags)
+    atomic_get_inactive_special_tags =\
+        _atomic_read_wrapper(get_inactive_special_tags)
+    atomic_get_used_special_tags = _atomic_read_wrapper(get_used_special_tags)
+    atomic_is_tag_available = _atomic_read_wrapper(is_tag_available)
+
+    atomic_set_available_tags_tag_ranges =\
+        _atomic_modify_wrapper(set_available_tags_tag_ranges)
+    atomic_set_default_tag_ranges =\
+        _atomic_modify_wrapper(set_default_tag_ranges)
+    atomic_set_tag_ranges = _atomic_modify_wrapper(set_tag_ranges)
+    atomic_reset_tag_ranges = _atomic_modify_wrapper(reset_tag_ranges)
+    atomic_remove_tag_ranges = _atomic_modify_wrapper(remove_tag_ranges)
+    atomic_set_default_special_tags =\
+        _atomic_modify_wrapper(set_default_special_tags)
+    atomic_set_special_tags = _atomic_modify_wrapper(set_special_tags)
+    atomic_reset_special_tags = _atomic_modify_wrapper(reset_special_tags)
+    atomic_remove_special_tags = _atomic_modify_wrapper(remove_special_tags)
+    atomic_use_tags = _atomic_modify_wrapper(use_tags)
+    atomic_get_next_available_tag =\
+        _atomic_modify_wrapper(get_next_available_tag)
+    atomic_make_tags_available = _atomic_modify_wrapper(make_tags_available)

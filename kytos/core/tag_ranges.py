@@ -2,7 +2,8 @@
 # pylint: disable=too-many-branches
 import bisect
 from copy import deepcopy
-from typing import Iterator, Optional, Union
+from itertools import chain
+from typing import Optional, Union
 
 from kytos.core.exceptions import KytosInvalidTagRanges
 
@@ -43,8 +44,7 @@ def get_tag_ranges(ranges: list[list[int]]):
 
     The ranges are understood as [inclusive, inclusive]"""
     if len(ranges) < 1:
-        msg = "Tag range is empty"
-        raise KytosInvalidTagRanges(msg)
+        return ranges
     last_tag = 0
     ranges_n = len(ranges)
     for i in range(0, ranges_n):
@@ -94,9 +94,8 @@ def get_validated_tags(
 def range_intersection(
     ranges_a: list[list[int]],
     ranges_b: list[list[int]],
-    reverse: bool = False,
-) -> Iterator[list[int]]:
-    """Returns an iterator of an intersection between
+) -> list[list[int]]:
+    """Returns a list of ranges of an intersection between
     two validated list of ranges.
 
     Necessities:
@@ -105,41 +104,56 @@ def range_intersection(
         Use get_tag_ranges() for list[list[int]] or
             get_validated_tags() for also list[int]
     """
-    a_i, b_i = 0, 0
-    index_diff = 1
-    if reverse:
-        a_i = len(ranges_a) - 1
-        b_i = len(ranges_b) - 1
-        index_diff = -1
-    while 0 <= a_i < len(ranges_a) and 0 <= b_i < len(ranges_b):
-        fst_a, snd_a = ranges_a[a_i]
-        fst_b, snd_b = ranges_b[b_i]
-        # Moving forward with non-intersection
-        if snd_a < fst_b:
-            if not reverse:
-                a_i += index_diff
-            else:
-                b_i += index_diff
-        elif snd_b < fst_a:
-            if not reverse:
-                b_i += index_diff
-            else:
-                a_i += index_diff
-        else:
-            # Intersection
-            intersection_start = max(fst_a, fst_b)
-            intersection_end = min(snd_a, snd_b)
-            yield [intersection_start, intersection_end]
-            move_from_a = snd_a < snd_b if not reverse else fst_a > fst_b
-            if move_from_a:
-                a_i += index_diff
-            else:
-                b_i += index_diff
+    if not ranges_a:
+        return []
+    if not ranges_b:
+        return []
+
+    lower_bound = max(ranges_a[0][0], ranges_b[0][0])
+    upper_bound = min(ranges_a[-1][1], ranges_b[-1][1])
+
+    true_bounds = lower_bound, upper_bound
+
+    # Could optimize the process to only require at most 2 cuts,
+    # rather than the 4 currently done.
+    _, bounded_a, _ = partition_by_relevant_bounds(
+        ranges_a, *true_bounds
+    )
+
+    _, bounded_b, _ = partition_by_relevant_bounds(
+        ranges_b, *true_bounds
+    )
+
+    ordered_ranges = sorted(chain(
+        bounded_a,
+        bounded_b
+    ))
+
+    intersections = list[list[int]]()
+
+    if ordered_ranges:
+        top = ordered_ranges[0]
+
+        for tag_range in ordered_ranges[1:]:
+            match top, tag_range:
+                case [a_start, a_end], [b_start, b_end] if (
+                    b_start <= a_end <= b_end
+                ):
+                    top = [a_start, b_end]
+                    intersections.append([b_start, a_end])
+                case [a_start, a_end], [b_start, b_end] if (
+                    b_end < a_end
+                ):
+                    intersections.append([b_start, b_end])
+                case _, _:
+                    top = tag_range
+
+    return intersections
 
 
 def range_difference(
-    ranges_a: list[Optional[list[int]]],
-    ranges_b: list[Optional[list[int]]]
+    ranges_a: list[list[int]],
+    ranges_b: list[list[int]]
 ) -> list[list[int]]:
     """The operation is two validated list of ranges
      (ranges_a - ranges_b).
@@ -192,8 +206,8 @@ def range_difference(
 
 
 def range_addition(
-    ranges_a: list[Optional[list[int]]],
-    ranges_b: list[Optional[list[int]]]
+    ranges_a: list[list[int]],
+    ranges_b: list[list[int]]
 ) -> tuple[list[list[int]], list[list[int]]]:
     """Addition between two validated list of ranges.
      Simulates the addition between two sets.
@@ -205,10 +219,10 @@ def range_addition(
         Use get_tag_ranges() for list[list[int]] or
             get_validated_tags() for also list[int]
      """
-    if not ranges_b:
-        return deepcopy(ranges_a), []
     if not ranges_a:
         return deepcopy(ranges_b), []
+    if not ranges_b:
+        return deepcopy(ranges_a), []
     result = []
     conflict = []
     a_i = b_i = 0
@@ -287,3 +301,64 @@ def find_index_add(
             tags[1] < available_tags[index][0]):
         return index
     return None
+
+
+def partition_by_leftmost(
+    tag_ranges: list[list[int]],
+    bound: int
+):
+    """Split tag ranges on boundary,
+    such that the right set includes the bounds value.
+    """
+    bound_range = [bound, bound]
+    index = bisect.bisect_left(tag_ranges, bound_range)
+    if index == 0:
+        return [], tag_ranges
+    left_tags = tag_ranges[:index]
+    right_tags = tag_ranges[index:]
+    match left_tags, right_tags:
+        case [*_, [_, a_end]], [*_] if (
+            bound <= a_end
+        ):
+            return tag_ranges[:index - 1], tag_ranges[index - 1:]
+        case [*_], [*_]:
+            return left_tags, right_tags
+
+
+def partition_by_rightmost(
+    tag_ranges: list[list[int]],
+    bound: int
+):
+    """Split tag ranges on boundary,
+    such that the left set includes the bounds value.
+    """
+    bound_range = [bound, bound]
+    index = bisect.bisect_left(tag_ranges, bound_range)
+    if index == len(tag_ranges):
+        return tag_ranges, []
+    left_tags = tag_ranges[:index]
+    right_tags = tag_ranges[index:]
+    match left_tags, right_tags:
+        case [*_], [[b_start, _], *_] if (
+            b_start <= bound
+        ):
+            return tag_ranges[:index + 1], tag_ranges[index + 1:]
+        case [*_], [*_]:
+            return left_tags, right_tags
+
+
+def partition_by_relevant_bounds(ranges, start, end):
+    """
+    Partition tag ranges into three sets such that:
+     - the first set contains all ranges less than the start bound.
+     - the second set contains all ranges less than the end bound,
+       but not in the first set.
+     - The third set contains all ranges not in the first two sets.
+    """
+    left, unkwown = partition_by_leftmost(
+        ranges, start
+    )
+    relevant, right = partition_by_rightmost(
+        unkwown, end
+    )
+    return left, relevant, right

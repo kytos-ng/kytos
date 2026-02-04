@@ -1,5 +1,6 @@
 """Module with common classes for the controller."""
 from enum import Enum
+from threading import Lock
 
 from kytos.core.config import KytosConfig
 
@@ -21,6 +22,7 @@ class GenericEntity:
         """Create the GenericEntity object with empty metadata dictionary."""
         options = KytosConfig().options['daemon']
         self.metadata = {}
+        self.lock = Lock()
 
         self._active: bool = True
         self._enabled: bool = options.enable_entities_by_default

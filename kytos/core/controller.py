@@ -28,7 +28,7 @@ from importlib import import_module
 from importlib import reload as reload_module
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 from pyof.foundation.exceptions import PackException
 
@@ -134,7 +134,7 @@ class Controller:
         #:
         #: The key is the switch dpid, while the value is a Switch object.
         self.switches: dict[str, Switch] = {}
-        self._switches_lock = threading.Lock()
+        self.switches_lock = threading.Lock()
 
         #: datetime.datetime: Time when the controller finished starting.
         self.started_at = None
@@ -173,7 +173,6 @@ class Controller:
         self.pacer = Pacer("memory://")
 
         self.links: dict[str, Link] = {}
-        self.links_lock = threading.Lock()
         Link.register_status_reason_func("controller_mismatched_reason",
                                          self.detect_mismatched_link)
         Link.register_status_func("controller_mismatched_status",
@@ -742,7 +741,7 @@ class Controller:
             :class:`~kytos.core.switch.Switch`: new or existent switch.
 
         """
-        with self._switches_lock:
+        with self.switches_lock:
             if connection:
                 self.create_or_update_connection(connection)
 
@@ -1057,55 +1056,62 @@ class Controller:
         Returns:
             Tuple(Link, bool): Link and a boolean whether it has been created.
         """
-        with self.links_lock:
-            new_link = Link(endpoint_a, endpoint_b)
+        new_link = Link(endpoint_a, endpoint_b)
 
-            # If new_link is an old link but mismatched,
-            # then treat it as a new link
-            if (new_link.id in self.links
-                    and not self.detect_mismatched_link(new_link)):
-                return (self.links[new_link.id], False)
+        # If new_link is an old link but mismatched,
+        # then treat it as a new link
+        if (new_link.id in self.links
+                and not self.detect_mismatched_link(new_link)):
+            return (self.links[new_link.id], False)
 
-            with new_link.link_lock:
-                # Check if any interface already has a link
-                # This old_link is a leftover link that needs to be removed
-                # The other endpoint of the link is the leftover interface
-                if endpoint_a.link and endpoint_a.link != new_link:
-                    old_link = endpoint_a.link
-                    leftover_interface = (old_link.endpoint_a
-                                          if old_link.endpoint_a != endpoint_a
-                                          else old_link.endpoint_b)
-                    self.log.warning(f"Leftover mismatched link"
-                                     f" {endpoint_a.link} in interface"
-                                     f" {leftover_interface}")
+        with new_link.lock:
+            # Check if any interface already has a link
+            # This old_link is a leftover link that needs to be removed
+            # The other endpoint of the link is the leftover interface
+            if endpoint_a.link and endpoint_a.link != new_link:
+                old_link = endpoint_a.link
+                leftover_interface = (
+                    old_link.endpoint_a
+                    if old_link.endpoint_a != endpoint_a
+                    else old_link.endpoint_b
+                )
+                self.log.warning(
+                    f"Leftover mismatched link"
+                    f" {endpoint_a.link} in interface"
+                    f" {leftover_interface}"
+                )
 
-                if endpoint_b.link and endpoint_b.link != new_link:
-                    old_link = endpoint_b.link
-                    leftover_interface = (old_link.endpoint_b
-                                          if old_link.endpoint_b != endpoint_b
-                                          else old_link.endpoint_a)
-                    self.log.warning(f"Leftover mismatched link "
-                                     f" {endpoint_b.link} in interface"
-                                     f" {leftover_interface}")
+            if endpoint_b.link and endpoint_b.link != new_link:
+                old_link = endpoint_b.link
+                leftover_interface = (
+                    old_link.endpoint_b
+                    if old_link.endpoint_b != endpoint_b
+                    else old_link.endpoint_a
+                )
+                self.log.warning(
+                    f"Leftover mismatched link "
+                    f" {endpoint_b.link} in interface"
+                    f" {leftover_interface}"
+                )
 
-                if new_link.id not in self.links:
-                    self.links[new_link.id] = new_link
+            if new_link.id not in self.links:
+                self.links[new_link.id] = new_link
 
-                endpoint_a.update_link(new_link)
-                endpoint_b.update_link(new_link)
-                new_link.endpoint_a = endpoint_a
-                new_link.endpoint_b = endpoint_b
-                endpoint_a.nni = True
-                endpoint_b.nni = True
+            endpoint_a.update_link(new_link)
+            endpoint_b.update_link(new_link)
+            new_link.endpoint_a = endpoint_a
+            new_link.endpoint_b = endpoint_b
+            endpoint_a.nni = True
+            endpoint_b.nni = True
 
-                if link_dict:
-                    if link_dict['enabled']:
-                        new_link.enable()
-                    else:
-                        new_link.disable()
+            if link_dict:
+                if link_dict['enabled']:
+                    new_link.enable()
+                else:
+                    new_link.disable()
 
-                    if link_dict.get("metadata"):
-                        new_link.extend_metadata(link_dict["metadata"])
+                if link_dict.get("metadata"):
+                    new_link.extend_metadata(link_dict["metadata"])
 
         return (self.links[new_link.id], True)
 
@@ -1116,22 +1122,6 @@ class Controller:
             Optional[Link]: Link if found, None otherwise.
         """
         return self.links.get(link_id)
-
-    def get_links_from_interfaces(
-        self,
-        interfaces: Iterable[Interface]
-    ) -> dict[str, Link]:
-        """Get a list of links that matched to all/any given interfaces."""
-        links_found = {}
-        with self.links_lock:
-            for link in self.links.copy().values():
-                for interface in interfaces:
-                    if any((
-                        interface.id == link.endpoint_a.id,
-                        interface.id == link.endpoint_b.id,
-                    )):
-                        links_found[link.id] = link
-            return links_found
 
     @staticmethod
     def detect_mismatched_link(link: Link) -> frozenset[str]:
