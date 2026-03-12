@@ -52,7 +52,7 @@ class Switch(GenericEntity):
     status_funcs = OrderedDict()
     status_reason_funcs = OrderedDict()
 
-    def __init__(self, dpid, connection=None, features=None, lock=None):
+    def __init__(self, dpid, connection=None, features=None, lock=None, lock_group=None):
         """Contructor of switches have the below parameters.
 
         Args:
@@ -83,6 +83,8 @@ class Switch(GenericEntity):
         self.flows = []
         self.description = {}
         self._id = dpid
+
+        self.lock_group = lock_group
 
         if connection:
             connection.switch = self

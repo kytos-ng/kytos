@@ -35,16 +35,16 @@ class LockGroup:
             lock = self._acquire_helper(id)
             thread_id = threading.get_ident()
             if thread_id in self.active_tids:
-                LOG.error(
+                LOG.debug(
                     f"Thread {thread_id} is trying to acquire {id!r} from the same lock group {self.name!r} before releasing."
                 )
                 if id in self.active_tids[thread_id]:
-                    LOG.error(
+                    LOG.debug(
                         f"Thread {thread_id} is already holding lock {id!r} from lock group {self.name!r}."
                     )
                     thread_stack = inspect.stack()[3:]
                     thread_stack_str = '\n'.join([str(frame) for frame in thread_stack])
-                    LOG.error(f"Thread {thread_id} stack: {thread_stack_str}")
+                    LOG.debug(f"Thread {thread_id} stack: {thread_stack_str}")
             self.pending_tids[thread_id].add(id)
         lock.acquire()
         self.holders[id] = thread_id
@@ -65,12 +65,12 @@ class LockGroup:
             thread_id = threading.get_ident()
             id_set = set(ids)
             if thread_id in self.active_tids:
-                LOG.error(
+                LOG.debug(
                     f"Thread {thread_id} is trying to acquire {sorted_ids!r} from the same lock group {self.name!r} before releasing."
                 )
                 id_intersection = id_set & self.active_tids[thread_id]
                 if id_intersection:
-                    LOG.error(
+                    LOG.debug(
                         f"Thread {thread_id} is already holding lock {id_intersection!r} from lock group {self.name!r}."
                     )
             self.pending_tids[thread_id] += id_set

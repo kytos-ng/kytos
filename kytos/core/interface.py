@@ -162,6 +162,7 @@ class Interface(GenericEntity, TAGCapable):
                 "vlan": ["untagged", "any"],
             },
             supported_tag_types=frozenset({"vlan"}),
+            tag_lock=self.switch.lock_group[f"group_0003:tags:{self._id}"] if self.switch.lock_group else None
         )
         GenericEntity.__init__(self)
 

@@ -126,6 +126,7 @@ class TAGCapable:
         default_tag_ranges: dict[str, list[list[int]]],
         default_special_tags: dict[str, list[str]],
         supported_tag_types: frozenset[str],
+        tag_lock: Lock = None,
     ):
         self.default_tag_ranges = deepcopy(default_tag_ranges)
         self.tag_ranges = deepcopy(default_tag_ranges)
@@ -137,7 +138,7 @@ class TAGCapable:
 
         self.supported_tag_types = supported_tag_types
 
-        self.tag_lock = Lock()
+        self.tag_lock = tag_lock if tag_lock else Lock()
 
     def notify_tag_listeners(
             self,

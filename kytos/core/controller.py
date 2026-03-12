@@ -754,7 +754,11 @@ class Controller:
             event_name = 'kytos/core.switch.'
 
             if switch is None:
-                switch = Switch(dpid=dpid, lock=self.switch_locks[f"group_0001:{dpid}"])
+                switch = Switch(
+                    dpid=dpid,
+                    lock=self.switch_locks[f"group_0001:switches:{dpid}"],
+                    lock_group=self.switch_locks
+                )
                 self.add_new_switch(switch)
                 event_name += 'new'
             else:
@@ -1062,7 +1066,11 @@ class Controller:
             Tuple(Link, bool): Link and a boolean whether it has been created.
         """
         link_id = LinkID(endpoint_a.id, endpoint_b.id)
-        new_link = Link(endpoint_a, endpoint_b, lock=self.link_locks[f"group_0002:{link_id}"])
+        new_link = Link(
+            endpoint_a, endpoint_b,
+            lock=self.link_locks[f"group_0002:links:{link_id}"],
+            tag_lock=self.general_locks[f"group_0003:tags:{link_id}"]
+        )
 
         # If new_link is an old link but mismatched,
         # then treat it as a new link

@@ -26,7 +26,8 @@ class Link(GenericEntity, TAGCapable):
         self,
         endpoint_a: Interface,
         endpoint_b: Interface,
-        lock = None
+        lock = None,
+        tag_lock = None,
     ):
         """Create a Link instance and set its attributes.
 
@@ -48,7 +49,8 @@ class Link(GenericEntity, TAGCapable):
             self,
             default_tag_ranges={},
             default_special_tags={},
-            supported_tag_types=frozenset()
+            supported_tag_types=frozenset(),
+            tag_lock=tag_lock,
         )
         GenericEntity.__init__(self, lock=lock)
 
