@@ -6,6 +6,24 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Changed
+=======
+- ``Links`` now have a separate tag pool from ``Interfaces``.
+- ``Interfaces`` should now use the lock of their ``Switch`` to maintain consistency.
+- ``Links`` and ``Interfaces`` now use ``TAGCapable`` for handling tags.
+
+Added
+=====
+- Added ``TAGCapable``, a new mixin for providing tag functionality for interfaces and links.
+
+General Information
+===================
+- Developers should now use mehtods provided by the ``TAGCapable`` interface for ``Interface`` and ``Link`` tags.
+- ``Switches`` and ``Links`` now have there own built in ``lock`` to protect modifying and reading data from them.
+- ``TAGCapable`` objects also have there own ``tag_lock`` for protecting modifications and reading data from the tags of an object.
+- The ``switches_lock`` should be used when working with multiple elements of the topology.
+
+
 [2025.2.0] - 2026-02-02
 ***********************
 
@@ -14,8 +32,6 @@ Changed
 - ``controller`` now holds the dictionary of ``links`` and it can be accessed by other NApps by calling ``self.controller.links``.
 - Each ``Link`` now has a ``threading.Lock`` to perform any change or check on its attributes.
 - Kytos shutdown will now wait for every NApp to shutdown completely.
-- ``Links`` now have a separate tag pool from ``Interfaces``.
-- ``Interfaces`` should now use the lock of their ``Switch`` to maintain consistency.
 
 Fixed
 =====
@@ -25,7 +41,6 @@ Fixed
 Added
 =====
 - Added headers to NApp file response which tells browsers not to cache them.
-- Added ``TAGCapable``, a new mixin for providing tag functionality for interfaces and links.
 
 [2025.1.0] - 2025-04-15
 ***********************
