@@ -6,6 +6,9 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2025.2.0] - 2026-02-02
+***********************
+
 Changed
 =======
 - ``controller`` now holds the dictionary of ``links`` and it can be accessed by other NApps by calling ``self.controller.links``.
@@ -17,6 +20,7 @@ Changed
 Fixed
 =====
 - Enhanced docker mongo setup script (rs-init.sh) to properly run on PRIMARY node
+- Fixed hanging when NApp startup raised an Exception.
 
 Added
 =====
