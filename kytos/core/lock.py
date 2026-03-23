@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import defaultdict, deque
 import inspect
+import itertools
 import threading
 from threading import Lock
 from typing import Hashable, Iterable
@@ -9,6 +10,15 @@ from typing import Hashable, Iterable
 import logging
 
 LOG = logging.getLogger(__name__)
+
+def sliding_window(iterable, n):
+    "Collect data into overlapping fixed-length chunks or blocks."
+    # sliding_window('ABCDEFG', 3) → ABC BCD CDE DEF EFG
+    iterator = iter(iterable)
+    window = deque(itertools.islice(iterator, n - 1), maxlen=n)
+    for x in iterator:
+        window.append(x)
+        yield tuple(window)
 
 class LockGroup:
 
@@ -74,6 +84,7 @@ class LockGroup:
                         f"Thread {thread_id} is already holding lock {id_intersection!r} from lock group {self.name!r}."
                     )
             self.pending_tids[thread_id] += id_set
+            self._check_deadlock(thread_id)
         for id, lock in locks:
             lock.acquire()
             self.holders[id] = thread_id
@@ -129,6 +140,41 @@ class LockGroup:
 
     def __repr__(self):
         return f"LockGroup({self.name}, {self.lock!r})"
+
+    def _check_deadlock(self, tid):
+        pending_work = [({tid}, [])]
+        processed_tids = set()
+        while pending_work:
+            pending_tids, tid_chain = pending_work[-1]
+            if not pending_tids:
+                if tid_chain:
+                    last_tid = tid_chain[-1]
+                    processed_tids.add(last_tid)
+                pending_work.pop()
+                continue
+            curr_tid = pending_tids.pop()
+
+            if curr_tid in processed_tids:
+                continue
+
+            tid_chain = [*tid_chain, curr_tid]
+
+            new_pending_locks = self.pending_tids[curr_tid]
+
+            next_pending_tids = {
+                self.holders[lock_id]
+                for lock_id in new_pending_locks
+            }
+
+            for index, tid in enumerate(tid_chain):
+                if tid in next_pending_tids:
+                    short_chain = [*(tid_chain[index:]), tid]
+                    lock_chain = [
+                        self.pending_tids[acquirer_tid] & self.active_tids[holder_tid]
+                        for acquirer_tid, holder_tid in sliding_window(short_chain)
+                    ]
+                    LOG.error(f"Circular dependencies with locks: {lock_chain}")
+                    break
 
 
 class LGElement:
