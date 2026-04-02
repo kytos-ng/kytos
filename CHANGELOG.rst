@@ -18,7 +18,7 @@ Added
 
 General Information
 ===================
-- Developers should now use mehtods provided by the ``TAGCapable`` interface for ``Interface`` and ``Link`` tags.
+- Developers should now use mehtods provided by the ``TAGCapable`` interface for ``Interface`` and ``Link`` tags. The previous implementation is no longer supported.
 - ``Switches`` and ``Links`` now have there own built in ``lock`` to protect modifying and reading data from them.
 - ``TAGCapable`` objects also have there own ``tag_lock`` for protecting modifications and reading data from the tags of an object.
 - The ``switches_lock`` should be used when working with multiple elements of the topology.
