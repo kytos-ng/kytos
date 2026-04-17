@@ -65,30 +65,30 @@ class TestController:
         logging.root.handlers = handlers_bak
 
     @patch('kytos.core.api_server.APIServer.remove_napp_endpoints')
-    def test_unload_napp_listener(self, _):
+    async def test_unload_napp_listener(self, _):
         """Call NApp shutdown listener on unload."""
         username, napp_name = 'test', 'napp'
         listener = self._add_napp(username, napp_name)
 
         listener.assert_not_called()
-        self.controller.unload_napp(username, napp_name)
+        await self.controller.unload_napp(username, napp_name)
         listener.assert_called()
 
     @patch('kytos.core.api_server.APIServer.remove_napp_endpoints')
-    def test_unload_napp_other_listener(self, _):
+    async def test_unload_napp_other_listener(self, _):
         """Should not call other NApps' shutdown listener on unload."""
         username, napp_name = 'test', 'napp1'
         self._add_napp(username, napp_name)
         other_listener = self._add_napp('test', 'napp2')
 
-        self.controller.unload_napp(username, napp_name)
+        await self.controller.unload_napp(username, napp_name)
         other_listener.assert_not_called()
 
     def _add_napp(self, username, napp_name):
         """Add a mocked NApp to the controller."""
         napp_id = f'{username}/{napp_name}'
         event_name = f'kytos/core.shutdown.{napp_id}'
-        listener = Mock()
+        listener = AsyncMock()
         self.controller.events_listeners[event_name] = [listener]
         napp = Mock(_listeners={})
         self.controller.napps[(username, napp_name)] = napp
@@ -272,12 +272,12 @@ class TestController:
         mock_start.assert_called_with(restart=True)
 
     @patch('kytos.core.controller.Controller.stop_controller')
-    def test_stop(self, mock_stop_controller):
+    async def test_stop(self, mock_stop_controller):
         """Test stop method."""
         self.controller.started_at = 1
 
         graceful = True
-        self.controller.stop(graceful)
+        await self.controller.stop(graceful)
 
         mock_stop_controller.assert_called_with(graceful)
 
@@ -577,7 +577,7 @@ class TestController:
         mock_load.assert_called_with('kytos', 'name')
 
     @patch('kytos.core.controller.Controller.unload_napp')
-    def test_unload_napps(self, mock_unload):
+    async def test_unload_napps(self, mock_unload):
         """Test un_load_napps method."""
         napp_tuples = [("kytos", "of_core"), ("kytos", "mef_eline")]
         enabled_napps = []
@@ -591,7 +591,7 @@ class TestController:
         self.napps_manager.get_enabled_napps.return_value = enabled_napps
         mock_unload.side_effect = enabled_napps
 
-        napps = self.controller.unload_napps()
+        napps = await self.controller.unload_napps()
         assert mock_unload.call_count == len(enabled_napps)
         assert mock_unload.mock_calls == list(reversed(expected_calls))
         assert napps == enabled_napps
@@ -921,9 +921,11 @@ class TestControllerAsync:
 
         controller.server.serve_forever.assert_called()
         all_buffers = controller.buffers.get_all_buffers()
-        # It's expected that all buffers have a task + the api server task
+        # It's expected that all buffers have a task
         assert controller.loop.create_task.call_count == len(all_buffers) + 1
-        assert len(controller._tasks) == len(all_buffers) + 1
+        # API server task is not inside _tasks anymore
+        assert len(controller._tasks) == len(all_buffers)
+        assert controller.api_task is not None
         controller.pre_install_napps.assert_called_with([napp])
         controller.load_napps.assert_called()
         controller.api_server.start_web_ui.assert_called()
@@ -940,14 +942,14 @@ class TestControllerAsync:
         api_server = MagicMock()
         napp_dir_listener = MagicMock()
         controller.server = MagicMock()
-        controller.unload_napps = MagicMock()
+        controller.unload_napps = AsyncMock()
         controller._buffers = MagicMock()
         controller.api_server = api_server
         controller.napp_dir_listener = napp_dir_listener
         controller.stop_queue_monitors = MagicMock()
         controller.apm = MagicMock()
 
-        controller.stop_controller()
+        await controller.stop_controller()
         controller.apm.close.assert_called()
         controller.buffers.send_stop_signal.assert_called()
         api_server.stop.assert_called()
