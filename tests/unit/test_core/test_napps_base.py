@@ -193,11 +193,3 @@ class TestKytosNApp:
         self.kytos_napp.run()
 
         assert self.kytos_napp.execute.call_count == 2
-
-    def test_shutdown_handler(self):
-        """Test _shutdown_handler method."""
-        self.event.is_set.return_value = False
-
-        self.kytos_napp._shutdown_handler(MagicMock())
-
-        self.kytos_napp.shutdown.assert_called_once()

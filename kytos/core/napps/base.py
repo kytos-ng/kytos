@@ -1,4 +1,5 @@
 """Kytos Napps Module."""
+import inspect
 import json
 import os
 import re
@@ -186,8 +187,8 @@ class KytosNApp(Thread, metaclass=ABCMeta):
 
         # Force a listener with a private method.
         self._listeners = {
-            'kytos/core.shutdown': [self._shutdown_handler],
-            'kytos/core.shutdown.' + self.napp_id: [self._shutdown_handler]}
+            'kytos/core.shutdown.' + self.napp_id: [self._shutdown_handler]
+        }
 
         self.__event = Event()
         #: int: Seconds to sleep before next call to :meth:`execute`. If
@@ -270,17 +271,22 @@ class KytosNApp(Thread, metaclass=ABCMeta):
         self.controller.buffers.meta.put(event)
 
     # all listeners receive event
-    def _shutdown_handler(self, event):  # pylint: disable=unused-argument
+    # pylint: disable=unused-argument
+    async def _shutdown_handler(self, event):
         """Listen shutdown event from kytos.
 
-        This method listens the kytos/core.shutdown event and call the shutdown
-        method from napp subclass implementation.
+        This method listens the kytos/core.shutdown event and call the
+        (asyncio or synchronous) shutdown method from napp subclass
+        implementation.
 
-        Paramters
+        Parameters
             event (:class:`KytosEvent`): event to be listened.
         """
         if not self.__event.is_set():
-            self.shutdown()
+            if inspect.iscoroutinefunction(self.shutdown):
+                await self.shutdown()
+            else:
+                self.shutdown()
             self.__event.set()
 
     @abstractmethod
