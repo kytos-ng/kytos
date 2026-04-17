@@ -14,6 +14,7 @@ Changed
 - ``controller`` now holds the dictionary of ``links`` and it can be accessed by other NApps by calling ``self.controller.links``.
 - Each ``Link`` now has a ``threading.Lock`` to perform any change or check on its attributes.
 - Kytos shutdown will now wait for every NApp to shutdown completely.
+- Kytos shutdowns asynchronouly now. This allows NApps to wait for their tasks to finish properly when shutting down.
 
 Fixed
 =====
