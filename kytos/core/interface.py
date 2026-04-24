@@ -15,7 +15,6 @@ from pyof.v0x04.common.port import PortFeatures as PortFeatures04
 from pyof.v0x04.common.port import PortNo as PortNo04
 
 from kytos.core.common import EntityStatus, GenericEntity
-from kytos.core.events import KytosEvent
 from kytos.core.helpers import now
 from kytos.core.id import InterfaceID
 from kytos.core.tag_capable import TAGCapable
@@ -498,13 +497,6 @@ class Interface(GenericEntity, TAGCapable):
 
         """
         return json.dumps(self.as_dict())
-
-    def notify_tag_listeners(self, controller):
-        """Notify link available tags"""
-        name = "kytos/core.interface_tags"
-        content = {"interface": self}
-        event = KytosEvent(name=name, content=content)
-        controller.buffers.app.put(event)
 
 
 class UNI:

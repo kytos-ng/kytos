@@ -4,9 +4,8 @@ from __future__ import annotations
 from copy import deepcopy
 from functools import wraps
 from threading import Lock
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
-from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosInvalidTagRanges,
                                    KytosNoTagAvailableError,
                                    KytosSetTagRangeError,
@@ -29,7 +28,6 @@ def _atomic_modify_wrapper(func):
     @wraps(func)
     def new_function(
         self: TAGCapable,
-        controller: Controller,
         *args,
         **kwargs
     ):
@@ -39,7 +37,7 @@ def _atomic_modify_wrapper(func):
                 *args,
                 **kwargs
             )
-            self.notify_tag_listeners(controller)
+            self.notify_tag_listeners()
             return result
 
     return new_function
@@ -109,6 +107,8 @@ class TAGCapable:
         "tag_lock",
     )
 
+    # Instance attributes:
+
     available_tags: dict[str, list[list[int]]]
     tag_ranges: dict[str, list[list[int]]]
     default_tag_ranges: dict[str, list[list[int]]]
@@ -120,6 +120,15 @@ class TAGCapable:
     supported_tag_types: frozenset[str]
 
     tag_lock: Lock
+
+    # Class attributes:
+
+    tag_listeners: Optional[
+        dict[
+            str,
+            Callable[[TAGCapable, Controller]]
+        ]
+    ] = None
 
     def __init__(
         self,
@@ -139,17 +148,23 @@ class TAGCapable:
 
         self.tag_lock = Lock()
 
-    def notify_tag_listeners(
-            self,
-            controller: Controller
+    @classmethod
+    def register_tag_listener(
+        cls,
+        name: str,
+        listener_func: Callable[[TAGCapable]]
     ):
+        """Register a listener for tag changes."""
+        if cls.tag_listeners is None:
+            cls.tag_listeners = {}
+        # pylint: disable-next=unsupported-assignment-operation
+        cls.tag_listeners[name] = listener_func
+
+    def notify_tag_listeners(self):
         """Notify changes to tags"""
-        controller.buffers.app.put(
-            KytosEvent(
-                name="kytos/core.generic_tags",
-                content={"generic": self}
-            )
-        )
+        if self.tag_listeners is not None:
+            for listener_func in self.tag_listeners.values():
+                listener_func(self)
 
     def set_available_tags_tag_ranges(
         self,

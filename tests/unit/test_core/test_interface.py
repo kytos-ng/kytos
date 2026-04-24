@@ -428,14 +428,12 @@ class TestInterface():
         assert self.iface.special_available_tags["vlan"] == []
         assert self.iface.special_tags["vlan"] == ["any"]
 
-    async def test_notify_tag_listeners(self, controller) -> None:
+    async def test_notify_tag_listeners(self) -> None:
         """Test _notify_tag_listeners"""
-        name = "kytos/core.interface_tags"
-        content = {"interface": self.iface}
-        self.iface.notify_tag_listeners(controller)
-        event = controller.buffers.app.put.call_args[0][0]
-        assert event.name == name
-        assert event.content == content
+        tag_listener_func = MagicMock()
+        Interface.register_tag_listener("test", tag_listener_func)
+        self.iface.notify_tag_listeners()
+        tag_listener_func.assert_called_with(self.iface)
 
     def test_all_tags_available(self) -> None:
         """Test all_tags_available"""

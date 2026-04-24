@@ -9,7 +9,6 @@ from collections import OrderedDict
 from functools import reduce
 
 from kytos.core.common import EntityStatus, GenericEntity
-from kytos.core.events import KytosEvent
 from kytos.core.exceptions import KytosLinkCreationError
 from kytos.core.id import LinkID
 from kytos.core.interface import Interface
@@ -129,13 +128,6 @@ class Link(GenericEntity, TAGCapable):
 
         """
         return self._id
-
-    def notify_tag_listeners(self, controller):
-        """Notify link available tags"""
-        name = "kytos/core.link_tags"
-        content = {"link": self}
-        event = KytosEvent(name=name, content=content)
-        controller.buffers.app.put(event)
 
     def as_dict(self):
         """Return the Link as a dictionary."""
