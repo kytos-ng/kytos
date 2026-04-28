@@ -43,8 +43,7 @@ def get_tag_ranges(ranges: list[list[int]]):
 
     The ranges are understood as [inclusive, inclusive]"""
     if len(ranges) < 1:
-        msg = "Tag range is empty"
-        raise KytosInvalidTagRanges(msg)
+        return ranges
     last_tag = 0
     ranges_n = len(ranges)
     for i in range(0, ranges_n):
@@ -91,7 +90,7 @@ def get_validated_tags(
     raise KytosInvalidTagRanges(f"Value type not recognized {tags}")
 
 
-def range_intersection(
+def _range_intersection_generator(
     ranges_a: list[list[int]],
     ranges_b: list[list[int]],
     reverse: bool = False,
@@ -137,9 +136,25 @@ def range_intersection(
                 b_i += index_diff
 
 
+def range_intersection(
+    ranges_a: list[list[int]],
+    ranges_b: list[list[int]],
+) -> list[list[int]]:
+    """Returns a list of ranges of an intersection between
+    two validated list of ranges.
+
+    Necessities:
+        The lists from argument need to be ordered and validated.
+        E.g. [[1, 2], [4, 60]]
+        Use get_tag_ranges() for list[list[int]] or
+            get_validated_tags() for also list[int]
+    """
+    return list(_range_intersection_generator(ranges_a, ranges_b))
+
+
 def range_difference(
-    ranges_a: list[Optional[list[int]]],
-    ranges_b: list[Optional[list[int]]]
+    ranges_a: list[list[int]],
+    ranges_b: list[list[int]]
 ) -> list[list[int]]:
     """The operation is two validated list of ranges
      (ranges_a - ranges_b).
@@ -192,8 +207,8 @@ def range_difference(
 
 
 def range_addition(
-    ranges_a: list[Optional[list[int]]],
-    ranges_b: list[Optional[list[int]]]
+    ranges_a: list[list[int]],
+    ranges_b: list[list[int]]
 ) -> tuple[list[list[int]], list[list[int]]]:
     """Addition between two validated list of ranges.
      Simulates the addition between two sets.
@@ -205,10 +220,10 @@ def range_addition(
         Use get_tag_ranges() for list[list[int]] or
             get_validated_tags() for also list[int]
      """
-    if not ranges_b:
-        return deepcopy(ranges_a), []
     if not ranges_a:
         return deepcopy(ranges_b), []
+    if not ranges_b:
+        return deepcopy(ranges_a), []
     result = []
     conflict = []
     a_i = b_i = 0

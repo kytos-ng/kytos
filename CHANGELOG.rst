@@ -6,6 +6,26 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Changed
+=======
+- ``Links`` now have a separate tag pool from ``Interfaces``.
+- ``Interfaces`` should now use the lock of their ``Switch`` to maintain consistency.
+- ``Links`` and ``Interfaces`` now use ``TAGCapable`` for handling tags.
+- The code for generating the event for tag changes has now been moved to topology.
+
+Added
+=====
+- Added ``TAGCapable``, a new mixin for providing tag functionality for interfaces and links.
+- Added the ability to register functions with ``TAGCapable`` classes to listen for changes to tags, rather than having to listen for the tag change event.
+
+General Information
+===================
+- Developers should now use mehtods provided by the ``TAGCapable`` interface for ``Interface`` and ``Link`` tags. The previous implementation is no longer supported.
+- ``Switches`` and ``Links`` now have there own built in ``lock`` to protect modifying and reading data from them.
+- ``TAGCapable`` objects also have there own ``tag_lock`` for protecting modifications and reading data from the tags of an object.
+- The ``switches_lock`` should be used when working with multiple elements of the topology.
+
+
 [2025.2.0] - 2026-02-02
 ***********************
 

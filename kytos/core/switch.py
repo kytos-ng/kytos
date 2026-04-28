@@ -4,7 +4,6 @@ import logging
 import operator
 from collections import OrderedDict
 from functools import reduce
-from threading import Lock
 
 from kytos.core.common import EntityStatus, GenericEntity
 from kytos.core.constants import CONNECTION_TIMEOUT, FLOOD_TIMEOUT
@@ -84,7 +83,6 @@ class Switch(GenericEntity):
         self.flows = []
         self.description = {}
         self._id = dpid
-        self._interface_lock = Lock()
 
         if connection:
             connection.switch = self
@@ -190,7 +188,7 @@ class Switch(GenericEntity):
                                    state=None, features=None, speed=None,
                                    config=None):
         """Get and upated an interface or create one if it does not exist."""
-        with self._interface_lock:
+        with self.lock:
             interface = self.get_interface_by_port_no(port_no)
             if interface:
                 interface.name = name or interface.name
