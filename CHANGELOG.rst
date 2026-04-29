@@ -15,6 +15,7 @@ Changed
 Added
 =====
 - Added ``TAGCapable``, a new mixin for providing tag functionality for interfaces and links.
+- Added the ability to register functions with ``TAGCapable`` classes to listen for changes to tags, rather than having to listen for the tag change event.
 
 General Information
 ===================
