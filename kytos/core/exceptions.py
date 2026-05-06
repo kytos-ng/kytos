@@ -58,6 +58,10 @@ class KytosWrongEventType(KytosEventException):
     """
 
 
+class KytosDuplicatedSwitch(Exception):
+    """Raised when a duplicated Switch DPID tries to connect."""
+
+
 class KytosNoTagAvailableError(Exception):
     """Exception raised when a link has no vlan available."""
 
