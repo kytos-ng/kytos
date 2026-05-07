@@ -6,6 +6,11 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Changed
+=======
+- kytos.conf: event buffers queue sizes are now 5 to 10 times by default to provide better elasticity.
+- kytos.conf: event buffers and thread pools queue_monitor reduced its ``min_queue_full_percent`` to 90, so now it'll log high sustained utilization more reliably
+
 [2025.2.0] - 2026-02-02
 ***********************
 
