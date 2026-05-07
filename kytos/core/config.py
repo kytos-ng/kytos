@@ -175,28 +175,28 @@ class KytosConfig():
                     "queue": {
                         "type": "priority",
                         "maxsize": "threadpool_sb",
-                        "maxsize_multiplier": 2,
+                        "maxsize_multiplier": 10,
                     }
                 },
                 "msg_in": {
                     "queue": {
                         "type": "priority",
                         "maxsize": "threadpool_sb",
-                        "maxsize_multiplier": 2,
+                        "maxsize_multiplier": 10,
                     }
                 },
                 "raw": {
                     "queue": {
                         "type": "queue",
                         "maxsize": "threadpool_sb",
-                        "maxsize_multiplier": 2,
+                        "maxsize_multiplier": 10,
                     }
                 },
                 "app": {
                     "queue": {
                         "type": "queue",
                         "maxsize": "threadpool_app",
-                        "maxsize_multiplier": 2,
+                        "maxsize_multiplier": 20,
                     }
                 },
             },
@@ -204,7 +204,7 @@ class KytosConfig():
               {
                 "min_hits": 5,
                 "delta_secs": 5,
-                "min_queue_full_percent": 150,
+                "min_queue_full_percent": 90,
                 "log_at_most_n": 0,
                 "queues": ["sb", "app", "db"]
               }
@@ -213,7 +213,7 @@ class KytosConfig():
               {
                 "min_hits": 5,
                 "delta_secs": 5,
-                "min_queue_full_percent": 100,
+                "min_queue_full_percent": 90,
                 "log_at_most_n": 0,
                 "buffers": ["msg_in", "msg_out", "raw", "app"]
               }
