@@ -705,10 +705,11 @@ class TestController:
         """Test KytosConfig default maxsize multiplier."""
         event_buffer_conf = self.controller.options.event_buffer_conf
         assert event_buffer_conf
-        queues = event_buffer_conf.values()
+        queues = event_buffer_conf
         assert queues
-        for queue in queues:
-            assert queue["queue"]["maxsize_multiplier"] == 2
+        for name, queue in queues.items():
+            multiplier = 10 if name != "app" else 20
+            assert queue["queue"]["maxsize_multiplier"] == multiplier
 
     def test_get_links_from_interfaces(self) -> None:
         """Test get_links_from_interfaces."""
