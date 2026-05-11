@@ -6,6 +6,11 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Changed
+=======
+- Controller method ``get_switch_or_create`` now validates dpid uniqueness. If an existing dpid is connected and enabled, it'll raise ``KytoDuplicatedSwitch``, which ``of_core`` will handle accordingly and log as an error and not allow it to overwrite the existing switch. An existing not connected is still assumed to be the same reconnecting switch.
+
+
 [2025.2.0] - 2026-02-02
 ***********************
 
