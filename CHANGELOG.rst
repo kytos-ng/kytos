@@ -6,6 +6,11 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Changed
+=======
+- Enhanced core status API to export information and critical states for internal components, such as
+Kytos buffers queue size, thread pool size, core tasks status, etc.
+
 [2025.2.0] - 2026-02-02
 ***********************
 
