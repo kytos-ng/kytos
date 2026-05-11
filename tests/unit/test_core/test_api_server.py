@@ -98,7 +98,10 @@ class TestAPIServer:
             "buffers_qsize": {},
             "thread_pool_qsize": {"sb": 0, "db": 0, "app": 0, "api": 0},
             "core_task_status": {
-                "t1-c1": "running", "t2-c2": "cancelled", "t3-c3": "exception: boom", "t4-c4": "finished"
+                "t1-c1": "running",
+                "t2-c2": "cancelled",
+                "t3-c3": "exception: boom",
+                "t4-c4": "finished",
             },
             "system_status": "degradated",
         }
