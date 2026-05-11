@@ -288,15 +288,12 @@ class Controller:
             await self.start_controller()
         except (KytosDBInitException, KytosAPMInitException) as exc:
             message = f"Kytos couldn't start because of {str(exc)}"
-            self.log.error(message)
             sys.exit(message)
         except Exception as exc:
             exc_fmt = traceback.format_exc(chain=True)
             message = f"Kytos couldn't start because of {str(exc)} {exc_fmt}"
             counter = self._full_queue_counter()
-            full_msg = self._try_to_fmt_traceback_msg(message, counter)
-            self.log.error(full_msg)
-            sys.exit(full_msg)
+            sys.exit(self._try_to_fmt_traceback_msg(message, counter))
 
     def start_queue_monitors(self) -> None:
         """Start QueueMonitorWindows."""
