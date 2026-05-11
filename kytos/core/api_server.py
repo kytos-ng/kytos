@@ -4,6 +4,7 @@ import os
 import shutil
 import warnings
 import zipfile
+from asyncio.exceptions import InvalidStateError
 from datetime import datetime
 from glob import glob
 from http import HTTPStatus
@@ -25,7 +26,7 @@ from uvicorn import Server
 
 from kytos.core.auth import authenticated
 from kytos.core.config import KytosConfig
-from kytos.core.helpers import get_thread_pool_max_workers
+from kytos.core.helpers import executors, get_thread_pool_max_workers
 from kytos.core.rest_api import JSONResponse, Request
 
 LOG = logging.getLogger(__name__)
@@ -165,10 +166,38 @@ class APIServer:
     def status_api(self, _request: Request):
         """Display kytos status using the route ``/kytos/status/``."""
         uptime = self.napps_manager._controller.uptime()
+        buffers_qsize = {
+            buf.name: buf.qsize()
+            for buf in self.napps_manager._controller.buffers.get_all_buffers()
+        }
+        thread_pool_qsize = {
+            name: pool._work_queue.qsize() for name, pool in executors.items()
+        }
+        tasks = {}
+        system_status = "running"
+        for task in self.napps_manager._controller._tasks:
+            name, status = f"{task.get_name()}-{task.get_coro()}", ""
+            if not task.done():
+                status = "running"
+            elif task.cancelled():
+                status = "cancelled"
+            else:
+                try:
+                    exc = task.exception()
+                except InvalidStateError:
+                    exc = None
+                status = "finished" if exc is None else f"exception: {exc}"
+            tasks[name] = status
+            if status != "running":
+                system_status = "degradated"
         response = {
             "response": "running",
+            "system_status": system_status,
             "started_at": self.napps_manager._controller.started_at,
             "uptime_seconds": uptime.seconds if uptime else 0,
+            "buffers_qsize": buffers_qsize,
+            "thread_pool_qsize": thread_pool_qsize,
+            "core_task_status": tasks,
         }
         return JSONResponse(response)
 

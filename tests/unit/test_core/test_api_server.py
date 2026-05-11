@@ -2,6 +2,7 @@
 import asyncio
 import json
 import warnings
+from asyncio.exceptions import InvalidStateError
 from datetime import datetime, timezone
 # Disable not-grouped imports that conflicts with isort
 from unittest.mock import AsyncMock, MagicMock
@@ -72,8 +73,36 @@ class TestAPIServer:
             "response": "running",
             "started_at": started_at.isoformat(),
             "uptime_seconds": uptime.seconds,
+            "buffers_qsize": {},
+            "thread_pool_qsize": {"sb": 0, "db": 0, "app": 0, "api": 0},
+            "core_task_status": {},
+            "system_status": "running",
         }
-        assert response == expected
+        assert response == expected, str(response)
+
+        # now with some tasks
+        mock_task = MagicMock()
+        mock_task.get_name.side_effect = ["t1", "t2", "t3", "t4"]
+        mock_task.get_coro.side_effect = ["c1", "c2", "c3", "c4"]
+        mock_task.done.side_effect = [False, True, True, True]
+        mock_task.cancelled.side_effect = [True, False, False]
+        mock_task.exception.side_effect = ["boom", InvalidStateError()]
+        self.napps_manager._controller._tasks = [mock_task]*4
+        response = await self.client.get("status/")
+        assert response.status_code == 200, response.text
+        response = response.json()
+        expected = {
+            "response": "running",
+            "started_at": started_at.isoformat(),
+            "uptime_seconds": uptime.seconds,
+            "buffers_qsize": {},
+            "thread_pool_qsize": {"sb": 0, "db": 0, "app": 0, "api": 0},
+            "core_task_status": {
+                "t1-c1": "running", "t2-c2": "cancelled", "t3-c3": "exception: boom", "t4-c4": "finished"
+            },
+            "system_status": "degradated",
+        }
+        assert response == expected, str(response)
 
     def test_stop(self):
         """Test stop method."""
