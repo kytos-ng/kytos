@@ -4,7 +4,7 @@ import os
 import shutil
 import warnings
 import zipfile
-from asyncio.exceptions import InvalidStateError
+from asyncio.exceptions import CancelledError, InvalidStateError
 from datetime import datetime
 from glob import glob
 from http import HTTPStatus
@@ -184,7 +184,7 @@ class APIServer:
             else:
                 try:
                     exc = task.exception()
-                except InvalidStateError:
+                except (CancelledError, InvalidStateError):
                     exc = None
                 status = "finished" if exc is None else f"exception: {exc}"
             tasks[name] = status
