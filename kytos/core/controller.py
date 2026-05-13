@@ -44,6 +44,7 @@ from kytos.core.db import db_conn_wait
 from kytos.core.dead_letter import DeadLetter
 from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosAPMInitException, KytosDBInitException,
+                                   KytosDuplicatedSwitch,
                                    KytosNAppSetupException)
 from kytos.core.helpers import executors, now
 from kytos.core.interface import Interface
@@ -738,6 +739,10 @@ class Controller:
                 connection used by switch. If a switch has a connection that
                 will be updated.
 
+        Raises:
+            KytosDuplicatedSwitch if there's an existing connected switch
+            with the same dpid
+
         Returns:
             :class:`~kytos.core.switch.Switch`: new or existent switch.
 
@@ -754,6 +759,17 @@ class Controller:
                 self.add_new_switch(switch)
                 event_name += 'new'
             else:
+                if switch.is_enabled() and switch.is_connected():
+                    msg = (
+                        f"Duplicated connecting DPID {dpid}, "
+                        f"{connection} with existing "
+                        f"{switch}, {switch.connection}. "
+                        "New switch will be ignored. "
+                        "You should either use a new unique DPID or "
+                        "disconnect and decommission the existing one."
+                    )
+                    self.remove_connection(connection)
+                    raise KytosDuplicatedSwitch(msg)
                 event_name += 'reconnected'
             event = KytosEvent(name=event_name, content={'switch': switch})
 
