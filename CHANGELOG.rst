@@ -8,6 +8,12 @@ UNRELEASED - Under development
 
 Changed
 =======
+- kytos.conf: event buffers queue sizes are now 5 to 10 times by default to provide better elasticity.
+- kytos.conf: event buffers and thread pools queue_monitor reduced its ``min_queue_full_percent`` to 90, so now it'll log high sustained utilization more reliably
+
+=======
+Changed
+=======
 - Controller method ``get_switch_or_create`` now validates dpid uniqueness. If an existing dpid is connected and enabled, it'll raise ``KytoDuplicatedSwitch``, which ``of_core`` will handle accordingly and log as an error and not allow it to overwrite the existing switch. An existing not connected is still assumed to be the same reconnecting switch.
 
 
