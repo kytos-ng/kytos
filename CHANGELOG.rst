@@ -23,7 +23,7 @@ General Information
 - ``Switches`` and ``Links`` now have there own built in ``lock`` to protect modifying and reading data from them.
 - ``TAGCapable`` objects also have there own ``tag_lock`` for protecting modifications and reading data from the tags of an object.
 - The ``switches_lock`` should be used when working with multiple elements of the topology.
-
+- Controller method ``get_switch_or_create`` now validates dpid uniqueness. If an existing dpid is connected and enabled, it'll raise ``KytoDuplicatedSwitch``, which ``of_core`` will handle accordingly and log as an error and not allow it to overwrite the existing switch. An existing not connected is still assumed to be the same reconnecting switch.
 
 [2025.2.0] - 2026-02-02
 ***********************

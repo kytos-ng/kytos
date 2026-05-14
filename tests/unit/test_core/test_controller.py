@@ -18,7 +18,8 @@ from kytos.core.buffers import KytosBuffers, KytosEventBuffer
 from kytos.core.common import EntityStatus
 from kytos.core.config import KytosConfig
 from kytos.core.events import KytosEvent
-from kytos.core.exceptions import KytosNAppSetupException
+from kytos.core.exceptions import (KytosDuplicatedSwitch,
+                                   KytosNAppSetupException)
 from kytos.core.logs import LogManager
 from kytos.core.rest_api import Request
 from kytos.lib.helpers import (get_interface_mock, get_link_mock,
@@ -363,10 +364,11 @@ class TestController:
 
         assert resp_switch == switch
 
-    def test_get_switch_or_create__exists(self):
-        """Test status_api method when switch exists."""
+    def test_get_switch_or_create__exists_not_connected(self):
+        """Test status_api method when switch exists but not connected."""
         dpid = '00:00:00:00:00:00:00:01'
         switch = MagicMock(dpid=dpid)
+        switch.is_connected = MagicMock(return_value=False)
         self.controller.switches = {dpid: switch}
         self.controller.buffers.conn = MagicMock()
 
@@ -377,6 +379,41 @@ class TestController:
         self.controller.buffers.conn.put.assert_called()
         ev_name = "kytos/core.switch.reconnected"
         assert self.controller.buffers.conn.put.call_args[0][0].name == ev_name
+
+    def test_get_switch_or_create__exists_connected_not_enabled(self):
+        """Test status_api method when a connected switch exists."""
+        dpid = '00:00:00:00:00:00:00:01'
+        switch = MagicMock(dpid=dpid)
+        switch.is_connected = MagicMock(return_value=True)
+        switch.is_enabled = MagicMock(return_value=False)
+        self.controller.switches = {dpid: switch}
+        self.controller.buffers.conn = MagicMock()
+
+        connection = MagicMock()
+        resp_switch = self.controller.get_switch_or_create(dpid, connection)
+
+        assert resp_switch == switch
+        self.controller.buffers.conn.put.assert_called()
+        ev_name = "kytos/core.switch.reconnected"
+        assert self.controller.buffers.conn.put.call_args[0][0].name == ev_name
+
+    def test_get_switch_or_create__exists_connected_enabled(self):
+        """Test status_api method when a connected switch exists."""
+        dpid = '00:00:00:00:00:00:00:01'
+        switch = MagicMock(dpid=dpid)
+        switch.is_connected = MagicMock(return_value=True)
+        switch.is_enabled = MagicMock(return_value=True)
+        self.controller.switches = {dpid: switch}
+        self.controller.buffers.conn = MagicMock()
+        self.controller.remove_connection = MagicMock()
+
+        connection = MagicMock()
+        with pytest.raises(KytosDuplicatedSwitch) as exc:
+            self.controller.get_switch_or_create(dpid, connection)
+        assert f"Duplicated connecting DPID {dpid}" in str(exc)
+
+        assert self.controller.remove_connection.call_count == 1
+        self.controller.buffers.conn.put.assert_not_called()
 
     def test_get_switch_or_create__not_exists(self):
         """Test status_api method when switch does not exist."""
