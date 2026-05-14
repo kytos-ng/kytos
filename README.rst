@@ -168,6 +168,11 @@ Submit an Issue
 If you find a bug or a mistake in the documentation, you can help us by
 submitting an issue to our `repo <https://github.com/kytos-ng/kytos>`_. 
 
+Project History
+===============
+
+You can find a summary about this project `development history here <https://github.com/kytos-ng/kytos/discussions/607>`_
+
 
 Authors
 *******
