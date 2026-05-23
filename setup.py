@@ -122,7 +122,8 @@ class TestCoverage(Test):
 
     def run(self):
         """Run tests quietly and display coverage report."""
-        cmd = f"python3 -m pytest --cov=. tests/ {self.get_args()}"
+        cmd = "python3 -m pytest --cov=. tests/ "
+        cmd += f"{self.get_args()} --cov-report term-missing"
         try:
             check_call(cmd, shell=True)
         except CalledProcessError as exc:
