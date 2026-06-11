@@ -554,8 +554,7 @@ class TAGCapable:
                     [tag_range]
                 )
             case _:
-                # NOTE: Maybe add some kind of exception here?
-                pass
+                raise KytosInvalidTagRanges(f"Couldn't decode tag ranges, {tags}.")
 
     def get_next_available_tag(
         self,
