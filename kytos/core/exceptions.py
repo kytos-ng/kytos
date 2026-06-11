@@ -184,7 +184,8 @@ class KytosDBInitException(Exception):
     def __str__(self):
         _class = f" {self._class.__class__.__name__}" if self._class else ""
         return f"KytosDBInitException{_class}: {self.message}"
-    
+
+
 class KytosDBWriteException(Exception):
     """Exception raised on Database write issues."""
 

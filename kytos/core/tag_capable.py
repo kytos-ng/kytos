@@ -49,7 +49,7 @@ def _atomic_modify_wrapper(func):
                     *args,
                     **kwargs
                 )
-            except KytosDBWriteException as exc:
+            except KytosDBWriteException:
                 self.set_available_tags_tag_ranges(
                     old_available_tags,
                     old_tag_ranges,
@@ -214,8 +214,8 @@ class TAGCapable:
         """Notify bulk changes to tags."""
         executed_listeners = set()
         if cls.bulk_tag_listeners is not None:
-            for listener_name, bulk_listener_func in cls.bulk_tag_listeners.items():
-                bulk_listener_func(tag_capable_list)
+            for listener_name, listener_func in cls.bulk_tag_listeners.items():
+                listener_func(tag_capable_list)
                 executed_listeners.add(listener_name)
 
         if cls.tag_listeners is not None:
@@ -554,7 +554,9 @@ class TAGCapable:
                     [tag_range]
                 )
             case _:
-                raise KytosInvalidTagRanges(f"Couldn't decode tag ranges, {tags}.")
+                raise KytosInvalidTagRanges(
+                    f"Couldn't decode tag ranges, {tags}."
+                )
 
     def get_next_available_tag(
         self,
