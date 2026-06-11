@@ -6,7 +6,8 @@ from functools import wraps
 from threading import Lock
 from typing import TYPE_CHECKING, Callable, Optional, Union
 
-from kytos.core.exceptions import (KytosInvalidTagRanges,
+from kytos.core.exceptions import (KytosDBWriteException,
+                                   KytosInvalidTagRanges,
                                    KytosNoTagAvailableError,
                                    KytosSetTagRangeError,
                                    KytosTagsAreNotAvailable,
@@ -32,11 +33,34 @@ def _atomic_modify_wrapper(func):
         **kwargs
     ):
         with self.tag_lock:
-            result = func(
-                self,
-                *args,
-                **kwargs
-            )
+            old_available_tags = deepcopy(self.available_tags)
+            old_tag_ranges = deepcopy(self.tag_ranges)
+            old_default_tag_ranges = deepcopy(self.default_tag_ranges)
+
+            old_special_available_tags = deepcopy(self.special_available_tags)
+            old_special_tags = deepcopy(self.special_tags)
+            old_default_special_tags = deepcopy(self.default_special_tags)
+
+            old_supported_tag_types = deepcopy(self.supported_tag_types)
+
+            try:
+                result = func(
+                    self,
+                    *args,
+                    **kwargs
+                )
+            except KytosDBWriteException as exc:
+                self.set_available_tags_tag_ranges(
+                    old_available_tags,
+                    old_tag_ranges,
+                    old_default_tag_ranges,
+                    old_special_available_tags,
+                    old_special_tags,
+                    old_default_special_tags,
+                    old_supported_tag_types,
+                )
+                raise
+
             self.notify_tag_listeners()
             return result
 
@@ -126,7 +150,14 @@ class TAGCapable:
     tag_listeners: Optional[
         dict[
             str,
-            Callable[[TAGCapable, Controller]]
+            Callable[[TAGCapable]]
+        ]
+    ] = None
+
+    bulk_tag_listeners: Optional[
+        dict[
+            str,
+            Callable[[list[TAGCapable]]]
         ]
     ] = None
 
@@ -160,11 +191,39 @@ class TAGCapable:
         # pylint: disable-next=unsupported-assignment-operation
         cls.tag_listeners[name] = listener_func
 
+    @classmethod
+    def register_bulk_tag_listener(
+        cls,
+        name: str,
+        listener_func: Callable[[TAGCapable]]
+    ):
+        """Register a listener for bulk tag changes."""
+        if cls.bulk_tag_listeners is None:
+            cls.bulk_tag_listeners = {}
+        # pylint: disable-next=unsupported-assignment-operation
+        cls.bulk_tag_listeners[name] = listener_func
+
     def notify_tag_listeners(self):
-        """Notify changes to tags"""
+        """Notify changes to tags."""
         if self.tag_listeners is not None:
             for listener_func in self.tag_listeners.values():
                 listener_func(self)
+
+    @classmethod
+    def bulk_notify_tag_listeners(cls, tag_capable_list):
+        """Notify bulk changes to tags."""
+        executed_listeners = set()
+        if cls.bulk_tag_listeners is not None:
+            for listener_name, bulk_listener_func in cls.bulk_tag_listeners.items():
+                bulk_listener_func(tag_capable_list)
+                executed_listeners.add(listener_name)
+
+        if cls.tag_listeners is not None:
+            for listener_name, listener_func in cls.tag_listeners.items():
+                if listener_name in executed_listeners:
+                    continue
+                for tag_capable in tag_capable_list:
+                    listener_func(tag_capable)
 
     def set_available_tags_tag_ranges(
         self,
