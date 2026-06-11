@@ -186,6 +186,17 @@ class KytosDBInitException(Exception):
         return f"KytosDBInitException{_class}: {self.message}"
 
 
+class KytosDBWriteException(Exception):
+    """Exception raised on Database write issues."""
+
+    def __init__(self, message: str):
+        super().__init__()
+        self.message = message
+
+    def __str__(self):
+        return f"KytosDBWriteException: {self.message}"
+
+
 class KytosAPMInitException(Exception):
     """Exception raised on APM initialization issues."""
 

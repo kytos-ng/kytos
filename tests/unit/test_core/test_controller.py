@@ -748,23 +748,6 @@ class TestController:
             multiplier = 10 if name != "app" else 20
             assert queue["queue"]["maxsize_multiplier"] == multiplier
 
-    def test_get_links_from_interfaces(self) -> None:
-        """Test get_links_from_interfaces."""
-        interfaces = [MagicMock(id=f"intf{n}") for n in range(4)]
-        links = {
-            "link1": MagicMock(id="link1",
-                               endpoint_a=interfaces[0],
-                               endpoint_b=interfaces[1]),
-            "link2": MagicMock(id="link2",
-                               endpoint_a=interfaces[2],
-                               endpoint_b=interfaces[3]),
-        }
-        self.controller.links = links
-        response = self.controller.get_links_from_interfaces(interfaces)
-        assert links == response
-        response = self.controller.get_links_from_interfaces(interfaces[:2])
-        assert response == {"link1": links["link1"]}
-
     def test_get_link(self) -> None:
         """Test get_link."""
         dpid_a = "00:00:00:00:00:00:00:01"

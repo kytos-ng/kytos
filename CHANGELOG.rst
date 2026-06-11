@@ -10,12 +10,24 @@ Changed
 =======
 - kytos.conf: event buffers queue sizes are now 5 to 10 times by default to provide better elasticity.
 - kytos.conf: event buffers and thread pools queue_monitor reduced its ``min_queue_full_percent`` to 90, so now it'll log high sustained utilization more reliably
-
-=======
-Changed
-=======
 - Controller method ``get_switch_or_create`` now validates dpid uniqueness. If an existing dpid is connected and enabled, it'll raise ``KytoDuplicatedSwitch``, which ``of_core`` will handle accordingly and log as an error and not allow it to overwrite the existing switch. An existing not connected is still assumed to be the same reconnecting switch.
 - Enhanced core status API to export information and critical states for internal components, such as Kytos buffers queue size, thread pool size, core tasks status, etc.
+- ``Links`` now have a separate tag pool from ``Interfaces``.
+- ``Interfaces`` should now use the lock of their ``Switch`` to maintain consistency.
+- ``Links`` and ``Interfaces`` now use ``TAGCapable`` for handling tags.
+
+Added
+=====
+- Added ``TAGCapable``, a new mixin for providing tag functionality for interfaces and links.
+- Added the ability to register functions with ``TAGCapable`` classes to listen for changes to tags, rather than having to listen for the tag change event.
+
+General Information
+===================
+- Developers should now use mehtods provided by the ``TAGCapable`` interface for ``Interface`` and ``Link`` tags. The previous implementation is no longer supported.
+- ``Switches`` and ``Links`` now have there own built in ``lock`` to protect modifying and reading data from them.
+- ``TAGCapable`` objects also have there own ``tag_lock`` for protecting modifications and reading data from the tags of an object.
+- The ``switches_lock`` should be used when working with multiple elements of the topology.
+- Controller method ``get_switch_or_create`` now validates dpid uniqueness. If an existing dpid is connected and enabled, it'll raise ``KytoDuplicatedSwitch``, which ``of_core`` will handle accordingly and log as an error and not allow it to overwrite the existing switch. An existing not connected is still assumed to be the same reconnecting switch.
 
 [2025.2.0] - 2026-02-02
 ***********************
