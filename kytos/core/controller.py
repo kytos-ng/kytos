@@ -24,6 +24,7 @@ import threading
 import traceback
 from asyncio import AbstractEventLoop
 from collections import Counter, defaultdict
+from contextlib import ExitStack
 from importlib import import_module
 from importlib import reload as reload_module
 from importlib.util import module_from_spec, spec_from_file_location
@@ -1066,6 +1067,7 @@ class Controller:
         endpoint_a: Interface,
         endpoint_b: Interface,
         link_dict: Optional[dict] = None,
+        extern_stack: ExitStack = None
     ) -> tuple[Link, bool]:
         """Get an existing link or create a new one.
 
@@ -1078,9 +1080,13 @@ class Controller:
         # then treat it as a new link
         if (new_link.id in self.links
                 and not self.detect_mismatched_link(new_link)):
+            if extern_stack:
+                extern_stack.enter_context(self.links[new_link.id].lock)
             return (self.links[new_link.id], False)
 
-        with new_link.lock:
+        with ExitStack() as stack:
+            stack.enter_context(new_link.lock)
+
             # Check if any interface already has a link
             # This old_link is a leftover link that needs to be removed
             # The other endpoint of the link is the leftover interface
@@ -1128,6 +1134,8 @@ class Controller:
 
                 if link_dict.get("metadata"):
                     new_link.extend_metadata(link_dict["metadata"])
+            if extern_stack:
+                extern_stack.enter_context(stack.pop_all())
 
         return (self.links[new_link.id], True)
 
