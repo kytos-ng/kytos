@@ -6,6 +6,14 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2025.2.1] - 2026-06-30
+***********************
+
+Fixed
+=====
+- Fixed links reordering its endpoints when created.
+
+
 [2025.2.0] - 2026-02-02
 ***********************
 
