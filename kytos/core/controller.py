@@ -1093,8 +1093,6 @@ class Controller:
 
                 endpoint_a.update_link(new_link)
                 endpoint_b.update_link(new_link)
-                new_link.endpoint_a = endpoint_a
-                new_link.endpoint_b = endpoint_b
                 endpoint_a.nni = True
                 endpoint_b.nni = True
 

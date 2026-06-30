@@ -899,6 +899,39 @@ class TestController:
         assert link3.endpoint_a.id == mock_interface_b.id
         assert link3.endpoint_b.id == mock_interface_c.id
 
+    def test_get_link_or_create_unordered(self):
+        """Test _get_link_or_create with unordered interfaces.
+        Difference oder of input should output the same order of
+        endpoints in the link for both cases."""
+        dpid_a = "00:00:00:00:00:00:00:01"
+        dpid_b = "00:00:00:00:00:00:00:02"
+        mock_switch_a = get_switch_mock(dpid_a, 0x04)
+        mock_switch_b = get_switch_mock(dpid_b, 0x04)
+        mock_interface_a = get_interface_mock('s1-eth1', 1, mock_switch_a)
+        mock_interface_b = get_interface_mock('s2-eth1', 1, mock_switch_b)
+        mock_interface_a.id = dpid_a
+        mock_interface_a.link = None
+        mock_interface_b.id = dpid_b
+        mock_interface_b.link = None
+
+        link, created = self.controller.get_link_or_create(mock_interface_a,
+                                                           mock_interface_b)
+
+        assert created
+        assert len(self.controller.links) == 1
+        assert link.endpoint_a.id == dpid_a
+        assert link.endpoint_b.id == dpid_b
+
+        # Remove the new link and create a link with different order
+        # of interfaces
+        self.controller.links = {}
+        link, created = self.controller.get_link_or_create(mock_interface_b,
+                                                           mock_interface_a)
+        assert created
+        assert len(self.controller.links) == 1
+        assert link.endpoint_a.id == dpid_a
+        assert link.endpoint_b.id == dpid_b
+
 
 class TestControllerAsync:
 
