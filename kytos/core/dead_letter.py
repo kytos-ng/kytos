@@ -35,16 +35,16 @@ class DeadLetterPatchPayload(DeadLetterDeletePayload):
 class DeadLetter:
     """DeadLetter."""
 
-    def __init__(self, controller):
+    def __init__(self, controller, max_len_per_event_name=1000):
         """Init DeadLetter.
 
         Args:
             controller(kytos.core.controller): A Controller instance.
-
+            max_len_per_event_name(int): max KytosEvents kept per event name.
         """
         self.controller = controller
         self.dict = defaultdict(OrderedDict)  # dict of KytosEvents by name
-        self._max_len_per_event_name = 50000
+        self._max_len_per_event_name = max_len_per_event_name
 
     def register_endpoints(self):
         """Register core endpoints."""
