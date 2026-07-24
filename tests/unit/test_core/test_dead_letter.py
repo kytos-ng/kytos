@@ -3,6 +3,7 @@
 
 from unittest.mock import MagicMock
 
+from kytos.core.dead_letter import DeadLetter
 from kytos.core.events import KytosEvent
 
 
@@ -18,6 +19,23 @@ class TestDeadLetter:
         dead_letter.add_event(mock_ev)
         assert len(dead_letter.dict) == 1
         assert dead_letter.dict[mock_ev.name][mock_ev.id] == mock_ev
+
+    def test_add_event_max_len_eviction(self):
+        """test add_event evicts the oldest entry at the max len cap."""
+        dead_letter = DeadLetter(MagicMock(), max_len_per_event_name=2)
+        for idx in range(3):
+            mock_ev = MagicMock()
+            mock_ev.name = "some_name"
+            mock_ev.id = f"id_{idx}"
+            dead_letter.add_event(mock_ev)
+
+        assert len(dead_letter.dict["some_name"]) == 2
+        assert "id_0" not in dead_letter.dict["some_name"]
+        assert "id_2" in dead_letter.dict["some_name"]
+
+    def test_default_max_len(self, dead_letter):
+        """test the default max len per event name."""
+        assert dead_letter._max_len_per_event_name == 1000
 
     def test_delete_event(self, dead_letter):
         """test delete_event."""

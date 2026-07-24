@@ -16,6 +16,7 @@ Changed
 - kytos.conf: event buffers and thread pools queue_monitor reduced its ``min_queue_full_percent`` to 90, so now it'll log high sustained utilization more reliably
 - Controller method ``get_switch_or_create`` now validates dpid uniqueness. If an existing dpid is connected and enabled, it'll raise ``KytoDuplicatedSwitch``, which ``of_core`` will handle accordingly and log as an error and not allow it to overwrite the existing switch. An existing not connected is still assumed to be the same reconnecting switch.
 - Enhanced core status API to export information and critical states for internal components, such as Kytos buffers queue size, thread pool size, core tasks status, etc.
+- Reduced DeadLetter ``max_len_per_event_name`` from 50k to 1k
 
 [2025.2.0] - 2026-02-02
 ***********************
