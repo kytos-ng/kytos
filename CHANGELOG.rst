@@ -6,6 +6,14 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+[2025.2.2] - 2026-07-23
+***********************
+
+Changed
+=======
+- Reduced DeadLetter ``max_len_per_event_name`` from 50k to 1k
+
+
 [2025.2.1] - 2026-06-30
 ***********************
 
