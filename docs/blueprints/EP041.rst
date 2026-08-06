@@ -1,0 +1,312 @@
+:EP: 41
+:Title: mef_eline Static EVC Fast-Convergence Failover
+:Created: 2026-08-05
+:Kytos-Version: 2026.1
+:Status: Draft
+
+***********************************************************************
+EP041 - mef_eline Static EVC Fast-Convergence Failover
+***********************************************************************
+
+
+Abstract
+========
+
+This blueprint extends `EP029 <https://github.com/kytos-ng/kytos/blob/master/docs/blueprints/EP029.rst>`_ (EVC Service Protection) to bring
+pre-provisioned failover fast convergence to static EVCs.
+This doc specifies how EVCs configured with a user-provided ``primary_path``
+and either a static ``backup_path`` or ``dynamic_backup_path`` can compute a
+pre-installed disjoint failover path so link failures are handled with 2
+FlowMods per EVC. It also defines the path towards N pre-provisioned protection
+paths. This feature will be delivered in two phases: 1) without
+N pre-provisioned paths, and 2) with N pre-provisioned paths.
+
+Motivation
+==========
+
+Extend EP029 to also support static EVCs. Under EP029, when a static EVC loses its
+current path, ``mef_eline`` runs the full restoration cycle (remove current flows,
+recompute/select the alternate path, choose service VLANs, install path flows).
+Network convergence time grows with the number of affected EVCs. Dynamic EVCs avoid
+this via a pre-installed ``failover_path`` whose egress/NNI flows already exist, so
+only the UNI ingress flows are swapped on failure. Static EVCs play a pivotal role to
+let API clients integration to set their own primary and backup paths for each
+EVC while leveraging data that might not be available on Kytos-ng or data
+that is outside of the scope of Kytos-ng data modeling (data that'd be hard to model efficiently), for example, trying to take into account carrier L0 physical fibers and other
+data center related attributes when computing path disjointness for protection.
+
+Goals
+=====
+
+- Pre-install a disjoint failover path for static EVCs ``primary_path`` +
+  ``backup_path`` and for ``primary_path`` + ``dynamic_backup_path``.
+- Reuse EP029's link-down swap, and link-up redeploy machinery unchanged.
+- Guarantee correctness: a protection path is pre-installed only when it is
+  disjoint from the current path, otherwise the EVC converges the traditional
+  way, matching the best-effort behavior dynamic EVCs already follow.
+- Define a forward compatible model for N pre-provisioned failover paths.
+- This feature should also work with ``telemetry_int`` without breaking it.
+
+
+Strategy
+========
+
+Eligibility and candidate selection
+-----------------------------------
+
+An EVC becomes eligible for a pre-installed failover path when it is inter-switch
+and a disjoint protection path can be derived from its current path:
+
+- On ``primary_path``: the failover candidate is the user ``backup_path`` (if UP).
+- On ``backup_path``: the failover candidate is the user ``primary_path`` (if UP).
+- ``primary_path`` + ``dynamic_backup_path`` (no static backup): the failover is a
+  disjoint path computed from ``pathfinder``.
+- ``primary_path`` + ``backup_path`` + ``dynamic_backup_path``: the ``backup_path``
+  is the first protection candidate, when N protection paths are enabled, dynamic
+  disjoint paths fill the remaining slots.
+
+Optimistic disjointness
+-----------------------
+
+The solution is optimistic instead of requiring a perfectly link disjoint
+protection path before pre-installing anything, ``mef_eline`` pre-installs the best
+candidate it has as long as it shares fewer than all of its links with the
+current path (any disjointness above zero). This mirrors what dynamic EVCs
+already do today via ``DynamicPathManager.get_disjoint_paths``, which yields
+maximally disjoint paths and only excludes fully overlapping ones:
+
+- A fully disjoint candidate is always preferred and pre-installed first.
+- A partially disjoint candidate is still pre-installed when nothing better
+  exists, which broadens fast-convergence coverage (a partial failover still
+  protects against failures on the links it does not share).
+- A candidate that fully overlaps the current path is never pre-installed, those
+  failures converge the traditional way.
+
+Because a partial failover may share a link with the path it protects, a single
+link failure can affect both. The failure handler already checks whether
+each failover is affected by the down link and only swaps to a surviving
+one, so an affected partial failover simply degrades gracefully to the
+traditional restoration cycle for that specific failure.
+
+Failure handling
+----------------
+
+Failure handling reuses EP029's swap machinery:
+
+- On ``link_down``, affected EVCs whose failover path is not affected swap to it
+  (UNI ingress FlowMods only), the old path's flows are removed shortly after.
+- On ``link_up``, the EVC redeploys to its primary if it is UP.
+
+Towards N protection paths
+--------------------------
+
+The single ``failover_path`` generalizes to an ordered ``failover_paths`` list of
+protection paths, each pre-installed and ranked by disjointness from the current
+path. Users may optionally set an ordered ``backup_paths`` list that seeds it;
+when ``dynamic_backup_path`` is set, dynamic disjoint paths fill the remaining
+slots (best-effort, the topology may not supply enough disjoint paths, in which
+case fewer slots are filled). ``failover_path`` and ``backup_path`` remain
+backwards-compatible views of the first list element. Just configuring a ``backup_path``
+path will mean configuring ``backup_paths`` with a single backup, this will be 
+maintained to avoid breaking existing configurations.
+
+The maximum number of protection paths is bounded by a ``mef_eline`` settings ``N``,
+``MAX_FAILOVER_PATHS``, default ``3``. ``N`` counts all protection sources 
+of an EVC together: the static ``backup_paths`` entries plus the optional 
+``dynamic_backup_path`` (which counts as one). The ``primary_path`` / ``current_path``
+is not counted. So the validation rule on create/update is::
+
+    len(backup_paths) + int(bool(dynamic_backup_path)) <= settings.MAX_FAILOVER_PATHS
+
+With the default ``N = 3`` an EVC may declare, for example, up to three static
+backups (and no dynamic), or two static backups plus a dynamic one.
+
+The optimistic model makes N paths easier to manage instead of solving the
+combinatorial problem of finding N mutually-disjoint paths up front, ``mef_eline``
+installs the best-effort set (partial allowed when nothing better exists) and
+converges toward better disjointness over time via two computed steps, both
+driven by link events for the affected EVCs:
+
+- Re-rank (cheap, on every failure): reorder the already-installed protection
+  paths against the new current path and switchover to the best surviving one.
+- Repair (computed, off the hot path): recompute and pre-install a
+  replacement path when a slot is empty or its disjointness has dropped.
+
+The guarantee is eventual best-available disjoint protection instead of always
+fully disjoint. Between a topology change and the next repair pass, an EVC may
+briefly hold partial protection; since failures are rare relative to that interval
+this is an acceptable trade and matches the approach that dynamic EVCs already follow.
+
+Re-ranking
+----------
+
+Re-ranking is a ``link_down`` time operation. Because partial protection paths
+are allowed, the best surviving protection path for an affected EVC may change
+after a failure: once the current path changes (a swap), disjointness of the
+remaining protection paths is now measured against the new current path. So, on
+a link failure, ``mef_eline`` re-ranks the already-installed protection paths of each
+affected EVC and selects the highest surviving one. This re-ranking is expected
+to be cheap, the candidate paths are already materialized (their flows are
+pre-installed and their links are known in memory), so it is an in-memory
+disjointness sort.
+
+Non-revertive among backups on ``link_up``
+------------------------------------------
+
+Switchover of live traffic on ``link_up`` stays as it is today, the only path
+``mef_eline`` switches traffic back to is the ``primary_path`` (when a link belonging
+to it recovers, or it comes back UP). Recovery is not a re-ranking event.
+
+So when a backup link recovers while the EVC is already forwarding traffic on
+another backup, the EVC stays on its current backup, it does not switch live
+traffic back to a higher-ranked backup. For example, with two backups ``B1``
+(higher rank) and ``B2``: if the primary is down and the EVC has switched
+``primary -> B1 -> B2`` across successive failures, ``B1`` recovering does not
+move traffic back to ``B1``. Instead, the recovered ``B1`` simply rejoins the
+pre-installed failover pool as a standby protection path (via the setup/repair
+step), ready for the next failure; the EVC only leaves ``B2`` when ``B2`` itself
+fails (re-ranking then picks the best surviving standby, ``B1`` in this case) or when the
+``primary_path`` recovers (switchover to primary). This avoids a traffic-affecting
+switchover spent just to honor ``backup_paths`` ordering, consistent with EP029
+and the current dynamic-EVC behavior. 
+
+
+Configuration Example
+=====================
+
+Consider a topology of two switches connected by three links, with the EVC's
+UNIs on ``s1`` and ``s2``:
+
+.. code-block:: none
+
+    switches: s1 = 00:00:00:00:00:00:00:01
+              s2 = 00:00:00:00:00:00:00:02
+
+              +------------ l1 (s1:1 -- s2:1) ------------+
+              |                                           |
+              +------------ l2 (s1:2 -- s2:2) ------------+
+              |                                           |
+    uni_a  [ s1 ]---------- l3 (s1:3 -- s2:3) ---------[ s2 ]  uni_z
+    s1:4                                                       s2:4
+
+There are three edge-disjoint ``uni_a -> uni_z`` paths: ``P(l1)``, ``P(l2)`` and
+``P(l3)``. The following request creates one EVC with a ``primary_path``, two
+static ``backup_paths`` and a ``dynamic_backup_path``, three protection sources,
+exactly ``N = 3``:
+
+.. code-block:: json
+
+    POST /api/kytos/mef_eline/v2/evc/
+    {
+      "name": "protected-evpl",
+      "uni_a": {
+        "interface_id": "00:00:00:00:00:00:00:01:4",
+        "tag": {"tag_type": "vlan", "value": 100}
+      },
+      "uni_z": {
+        "interface_id": "00:00:00:00:00:00:00:02:4",
+        "tag": {"tag_type": "vlan", "value": 100}
+      },
+      "primary_path": [
+        {"endpoint_a": {"id": "00:00:00:00:00:00:00:01:1"},
+         "endpoint_b": {"id": "00:00:00:00:00:00:00:02:1"}}
+      ],
+      "backup_paths": [
+        [{"endpoint_a": {"id": "00:00:00:00:00:00:00:01:2"},
+          "endpoint_b": {"id": "00:00:00:00:00:00:00:02:2"}}],
+        [{"endpoint_a": {"id": "00:00:00:00:00:00:00:01:3"},
+          "endpoint_b": {"id": "00:00:00:00:00:00:00:02:3"}}]
+      ],
+      "dynamic_backup_path": true
+    }
+
+The three protection sources (``backup_paths`` has 2 entries, plus the dynamic
+one) satisfy ``2 + 1 <= MAX_FAILOVER_PATHS`` (``N = 3``), so the request is
+accepted. What gets pre-installed follows the eligibility, disjointness and
+best-effort rules:
+
+- Current path is ``P(l1)``.
+- ``backup_paths[0] = P(l2)``: disjointness ``1.0`` from ``P(l1)`` pre-installed
+  as ``failover_paths[0]``.
+- ``backup_paths[1] = P(l3)``: disjointness ``1.0`` from ``P(l1)`` and from
+  the already-selected ``P(l2)`` pre-installed as ``failover_paths[1]``.
+- Dynamic slot: no fourth path disjoint from ``P(l1)`` exists (``l2`` and ``l3``
+  are already taken), the slot stays empty (best-effort).
+
+So this EVC ends up with ``failover_paths = [P(l2), P(l3)]``, two pre-installed
+protection paths. Failure handling then shows both the swap and the re-ranking:
+
+- ``l1`` down (current path affected): both failovers survive, ``mef_eline`` swaps to
+  the highest-ranked one, ``P(l2)``, with two UNI-ingress FlowMods. The current
+  path is now ``P(l2)``.
+- With the current path changed, the remaining failover ``P(l3)`` is re-ranked
+  against the new current ``P(l2)``, it is still disjoint, so it remains a
+  valid pre-installed protection with no recomputation needed.
+- ``l2`` down next: the EVC swaps to ``P(l3)`` with another two FlowMods. Two
+  successive link failures are absorbed by pre-installed protection.
+
+
+Points of attention
+===================
+
+- Pre-provisioning multiplies installed flows. N paths multiply it further,
+  operators need to be aware to not over-provision to avoid exhausting NNIs s-vlans,
+  if pools are exhausted paths won't be deployed.
+- Disjointness of user-provided static paths is the operator's/client's responsibility.
+  Non-disjoint subsequent pairs simply do not get fast convergence.
+- Partial protection paths can co-fail on a shared link, so the model offers
+  eventual best-available disjoint protection.
+- If ``backup_paths`` gets updated by a network operator, the existing ``backup_paths``
+  will be removed, and then provisions based on the new paths
+- ``N`` (``MAX_FAILOVER_PATHS``) defaults to ``3`` on ``mef_eline`` settings
+  and bounds the total protection sources per EVC: static ``backup_paths``
+  entries plus the optional ``dynamic_backup_path`` (counted as one). The
+  ``current/primary_path`` is not counted. Requesting ``N`` protection paths does not
+  guarantee ``N`` get pre-installed, the topology and the disjointness
+  threshold > 0 may fill fewer slots.
+
+
+Implementation
+==============
+
+Strategically, this feature will be delivered in two phases:
+
+1) Static EVCs with fast convergence
+2) Static EVCs with fast convergence with extra N paths
+
+Both phases are expected to be ready to be used with e2e tests too, this
+gradual approach also allows the network engineer to start their own early
+exploratory tests and other performance assessments once phase 1 is completed
+
+Phase 1 Notes
+-------------
+
+Phase 1 keeps the single ``failover_path`` attribute, no API or data model
+changes. A pre-installed protection path always owns its own ``Link`` objects, 
+they are cloned from the user provided ``primary_path`` / ``backup_path`` 
+rather than shared with them. 
+
+Known limitation: a static path is only offered as a protection candidate while the
+EVC has a ``primary_path``. An EVC that is running on a dynamically computed path does
+not consider its ``backup_path``, it falls back to dynamic disjoint candidates.
+Such an EVC necessarily has ``dynamic_backup_path`` set, so it still gets protection,
+just not from its declared backup. This wil lifted by the ordered ``failover_paths``
+list of phase 2, where it would be also possible to have ``primary_path`` + ``backup_paths``
++ ``dynamic_backup_path`` where ``dynamic_backup_path`` would be a last resort failover path. ``failover_paths`` are only meant for static EVCs, so a configuration with only ``failover_paths`` and ``dynamic_backup_path`` will act as a dynamic EVC until a ``primary_path`` is configured.
+
+
+Future ideas
+============
+
+- Per-EVC minimum disjointness threshold Expose a per-EVC API attribute, for example, ``failover_min_disjointness``, a float in ``[0.0, 1.0]``, that lets an EVC opt into
+  a stricter or looser pre-install policy than the default best-effort one.
+
+Discarded ideas
+===============
+
+- Don't switchover back to the primary path when it's available
+- Only compute fully disjoint failover paths, this could eliminate re-rankings, but
+  would deviate from how dynamic EVCs already works, which would be more things for
+  network operator to remember and understand how it works. Plus, fully disjoint paths
+  might not be viable in many production networks, which would discard valuable partial
+  failover paths.
