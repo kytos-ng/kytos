@@ -142,9 +142,10 @@ Re-ranking
 
 Re-ranking is a ``link_down`` time operation. Because partial protection paths
 are allowed, the best surviving protection path for an affected EVC may change
-after a failure: once the current path changes (a swap), disjointness of the
-remaining protection paths is now measured against the new current path. So, on
-a link failure, ``mef_eline`` re-ranks the already-installed protection paths of each
+after a failure: once the current path changes (a swap) preserving EP029 ordering
+and the swap will take place with the next available non impacted failover if any,
+disjointness of the remaining protection paths is now measured against the new current path.
+So, on a link failure, ``mef_eline`` re-ranks the already-installed protection paths of each
 affected EVC and selects the highest surviving one. This re-ranking is expected
 to be cheap, the candidate paths are already materialized (their flows are
 pre-installed and their links are known in memory), so it is an in-memory
