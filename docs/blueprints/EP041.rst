@@ -54,8 +54,8 @@ Strategy
 Eligibility and candidate selection
 -----------------------------------
 
-An EVC becomes eligible for a pre-installed failover path when it is inter-switch
-and a disjoint protection path can be derived from its current path:
+An EVC becomes eligible for a pre-installed failover path when it's UP, it's inter-switch
+and a disjoint protection path can be derived from its `primary_path/current_path`:
 
 - On ``primary_path``: the failover candidate is the user ``backup_path`` (if UP).
 - On ``backup_path``: the failover candidate is the user ``primary_path`` (if UP).
