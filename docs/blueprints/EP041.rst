@@ -295,6 +295,18 @@ just not from its declared backup. This wil lifted by the ordered ``failover_pat
 list of phase 2, where it would be also possible to have ``primary_path`` + ``backup_paths``
 + ``dynamic_backup_path`` where ``dynamic_backup_path`` would be a last resort failover path. ``failover_paths`` are only meant for static EVCs, so a configuration with only ``failover_paths`` and ``dynamic_backup_path`` will act as a dynamic EVC until a ``primary_path`` is configured.
 
+It's also expected that exploratory tests will include in the regression tests 
+data plane convergence measures verifying the speed ups. Ideally this will also
+be automated in the exploratory release tests. This will be covered on e2e tests too,
+and in developed will also be locally explored.
+
+Phase 2 Notes
+-------------
+
+We need to define testable measurable convergence metrics and test cases when for N paths
+failure and subsequent failures convergence and also time to repair. Ideally this should cover
+cases similar to how it will be used in production
+
 
 Future ideas
 ============
