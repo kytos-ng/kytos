@@ -62,7 +62,7 @@ and a disjoint protection path can be derived from its `primary_path/current_pat
 - ``primary_path`` + ``dynamic_backup_path`` (no static backup): the failover is a
   disjoint path computed from ``pathfinder``.
 - ``primary_path`` + ``backup_path`` + ``dynamic_backup_path``: the ``backup_path``
-  is the first protection candidate, when N protection paths are enabled, dynamic
+  is the first protection candidate (if UP), when N protection paths are enabled, dynamic
   disjoint paths fill the remaining slots.
 
 Optimistic disjointness
