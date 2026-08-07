@@ -111,6 +111,13 @@ backwards-compatible views of the first list element. Just configuring a ``backu
 path will mean configuring ``backup_paths`` with a single backup, this will be 
 maintained to avoid breaking existing configurations.
 
+The following validations will also be in place:
+
+- Only accept ``backup_paths`` where no paths are equal to each other neither equal to ``primary_path``, that will ensure that all them are at least disjoint > 0 out of the gate,
+  which would imply that they all could be potential failover_paths candidates when they're UP.
+- Currently we accept ``primary_path`` == ``backup_path``, but in practice that also doesn't make sense to accept, this validation will also be shipped on phase 1.
+- All paths have to start and terminate in the same switches (this is already in place).
+
 The maximum number of protection paths is bounded by a ``mef_eline`` settings ``N``,
 ``MAX_FAILOVER_PATHS``, default ``3``. ``N`` counts all protection sources 
 of an EVC together: the static ``backup_paths`` entries plus the optional 
