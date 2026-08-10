@@ -101,6 +101,20 @@ def main():
             async_main(config)
 
 
+async def async_stop_controller(controller, shell_task=None):
+    """Stop the controller asynchronously."""
+    loop = asyncio.get_running_loop()
+    if loop:
+        # If stop() hangs, old ctrl+c behaviour will be restored
+        loop.remove_signal_handler(signal.SIGINT)
+        loop.remove_signal_handler(signal.SIGTERM)
+
+    controller.log.info("Stopping Kytos controller...")
+    await controller.stop()
+    if shell_task:
+        shell_task.cancel()
+
+
 def stop_controller(controller, shell_task=None):
     """Stop the controller before quitting."""
     loop = asyncio.get_running_loop()
@@ -142,7 +156,7 @@ async def start_shell_async(controller, executor):
     try:
         data = await loop.run_in_executor(executor, _start_shell)
     finally:
-        stop_controller(controller)
+        await async_stop_controller(controller)
     return data
 
 
