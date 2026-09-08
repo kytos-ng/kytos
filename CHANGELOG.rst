@@ -3,7 +3,7 @@ Changelog
 #########
 All notable changes to the kytos project will be documented in this file.
 
-UNRELEASED - Under development
+[2026.1.0] - 2026-10-02
 ******************************
 
 Fixed
