@@ -9,6 +9,7 @@ UNRELEASED - Under development
 Fixed
 =====
 - Fixed links reordering its endpoints when created.
+- Fixed link detect_mismatched_link object comparison to be safer
 
 Changed
 =======
