@@ -25,6 +25,20 @@ def queue_decorator(klass):
                                           respect_handler_level=True)
             self.listener.start()
 
+        def drain_and_stop(self):
+            """Drain queued records then stop the listener.
+
+            ``QueueListener.stop()`` enqueues a sentinel and joins the
+            listener thread, so every record queued so far is guaranteed to
+            be emitted before returning. The listener is *not* restarted, so
+            call this only right before the process exits: on startup failure
+            (issue #611) or on kytosd shutdown (issue #418). Idempotent: safe
+            to call more than once.
+            """
+            # pylint: disable=protected-access
+            if self.listener is not None and self.listener._thread is not None:
+                self.listener.stop()
+
         # pylint: disable=invalid-name
         def addHandler(self, hdlr):
             """Add a handler to the queue listener"""

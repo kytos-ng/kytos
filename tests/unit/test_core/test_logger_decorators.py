@@ -90,6 +90,18 @@ class TestQueueDecorator:
         logger.removeHandler(handler_mock)
         assert not logger.hasHandlers()
 
+    def test_drain_and_stop(self):
+        """Test drain_and_stop stops the listener without restarting it."""
+        logger = self.decorated_class('test', 4)
+        listener = logger.listener
+
+        logger.drain_and_stop()
+        assert listener._thread is None  # stopped, not restarted
+        assert logger.listener is listener
+
+        # idempotent: calling again must not raise
+        logger.drain_and_stop()
+
 
 class TestAPMDecorator:
     """Test the APM logger decorator"""

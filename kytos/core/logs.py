@@ -73,6 +73,29 @@ class LogManager:
                         'logging configuration.', config_file)
 
     @classmethod
+    def drain_and_stop(cls):
+        """Drain and stop all queue-based logger listeners.
+
+        Kytos routes log records through a QueueHandler/QueueListener
+        (see :func:`kytos.core.logger_decorators.queue_decorator`), so
+        records are emitted asynchronously by a background thread. On exit
+        queued records may be lost. This waits for every queued record to be
+        emitted and stops the listeners, so call it right before the process
+        exits: on startup failure (issue #611) or on kytosd shutdown
+        (issue #418). No records should be logged afterwards.
+
+        Loggers that don't use the queue decorator expose no
+        ``drain_and_stop`` method and are simply skipped.
+        """
+        loggers = [getLogger()]
+        loggers += [getLogger(name)
+                    for name in getLogger().manager.loggerDict]
+        for logger in loggers:
+            drain_and_stop = getattr(logger, "drain_and_stop", None)
+            if callable(drain_and_stop):
+                drain_and_stop()
+
+    @classmethod
     def enable_websocket(cls, socket):
         """Output logs to a web socket.
 

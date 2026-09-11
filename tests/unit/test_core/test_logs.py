@@ -214,6 +214,23 @@ class TestLogManager(LogTester):
 
         assert isinstance(logging.root, DummyWrapper)
 
+    def test_drain_and_stop(self):
+        """Check drain_and_stop hits every queue logger and skips others."""
+        queue_logger = Mock()
+        plain_logger = Mock(spec=[])  # no drain_and_stop attribute
+
+        loggers = {"kytos": queue_logger, "werkzeug": plain_logger}
+
+        def fake_get_logger(name=None):
+            if name is None:
+                return Mock(manager=Mock(loggerDict=loggers))
+            return loggers[name]
+
+        with patch("kytos.core.logs.getLogger", side_effect=fake_get_logger):
+            LogManager.drain_and_stop()
+
+        queue_logger.drain_and_stop.assert_called_once()
+
 
 class TestNAppLog(LogTester):
     """Test the log used by NApps."""

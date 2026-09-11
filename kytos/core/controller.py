@@ -294,7 +294,10 @@ class Controller:
             exc_fmt = traceback.format_exc(chain=True)
             message = f"Kytos couldn't start because of {str(exc)} {exc_fmt}"
             counter = self._full_queue_counter()
-            sys.exit(self._try_to_fmt_traceback_msg(message, counter))
+            message = self._try_to_fmt_traceback_msg(message, counter)
+            self.log.error(message)
+            LogManager.drain_and_stop()
+            sys.exit(message)
 
     def start_queue_monitors(self) -> None:
         """Start QueueMonitorWindows."""
@@ -560,6 +563,7 @@ class Controller:
         self.server.shutdown()
         self.log.info("Stopped TCP Server")
         self.loop.stop()
+        LogManager.drain_and_stop()
 
     def status(self):
         """Return status of Kytos Server.
