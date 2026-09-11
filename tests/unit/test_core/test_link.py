@@ -47,6 +47,16 @@ class TestLink():
         assert link_1 == link_2
         assert (link_1 == link_3) is False
 
+    def test__eq__other_types(self):
+        """Test __eq__ method with other types."""
+        none_link = None
+        link = Link(self.iface1, self.iface2)
+
+        assert link != 0
+        assert link != link.id
+        assert link != self.iface1
+        assert (link == none_link) is False
+
     def test__repr__(self):
         """Test __repr__ method."""
         link = Link(self.iface1, self.iface2)

@@ -1150,8 +1150,8 @@ class Controller:
     @staticmethod
     def detect_mismatched_link(link: Link) -> frozenset[str]:
         """Check if a link is mismatched."""
-        if (link.endpoint_a.link and link.endpoint_b
-                and link.endpoint_a.link == link.endpoint_b.link):
+        if (link.endpoint_a.link == link
+                and link.endpoint_b.link == link):
             return frozenset()
         return frozenset(["mismatched_link"])
 

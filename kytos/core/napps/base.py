@@ -48,7 +48,7 @@ class NApp:
 
     def __eq__(self, other):
         """Compare username/name strings."""
-        return isinstance(other, self.__class__) and self.id == other.id
+        return isinstance(other, NApp) and self.id == other.id
 
     @property
     def id(self):  # pylint: disable=invalid-name
