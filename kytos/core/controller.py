@@ -296,7 +296,7 @@ class Controller:
             counter = self._full_queue_counter()
             message = self._try_to_fmt_traceback_msg(message, counter)
             self.log.error(message)
-            LogManager.drain_and_stop()
+            LogManager.drain_and_stop(self.options.logmanager_drain_timeout)
             sys.exit(message)
 
     def start_queue_monitors(self) -> None:
@@ -563,7 +563,7 @@ class Controller:
         self.server.shutdown()
         self.log.info("Stopped TCP Server")
         self.loop.stop()
-        LogManager.drain_and_stop()
+        LogManager.drain_and_stop(self.options.logmanager_drain_timeout)
 
     def status(self):
         """Return status of Kytos Server.

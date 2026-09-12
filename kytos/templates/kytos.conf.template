@@ -40,6 +40,12 @@ protocol_name =
 # Switch connection timeout in seconds.
 connection_timeout = 130
 
+# Kytos logs asynchronously through a QueueListener. On shutdown (or on a
+# startup failure) the queued log records are drained before the process exits.
+# This is the maximum time, in seconds, to wait per logger for that drain, so a
+# slow or blocked log handler can never hang shutdown indefinitely. Default 10.
+logmanager_drain_timeout = 10.0
+
 # The api_port parameter tells kytos controller to expose a port to accept
 # incoming requests and to send a response from kytos API REST.
 # Default is 8181.

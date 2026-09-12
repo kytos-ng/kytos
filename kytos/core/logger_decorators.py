@@ -25,19 +25,28 @@ def queue_decorator(klass):
                                           respect_handler_level=True)
             self.listener.start()
 
-        def drain_and_stop(self):
+        def drain_and_stop(self, timeout=None):
             """Drain queued records then stop the listener.
 
             ``QueueListener.stop()`` enqueues a sentinel and joins the
             listener thread, so every record queued so far is guaranteed to
-            be emitted before returning. The listener is *not* restarted, so
-            call this only right before the process exits: on startup failure
-            (issue #611) or on kytosd shutdown (issue #418). Idempotent: safe
-            to call more than once.
+            be emitted before returning. Instead of using QueueListener.stop(),
+            we reproduce its behavior to have a robust, time-bounded stop
+            process by enforcing a strict timeout on the thread join. That way,
+            we guarantee the application will never hang during shutdown due to
+            a slow or blocked handler.
+
+            ``timeout`` (seconds) bounds the join: if the listener does not
+            finish draining in time (e.g. a slow or blocked handler) the wait
+            is abandoned so shutdown can't hang. ``None`` waits indefinitely.
+            Idempotent: safe to call more than once.
             """
             # pylint: disable=protected-access
-            if self.listener is not None and self.listener._thread is not None:
-                self.listener.stop()
+            if self.listener is None or self.listener._thread is None:
+                return
+            self.listener.enqueue_sentinel()
+            self.listener._thread.join(timeout)
+            self.listener._thread = None
 
         # pylint: disable=invalid-name
         def addHandler(self, hdlr):

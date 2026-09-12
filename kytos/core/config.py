@@ -169,6 +169,7 @@ class KytosConfig():
             'database': '',
             'apm': '',
             'connection_timeout': 130,
+            'logmanager_drain_timeout': 10.0,
             'debug': False,
             "event_buffer_conf": {
                 "msg_out": {
@@ -261,6 +262,9 @@ class KytosConfig():
         options.protocol_name = str(options.protocol_name)
         options.token_expiration_minutes = int(options.
                                                token_expiration_minutes)
+        options.logmanager_drain_timeout = float(
+            options.logmanager_drain_timeout
+        )
         result = options.enable_entities_by_default in ['True', True]
         options.enable_entities_by_default = result
 
