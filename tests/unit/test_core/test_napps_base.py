@@ -26,6 +26,27 @@ class TestNapp:
         """Test id property."""
         assert self.napp.id == 'kytos/napp'
 
+    def test__eq__(self):
+        """Test __eq__ method."""
+        assert self.napp == NApp(username='kytos', name='napp')
+        assert (self.napp == NApp(username='kytos', name='other')) is False
+
+    def test__eq__subclass(self):
+        """Test __eq__ method is symmetric with a NApp subclass."""
+        class SubNApp(NApp):
+            """NApp subclass."""
+
+        sub = SubNApp(username='kytos', name='napp')
+        assert self.napp == sub
+        assert sub == self.napp
+
+    def test__eq__other_types(self):
+        """Test __eq__ method with other types."""
+        none_napp = None
+        assert self.napp != 0
+        assert self.napp != 'kytos/napp'
+        assert (self.napp == none_napp) is False
+
     @patch('kytos.core.napps.NApp._has_valid_repository', return_value=True)
     def test_uri(self, _):
         """Test uri property."""

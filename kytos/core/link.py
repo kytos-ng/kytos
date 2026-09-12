@@ -112,6 +112,8 @@ class Link(GenericEntity):
 
     def __eq__(self, other):
         """Check if two instances of Link are equal."""
+        if not isinstance(other, Link):
+            return False
         return self.id == other.id
 
     @property
