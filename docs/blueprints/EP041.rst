@@ -1,0 +1,394 @@
+:EP: 41
+:Title: Fast convergence for static EVCs
+:Status: Draft
+
+##########################################
+Fast convergence for static EVCs (Phase 1)
+##########################################
+
+Abstract
+********
+
+EP029 implemented dynamic EVCs sub-second convergence by pre-installing a disjoint
+``failover_path`` and, on a link failure, swapping only the UNI ingress onto it.
+This EP brings the same "pre-install and swap the ingress" (fast convergence) to 
+static EVCs configured with a ``primary_path`` and/or ``backup_path``.
+
+Phase 1 (this blueprint) covers a single ``primary_path``, a ``primary_path`` +
+one disjoint ``backup_path``, and either of those additionally carrying a
+``dynamic_backup_path``. A ranked list of ``N`` configured backups is deferred to
+phase 2.
+
+Motivation
+**********
+
+Before this blueprint a static EVC reacted to a link event with the traditional
+break-before-make redeploy (remove the current flows, then install the new
+path): resulting in non optimal convergence and churned service VLANs and FlowMods.
+
+- Operators want static EVCs to converge as fast as dynamic EVCs with a
+  ``failover_path``.
+- Static EVCs matter when deterministic paths are required.
+- Static EVCs let API clients set paths from external systems, using data Kytos-ng
+  isn't currently designed to model efficiently, for example carrier L0 fibers or 
+  data-center attributes for computing path protection.
+- Static EVCs make capacity planning for network operators in terms of s-vlans and
+  flows easier to plan for and what to expect.
+
+Proposed changes
+****************
+
+Phase 1 ``mef_eline`` should be upgradable from 2025.2 without API breaking changes,
+all clients should still work. However, the following fundamental change is proposed
+for static paths (the reasons why are explained in the next subsection):
+
+Phase 1 foundation comes down to:
+
+    A configured static path's egress UNI/NNI flows (path flows) and service VLANs are torn down
+    only on admin path-update, delete or redeploy. They are never removed on convergence.
+
+Consequences:
+
+- Every configured path an EVC has is kept installed at all times (path flows, no ingress).
+  Only the two UNI ingress FlowMods (match in-port + in-vlan,
+  path-independent) are installed/updated during convergence when paths are available.
+- On a full failure (no usable path), the EVC deactivates but keeps its
+  path flows + VLANs installed and only removes the UNI ingress, so recovery is an
+  ingress reinstall, not a redeploy. Ingress removal is also important to not let
+  potential UNI traffic waste NNIs bandwidth.
+- Convergence never break-before-makes a provisioned static path. On link up a
+  configured path is installed only when nothing is provisioned yet; a static EVC
+  that is still forwarding is left untouched and reverts to primary via the
+  ingress swap.
+- A break-before-make redeploy of a healthy static path happens only when an
+  admin forces a redeploy or updates the paths or deletes it.
+- A failed fast path (a swap or reactivation error) is allowed to fall back to a
+  full redeploy, as it always has. This is a bounded, single self-heal attempt.
+- Dynamic protection is not continuous: a static EVC with a
+  ``dynamic_backup_path`` cold-computes an escape when no pre-installed path
+  is usable, and the consistency routine covers what that misses.
+
+Definitions
+***********
+
+- **Convergence**: ``mef_eline`` reacting to a topology `link_down|link_up` event
+  that can impact on network traffic forwarding.
+- **UNI ingress**: the two FlowMods that steer traffic into a path, matching
+  the UNI port and the customer VLAN, and output to an NNI.
+- **Path flows**: a path's own flows (UNI egress + NNI flows).
+- **Deployed**: a path whose ``s_vlan`` tags are allocated.
+- **Standby**: a role, not a fixed path. The configured path kept
+  installed but not forwarding: the ``backup_path`` while on primary, the
+  ``primary_path`` once swapped onto backup.
+- **Swap**: moving traffic between two installed paths by overwriting the two
+  UNI ingress FlowMods. Constant cost, independent of path length.
+- **Pre-installed**: a path whose path flows were installed before any
+  failure, so converging onto it is only a swap, called fast convergence.
+- **Cold install**: installing a path's flows at the moment they are needed
+  (choose VLANs, install path flows) instead of ahead of time.
+- **Escape**: a dynamic path found and installed only after a failure leaves
+  no usable configured path (cold-computed), then swapped onto right away. A
+  dynamic set up before the failure is a ``failover_path`` instead. Same kind
+  of path, the difference is timing, so on a revert to primary a single
+  static + dynamic EVC can keep its escape as the ``failover_path``.
+- **Disjoint**: partially disjoint. Disjointness is a ratio in [0, 1], the
+  complement of the links and transit switches two paths share (the UNI
+  switches are excluded). Any ratio above 0 qualifies, more disjoint paths 
+  are ranked first (better).
+
+Phase 1 preliminary convergence dev test results
+************************************************
+
+Preliminary mininet benchmark: 401 dual static EVCs on a small ring topology,
+measuring a link-down convergence event on EVC #401 with ``ping``. Average
+packet loss improved from 15.33% to 1.66%:
+
+* 1) With static fast convergence:
+
+::
+
+  101 packets transmitted, 99 received, 1% packet loss, time 102412ms
+  rtt min/avg/max/mdev = 0.053/0.153/2.058/0.197 ms
+
+  46 packets transmitted, 45 received, 2% packet loss, time 46061ms
+  rtt min/avg/max/mdev = 0.065/0.208/2.151/0.298 ms
+
+  46 packets transmitted, 45 received, 2% packet loss, time 46048ms
+  rtt min/avg/max/mdev = 0.055/0.224/2.943/0.412 ms
+
+* 2) Without fast convergence current `master` implementation:
+
+::
+
+  55 packets transmitted, 45 received, 18% packet loss, time 55271ms
+  rtt min/avg/max/mdev = 0.078/0.223/2.477/0.344 ms
+
+  81 packets transmitted, 70 received, 13% packet loss, time 81928ms
+  rtt min/avg/max/mdev = 0.050/0.199/2.533/0.285 ms
+
+  66 packets transmitted, 56 received, 15% packet loss, time 66535ms
+  rtt min/avg/max/mdev = 0.074/0.215/3.045/0.384 ms
+
+
+Why keep the paths installed
+****************************
+
+Keeping every configured static path installed has the following strategic
+advantages:
+
+- **Convergence is far more frequent than config changes.** Links flap and
+  switches reboot many times over an EVC's life, while its configured paths
+  change rarely. Optimizing the frequent case matters at scale (thousands of
+  EVCs): churning FlowMods on convergence is fine for dynamic EVCs, but wasteful
+  for a static path that did not change.
+- **Less IO, fewer FlowMods.** A break-before-make redeploy deletes and
+  reinstalls the whole path (``O(path length)`` FlowMods,
+  plus service-VLAN release and re-allocation) on every link event; a swap is a
+  constant two UNI-ingress FlowMods. It scales better with the number of EVCs 
+  on a shared-link failure.
+- **Predictability.** path flows and service VLANs stay put, so there is no VLAN
+  churn (nor allocation races or transient exhaustion mid-convergence), and
+  failure and recovery are the same small operation every time (as you'd expect 
+  for a literal static path).
+- **Evolvable to N paths.** With all configured paths already installed,
+  supporting an ordered list of backups (phase 2) comes down to: "pre-install more
+  standbys and re-rank which one the ingress points at", the swap algorithm is
+  the same and primary + backup pre-installed is already the ``N = 2`` case.
+
+Static EVC configurations
+*************************
+
+The following configurations are supported, differentiated by the following predicates
+(this is already part of the codebase, but here we are also giving a name for each 
+configuration to make it easier to discuss and refer to them):
+
+- **single static**: ``primary_path`` only, no backup, no dynamic backup. 
+  Keeps primary installed; the only alternative on a failure is stop forwarding.
+- **dual static**: ``primary_path`` + ``backup_path``, disjoint. 
+  Keeps both installed and swaps the ingress between them.
+- **single static + dynamic**: ``primary_path`` + ``dynamic_backup_path`` (no
+  backup). Keeps primary installed and protects it with a disjoint dynamically computed,
+  pre-installed ``failover_path``.
+- **dual static + dynamic**: ``primary_path`` + ``backup_path`` + ``dynamic_backup_path``. 
+  Same as dual static, except with a last-resort escape cold-computed,
+  disjoint measured against ``primary_path``.
+
+
+The name of each config type follows two orthogonal axes: how many configured static
+paths it has (**single** = primary only, **dual** = primary + backup) and
+whether it also carries a ``dynamic_backup_path`` (the ``+ dynamic`` suffix). So
+``primary_path`` + ``backup_path`` + ``dynamic_backup_path`` is **dual static +
+dynamic**.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Config Type
+     - Pre-installed static standby
+     - Pre-installed dynamic ``failover_path``
+     - On-demand escape
+   * - single static
+     - none (primary only)
+     - no
+     - no
+   * - dual static
+     - ``backup_path``
+     - no
+     - no
+   * - single static + dynamic
+     - none (primary only)
+     - yes, only while on primary (protects primary)
+     - yes, when on the dynamic (primary down) and it fails
+   * - dual static + dynamic
+     - ``backup_path``
+     - no (phase 2)
+     - yes, cold-computed only when both statics are down
+
+Bottom line: a dynamic ``failover_path`` is pre-installed only to protect a static
+primary (single static + dynamic) or a pure dynamic EVC.
+
+**The dynamic does not protect itself.** For single static + dynamic, the dynamic
+``failover_path`` is pre-computed while the EVC forwards on its primary. Once
+primary fails and the EVC swaps onto the dynamic, it does not pre-compute a second
+dynamic to protect the first: the dynamic is a bridge back to primary, so a
+failure there is handled by the last-resort escape, not a
+pre-installed fast swap. This strategically keeps the state space small (at most
+one dynamic path alive at a time), makes every swap a simple ``primary <->
+dynamic``, and leaves no dynamic sitting in ``failover_path`` to leak. The only
+cost is that a failure of the dynamic while primary is still down converges by
+cold-compute rather than a sub-second swap, a rare double-failure window. The
+escape is not optional though: before this blueprint the same double failure
+recovered through a full redeploy that discovered a new dynamic anyway, so it
+preserves that availability without tearing down the kept primary. So,
+the trade off design is really to work as a last-resort path indeed, while empowering 
+users to have their static paths handling the most common type of failures quickly, 
+and with N-paths the likelihood of total protection failure will be ever lower.
+
+**dual static + dynamic** keeps its ``backup_path`` pre-installed as the standby
+but does not hold a standing dynamic ``failover_path``: its dynamic path is a
+last-resort escape, cold-computed only when both configured statics are down and
+torn down again once it reverts to primary (a recovering backup does not move
+traffic off the escape, reverting is non-revertive). Proactively pre-installing
+that third path is deferred to phase 2 (``N = 3``).
+
+Keeping paths installed
+***********************
+
+Installing a standby means installing a configured path's path flows (no
+ingress); it is a no-op when the path is already deployed.
+
+Link down
+*********
+
+For a static EVC whose forwarding path is affected:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Config Type
+     - Usable alternative?
+     - Action
+   * - single static
+     - none (only one path)
+     - remove ingress only; deactivated
+   * - dual static
+     - standby UP and unaffected
+     - swap ingress onto the standby; the old path is kept and becomes the
+       new standby
+   * - dual static
+     - none (both down)
+     - remove ingress only; path flows kept, EVC deactivated
+   * - dual static + dynamic
+     - both statics down
+     - cold-compute + swap onto a disjoint escape, keeping both
+       statics installed; if none is found, keep the statics, remove ingress,
+       deactivate
+   * - single static + dynamic
+     - pre-installed ``failover_path`` UP and unaffected
+     - swap ingress onto the failover; primary is kept installed
+       (``failover_path`` emptied, became ``current_path``)
+   * - single static + dynamic
+     - no usable ``failover_path`` (empty, down, or affected by the same
+       link), but a disjoint path can be cold-computed
+     - cold-compute + swap onto it, keeping primary installed
+   * - single static + dynamic
+     - no usable ``failover_path``, and none can be cold-computed
+     - keep primary, clear the failed dynamic, remove ingress, deactivate
+
+A deactivated EVC keeps its statics and retries the escape on the next
+convergence event that reaches it; if none arrives, the consistency routine
+redeploys it after ``settings.WAIT_FOR_OLD_PATH`` rounds.
+
+Two convergence cases don't impact on forwarding: 
+
+- A standby whose own link goes down is left alone, its flows stay installed.
+- A failover whose own link goes down is cleared; the EVC keeps forwarding on
+  primary and the consistency routine arms a new one once the topology settles.
+
+Who cold-computes an escape, when the forwarding path fails and no
+pre-installed path is usable:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Config Type
+     - Result
+   * - single static
+     - no dynamic to compute: remove ingress, deactivate
+   * - dual static
+     - no dynamic to compute: remove ingress, deactivate
+   * - single static + dynamic
+     - cold-compute an escape, keeping primary installed
+   * - dual static + dynamic
+     - cold-compute an escape once both statics are down, keeping both
+       installed
+   * - pure dynamic
+     - no escape: undeploy and redeploy, there are no static paths to keep
+
+Link up
+*******
+
+.. list-table::
+   :header-rows: 1
+
+   * - State on recovery
+     - Action
+   * - active on backup or dynamic, primary recovers
+     - revert to primary with an ingress swap: two FlowMods, primary already
+       installed
+   * - inactive (full failure), a configured path recovers
+     - reactivate by reinstalling the UNI ingress on the recovered path,
+       primary preferred
+   * - inactive (full failure), configured static paths still down but a
+       dynamic path exists (single static + dynamic, or dual static + dynamic)
+     - recover onto an escape: cold-compute a disjoint dynamic path,
+       install it, swap the ingress onto it and activate, keeping the
+       configured statics installed
+   * - active on primary, a standby or dynamic link recovers
+     - forwarding unchanged; a missing static standby is reinstalled, a
+       missing dynamic ``failover_path`` is left to the consistency routine
+   * - active on a dynamic, primary still down
+     - forwarding unchanged: reverting is non-revertive, so the dynamic is
+       kept until primary returns and a recovering backup does not move
+       traffic off it
+
+Both revert and reactivate are ingress-only: they trust the kept path flows. The
+one exception is a never-deployed primary (the EVC was deployed while primary was
+down, so it sits on backup with no ``s_vlan``): the revert installs primary's
+path flows first (a no-op when already deployed, a cold install - choose VLANs +
+path flows, when not) before swapping the ingress.
+
+**Reverting keeps the old dynamic path.** When a single static + dynamic EVC
+reverts to primary, the swap overwrites the dynamic path's UNI ingress, leaving
+it holding just path flows, the pre-installed failover shape. It is kept as the
+``failover_path`` when it is still UP and disjoint from primary, with no
+teardown or recompute; otherwise it is cleared and a fresh one computed.
+
+**Finding a dynamic path never tears down the statics.** A static EVC needing an
+escape (on link down, or when recovering a fully down EVC on link up)
+only cold-installs a disjoint dynamic path (path flows) and swaps the ingress
+onto it; the configured statics stay installed. The traditional break-before-make
+discovery is only reached for EVCs with no static path to preserve (a
+pure dynamic EVC, or a first install from an empty ``current_path``), so it
+wipes a live static
+path on convergence.
+
+Reverting is non-revertive among backups: traffic returns only to the
+``primary_path`` when it recovers, never hopping between backups.
+
+Validation
+**********
+
+``primary_path`` and ``backup_path``, when both set, must be **disjoint**. This
+is validated on admin EVC creation and updates.
+
+Upgrade considerations
+**********************
+
+Prior versions did not keep a standby installed. So after upgrading, an active
+dual static EVC on one path has the other path's path flows absent from the
+datapath while the new code assumes both are present: its first failover would
+swap the ingress onto a path with no path flows and black-hole.
+
+**No operator action.** The consistency routine asks for any dual static
+standby that is UP but not installed, so every upgraded EVC has its standby in
+place within a pass of startup. Installing is non-disruptive, path flows only
+with the live path untouched, and idempotent: an installed standby is a no-op,
+and an install that fails, for example while its switches are unreachable, is
+retried on the next pass.
+
+**Self-healing if a failover comes first.** Should a link fail before that
+pass, the swap installs the standby before moving the ingress onto it: a no-op
+when already installed, a cold install (choose VLANs + path flows) when it
+never was. So the first failover after an upgrade is a clean
+cold-install-then-swap, never a swap onto a path with no path flows, and if
+that install fails the swap is skipped and the EVC falls back to the
+traditional teardown/redeploy. Either way it happens at most once per path:
+afterwards the path carries an ``s_vlan`` and every later failover is the fast
+ingress swap.
+
+**Down EVCs need nothing extra.** A static EVC that was down at upgrade time was
+undeployed by the old version (empty ``current_path``), so it is not
+reactivation-eligible. When its link returns it installs its configured path(s), 
+with nothing installed there is nothing to tear down, so this is a plain deploy, 
+not a break-before-make redeploy that removes other flows.
