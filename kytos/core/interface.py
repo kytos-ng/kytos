@@ -47,7 +47,8 @@ class TAG:
         self.value = value
 
     def __eq__(self, other):
-        if not other:
+        """Compare TAG class with another instance."""
+        if not isinstance(other, TAG):
             return False
         return self.tag_type == other.tag_type and self.value == other.value
 
@@ -874,7 +875,9 @@ class UNI:
         self.interface = interface
 
     def __eq__(self, other):
-        """Override the default implementation."""
+        """Compare UNI class with another instance."""
+        if not isinstance(other, UNI):
+            return False
         return (self.user_tag == other.user_tag and
                 self.interface == other.interface)
 

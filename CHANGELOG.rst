@@ -9,7 +9,7 @@ UNRELEASED - Under development
 Fixed
 =====
 - Fixed links reordering its endpoints when created.
-Fixed
+- Fixed link detect_mismatched_link object comparison to be safer
 - Startup errors (e.g. a NApp failing to load) are now written to the logging system before ``kytosd`` exits, instead of only appearing on stdout, making failures traceable when running in the background (#611).
 - Log records queued via the ``QueueListener`` are now drained on ``kytosd`` shutdown, so shutdown log messages are no longer lost (#418).
 

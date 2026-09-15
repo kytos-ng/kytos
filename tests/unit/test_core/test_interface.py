@@ -11,7 +11,7 @@ from kytos.core.exceptions import (KytosSetTagRangeError,
                                    KytosTagsAreNotAvailable,
                                    KytosTagsNotInTagRanges,
                                    KytosTagtypeNotSupported)
-from kytos.core.interface import TAG, UNI, Interface
+from kytos.core.interface import TAG, UNI, Interface, TAGRange
 from kytos.core.switch import Switch
 
 logging.basicConfig(level=logging.CRITICAL)
@@ -52,6 +52,20 @@ class TestTAG():
         """Test __repr__ method."""
         assert repr(self.tag) == "TAG('vlan', 123)"
 
+    async def test__eq__(self):
+        """Test __eq__ method."""
+        assert self.tag == TAG('vlan', 123)
+        assert (self.tag == TAG('vlan', 456)) is False
+        assert (self.tag == TAG('mpls', 123)) is False
+
+    async def test__eq__other_types(self):
+        """Test __eq__ method with other types."""
+        none_tag = None
+        assert self.tag != 0
+        assert self.tag != 'vlan'
+        assert (self.tag == none_tag) is False
+        assert (self.tag == TAGRange('vlan', [[1, 123]])) is False
+
 
 # pylint: disable=protected-access, too-many-public-methods
 class TestInterface():
@@ -65,6 +79,19 @@ class TestInterface():
         """Test repr() output."""
         expected = "Interface('name', 42, Switch('dpid'))"
         assert repr(self.iface) == expected
+
+    async def test__eq__(self):
+        """Test __eq__ method."""
+        assert self.iface == self._get_v0x04_iface()
+        assert (self.iface == Interface('name', 43, Switch('dpid'))) is False
+        assert (self.iface == Interface('name', 42, Switch('other'))) is False
+
+    async def test__eq__other_types(self):
+        """Test __eq__ method with other types."""
+        none_iface = None
+        assert self.iface != 0
+        assert (self.iface == none_iface) is False
+        assert (self.iface == UNI(self.iface, None)) is False
 
     @staticmethod
     def _get_v0x04_iface(*args, **kwargs):
@@ -556,6 +583,13 @@ class TestUNI():
         other = UNI(interface, user_tag)
 
         assert (self.uni == other) is False
+
+    async def test__eq__other_types(self):
+        """Test __eq__ method with other types."""
+        none_uni = None
+        assert self.uni != 0
+        assert self.uni != self.uni.interface
+        assert (self.uni == none_uni) is False
 
     async def test_is_valid(self):
         """Test is_valid method for a valid, invalid and none tag."""

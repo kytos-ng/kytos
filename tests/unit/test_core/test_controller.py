@@ -20,8 +20,11 @@ from kytos.core.config import KytosConfig
 from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosDuplicatedSwitch,
                                    KytosNAppSetupException)
+from kytos.core.interface import Interface
+from kytos.core.link import Link
 from kytos.core.logs import LogManager
 from kytos.core.rest_api import Request
+from kytos.core.switch import Switch
 from kytos.lib.helpers import (get_interface_mock, get_link_mock,
                                get_switch_mock)
 
@@ -841,6 +844,38 @@ class TestController:
 
         mock_link_1.endpoint_a.link = mock_link_1
         assert not self.controller.detect_mismatched_link(mock_link_1)
+
+    def test_detect_mismatched_link_real_links(self):
+        """Test detect_mismatched_link with real Link instances.
+
+        The mocked test above cannot catch endpoints that agree with each
+        other while pointing at a link other than the one being checked.
+        """
+        switch_a = Switch("00:00:00:00:00:00:00:01")
+        switch_b = Switch("00:00:00:00:00:00:00:02")
+        switch_c = Switch("00:00:00:00:00:00:00:03")
+        iface_a = Interface("s1-eth1", 1, switch_a)
+        iface_b = Interface("s2-eth1", 1, switch_b)
+        iface_c = Interface("s3-eth1", 1, switch_c)
+
+        link_ab = Link(iface_a, iface_b)
+        link_ac = Link(iface_a, iface_c)
+
+        # Nothing wired yet
+        assert self.controller.detect_mismatched_link(link_ab)
+
+        # Only one endpoint wired, the other is None
+        iface_a.link = link_ab
+        assert self.controller.detect_mismatched_link(link_ab)
+
+        # Both endpoints wired to link_ab
+        iface_b.link = link_ab
+        assert not self.controller.detect_mismatched_link(link_ab)
+
+        # Both endpoints agree with each other, but on a different link
+        iface_a.link = link_ac
+        iface_b.link = link_ac
+        assert self.controller.detect_mismatched_link(link_ab)
 
     @patch('kytos.core.controller.Controller.detect_mismatched_link')
     def test_link_status_mismatched(self, mock_detect_mismatched_link):
