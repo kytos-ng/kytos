@@ -377,6 +377,7 @@ class Controller:
         while not self.api_server.server.started:
             await asyncio.sleep(0.1)
 
+    # pylint: disable=broad-exception-caught
     async def start_controller(self):
         """Start the controller.
 
@@ -411,7 +412,7 @@ class Controller:
         if self.options.enable_napps_observer:
             try:
                 self.napp_dir_listener.start()
-            except Exception as exc:  # noqa pylint: disable=bare-except
+            except Exception as exc:
                 exc_fmt = traceback.format_exc(chain=True)
                 self.log.error(
                     "Failed to start NAppDirListener, "
