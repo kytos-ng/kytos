@@ -411,7 +411,7 @@ class Controller:
         if self.options.enable_napps_observer:
             try:
                 self.napp_dir_listener.start()
-            except Exception as exc:
+            except Exception as exc:  # noqa pylint: disable=bare-except
                 exc_fmt = traceback.format_exc(chain=True)
                 self.log.error(
                     "Failed to start NAppDirListener, "
