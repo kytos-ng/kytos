@@ -1044,12 +1044,10 @@ class TestControllerAsync:
         """Test stop_controller method."""
         controller.loop = MagicMock()
         api_server = MagicMock()
-        napp_dir_listener = MagicMock()
         controller.server = MagicMock()
         controller.unload_napps = MagicMock()
         controller._buffers = MagicMock()
         controller.api_server = api_server
-        controller.napp_dir_listener = napp_dir_listener
         controller.stop_queue_monitors = MagicMock()
         controller.apm = MagicMock()
 
@@ -1057,7 +1055,6 @@ class TestControllerAsync:
         controller.apm.close.assert_called()
         controller.buffers.send_stop_signal.assert_called()
         api_server.stop.assert_called()
-        napp_dir_listener.stop.assert_called()
         controller.unload_napps.assert_called()
         controller.server.shutdown.assert_called()
         controller.loop.stop.assert_called()

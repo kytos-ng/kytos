@@ -52,7 +52,6 @@ from kytos.core.link import Link
 from kytos.core.logs import LogManager
 from kytos.core.napps.base import NApp
 from kytos.core.napps.manager import NAppsManager
-from kytos.core.napps.napp_dir_listener import NAppDirListener
 from kytos.core.pacing import Pacer
 from kytos.core.queue_monitor import QueueMonitorWindow
 from kytos.core.switch import Switch
@@ -142,9 +141,6 @@ class Controller:
 
         #: logging.Logger: Logger instance used by Kytos.
         self.log = None
-
-        #: Observer that handle NApps when they are enabled or disabled.
-        self.napp_dir_listener = NAppDirListener(self)
 
         self.napps_manager = NAppsManager(self)
 
@@ -382,6 +378,7 @@ class Controller:
         while not self.api_server.server.started:
             await asyncio.sleep(0.1)
 
+    # pylint: disable=broad-exception-caught
     async def start_controller(self):
         """Start the controller.
 
@@ -413,7 +410,6 @@ class Controller:
         self.log.info("Starting authorization.")
         self.start_auth()
         self.log.info("Loading Kytos NApps...")
-        self.napp_dir_listener.start()
         self.pre_install_napps(self.options.napps_pre_installed)
         self.load_napps()
         self.api_server.start_web_ui()
@@ -521,7 +517,6 @@ class Controller:
         self.log.info("Stopping Kytos")
 
         self.buffers.send_stop_signal()
-        self.napp_dir_listener.stop()
 
         for pool_name in executors:
             self.log.info("Stopping threadpool: %s", pool_name)

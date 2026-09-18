@@ -517,10 +517,6 @@ virtualenv==20.25.1
     # via
     #   kytos
     #   tox
-watchdog==4.0.0
-    # via
-    #   -r requirements/run.txt
-    #   kytos
 watchfiles==0.21.0
     # via
     #   -r requirements/run.txt
