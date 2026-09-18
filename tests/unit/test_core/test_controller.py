@@ -1021,7 +1021,6 @@ class TestControllerAsync:
         controller.pre_install_napps = MagicMock()
         controller.api_server = MagicMock()
         controller.load_napps = MagicMock()
-        controller.napp_dir_listener = MagicMock()
         controller.options.napps_pre_installed = [napp]
         await controller.start_controller()
         assert controller.buffers
@@ -1041,67 +1040,14 @@ class TestControllerAsync:
         expected_len = len(expected_tp_qmons) + len(expected_buffer_qmons)
         assert len(controller.qmonitors) == expected_len
 
-        # observer is opt-in and disabled by default
-        controller.napp_dir_listener.start.assert_not_called()
-
-    async def test_start_controller_observer_enabled(
-        self, controller, monkeypatch
-    ):
-        """The observer must be started when explicitly enabled."""
-        controller._buffers = KytosBuffers()
-        controller.loop = MagicMock()
-        monkeypatch.setattr(
-            "kytos.core.controller.KytosServer", MagicMock()
-        )
-        controller._pool = MagicMock()
-        controller.pre_install_napps = MagicMock()
-        controller.api_server = MagicMock()
-        controller.load_napps = MagicMock()
-        controller.napp_dir_listener = MagicMock()
-        controller.options.napps_pre_installed = []
-        controller.options.enable_napps_observer = True
-
-        await controller.start_controller()
-
-        controller.napp_dir_listener.start.assert_called()
-        assert controller.options.enable_napps_observer is True
-
-    async def test_start_controller_observer_start_error(
-        self, controller, monkeypatch
-    ):
-        """A failing observer must not crash the controller startup."""
-        controller._buffers = KytosBuffers()
-        controller.loop = MagicMock()
-        monkeypatch.setattr(
-            "kytos.core.controller.KytosServer", MagicMock()
-        )
-        controller._pool = MagicMock()
-        controller.pre_install_napps = MagicMock()
-        controller.api_server = MagicMock()
-        controller.load_napps = MagicMock()
-        controller.napp_dir_listener = MagicMock()
-        controller.napp_dir_listener.start.side_effect = OSError("boom")
-        controller.options.napps_pre_installed = []
-        controller.options.enable_napps_observer = True
-
-        await controller.start_controller()
-
-        controller.napp_dir_listener.start.assert_called()
-        controller.log.error.assert_called()
-        # the flag is reset so shutdown won't try to stop it
-        assert controller.options.enable_napps_observer is False
-
     async def test_stop_controller(self, controller):
         """Test stop_controller method."""
         controller.loop = MagicMock()
         api_server = MagicMock()
-        napp_dir_listener = MagicMock()
         controller.server = MagicMock()
         controller.unload_napps = MagicMock()
         controller._buffers = MagicMock()
         controller.api_server = api_server
-        controller.napp_dir_listener = napp_dir_listener
-        controller.options.enable_napps_observer = True
         controller.stop_queue_monitors = MagicMock()
         controller.apm = MagicMock()
 
@@ -1109,27 +1055,10 @@ class TestControllerAsync:
         controller.apm.close.assert_called()
         controller.buffers.send_stop_signal.assert_called()
         api_server.stop.assert_called()
-        napp_dir_listener.stop.assert_called()
         controller.unload_napps.assert_called()
         controller.server.shutdown.assert_called()
         controller.loop.stop.assert_called()
         controller.stop_queue_monitors.assert_called()
-
-    async def test_stop_controller_observer_disabled(self, controller):
-        """The observer must not be stopped when it is disabled."""
-        controller.loop = MagicMock()
-        napp_dir_listener = MagicMock()
-        controller.server = MagicMock()
-        controller.unload_napps = MagicMock()
-        controller._buffers = MagicMock()
-        controller.api_server = MagicMock()
-        controller.napp_dir_listener = napp_dir_listener
-        controller.options.enable_napps_observer = False
-        controller.stop_queue_monitors = MagicMock()
-        controller.apm = MagicMock()
-
-        controller.stop_controller()
-        napp_dir_listener.stop.assert_not_called()
 
     async def test_raw_event_handler(self, controller):
         """Test raw_event_handler async method by handling a shutdown event."""

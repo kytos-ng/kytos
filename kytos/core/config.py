@@ -84,13 +84,6 @@ class KytosConfig():
                             action='store_true',
                             help="Enable all new Entities by default.")
 
-        parser.add_argument(
-            "-N",
-            "--enable_napps_observer",
-            action="store_true",
-            help="Enable the NApps directory observer.",
-        )
-
         parser.add_argument('-C', '--create-superuser',
                             action='store_true',
                             help="Create a kytos superuser.")
@@ -169,7 +162,6 @@ class KytosConfig():
             'foreground': False,
             'protocol_name': '',
             'enable_entities_by_default': False,
-            'enable_napps_observer': False,
             'napps_pre_installed': [],
             'authenticate_urls': [],
             'token_expiration_minutes': 180,
@@ -271,9 +263,6 @@ class KytosConfig():
                                                token_expiration_minutes)
         result = options.enable_entities_by_default in ['True', True]
         options.enable_entities_by_default = result
-
-        observer_enabled = options.enable_napps_observer in ["True", True]
-        options.enable_napps_observer = observer_enabled
 
         def _parse_json(value):
             """Parse JSON lists and dicts from the config file."""

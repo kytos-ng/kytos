@@ -52,7 +52,6 @@ from kytos.core.link import Link
 from kytos.core.logs import LogManager
 from kytos.core.napps.base import NApp
 from kytos.core.napps.manager import NAppsManager
-from kytos.core.napps.napp_dir_listener import NAppDirListener
 from kytos.core.pacing import Pacer
 from kytos.core.queue_monitor import QueueMonitorWindow
 from kytos.core.switch import Switch
@@ -142,9 +141,6 @@ class Controller:
 
         #: logging.Logger: Logger instance used by Kytos.
         self.log = None
-
-        #: Observer that handle NApps when they are enabled or disabled.
-        self.napp_dir_listener = NAppDirListener(self)
 
         self.napps_manager = NAppsManager(self)
 
@@ -409,17 +405,6 @@ class Controller:
         self.log.info("Starting authorization.")
         self.start_auth()
         self.log.info("Loading Kytos NApps...")
-        if self.options.enable_napps_observer:
-            try:
-                self.napp_dir_listener.start()
-            except Exception as exc:
-                exc_fmt = traceback.format_exc(chain=True)
-                self.log.error(
-                    "Failed to start NAppDirListener, "
-                    "continuing without the NApps directory "
-                    f"observer. Error: {str(exc)} {exc_fmt}"
-                )
-                self.options.enable_napps_observer = False
         self.pre_install_napps(self.options.napps_pre_installed)
         self.load_napps()
         self.api_server.start_web_ui()
@@ -527,8 +512,6 @@ class Controller:
         self.log.info("Stopping Kytos")
 
         self.buffers.send_stop_signal()
-        if self.options.enable_napps_observer:
-            self.napp_dir_listener.stop()
 
         for pool_name in executors:
             self.log.info("Stopping threadpool: %s", pool_name)

@@ -64,12 +64,6 @@ napps_repositories = [
 # Use double quotes in each NApp in the list, e.g., ["username/napp"].
 napps_pre_installed = []
 
-# Enable the NApps directory observer, which auto-loads/unloads NApps when
-# their enabled-directory changes. Disabled by default; mainly useful for
-# development. Note: it uses inotify, whose instance limit can be exhausted
-# when running many Kytos instances on the same host.
-# enable_napps_observer = False
-
 # The jwt_secret parameter is responsible for signing JSON Web Tokens.
 jwt_secret = {{ jwt_secret }}
 

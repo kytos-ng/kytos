@@ -152,6 +152,7 @@ class TestNAppsManager:
         enabled = self.napps_manager.enable('kytos', 'napp')
 
         assert enabled
+        self.controller.load_napp.assert_called_with('kytos', 'napp')
 
     @patch('kytos.core.napps.manager.NewNAppManager')
     def test_disable(self, mock_new_napp_manager):

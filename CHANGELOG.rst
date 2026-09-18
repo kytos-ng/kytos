@@ -10,16 +10,19 @@ Fixed
 =====
 - Fixed links reordering its endpoints when created.
 - Fixed link detect_mismatched_link object comparison to be safer
-- ``kytosd`` no longer fails to start when the NApps directory observer cannot be started (e.g. when the system inotify instance limit is exhausted); the error is now logged and Kytos keeps running without it (#635).
 
 Changed
 =======
-- The NApps directory observer is now opt-in and disabled by default. It can be enabled via ``enable_napps_observer`` in ``kytos.conf`` or the ``-N``/``--enable_napps_observer`` command line option (#635).
+- Enabling a NApp now loads it directly (symmetric with disabling, which already unloads it), instead of relying on a filesystem observer (#635).
 - kytos.conf: event buffers queue sizes are now 5 to 10 times by default to provide better elasticity.
 - kytos.conf: event buffers and thread pools queue_monitor reduced its ``min_queue_full_percent`` to 90, so now it'll log high sustained utilization more reliably
 - Controller method ``get_switch_or_create`` now validates dpid uniqueness. If an existing dpid is connected and enabled, it'll raise ``KytoDuplicatedSwitch``, which ``of_core`` will handle accordingly and log as an error and not allow it to overwrite the existing switch. An existing not connected is still assumed to be the same reconnecting switch.
 - Enhanced core status API to export information and critical states for internal components, such as Kytos buffers queue size, thread pool size, core tasks status, etc.
 - Reduced DeadLetter ``max_len_per_event_name`` from 50k to 1k
+
+Removed
+=======
+- Removed the NApps directory observer (``NAppDirListener``) and the ``watchdog`` dependency. This feature auto-loaded/unloaded NApps on filesystem changes but was half-baked (its path regex did not handle custom NApp paths) and could exhaust the system inotify instance limit when running many Kytos instances on the same host (#635).
 
 [2025.2.0] - 2026-02-02
 ***********************

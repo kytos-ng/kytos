@@ -115,8 +115,9 @@ class NAppsManager:
         if deps and napp.meta:
             LOG.info('Enabling Meta-NApp %s dependencies: %s', napp, deps)
             for uri in deps:
-                username, napp_name = self.get_napp_fullname_from_uri(uri)
-                self.enable(username, napp_name)
+                dep_username, dep_napp_name = \
+                    self.get_napp_fullname_from_uri(uri)
+                self.enable(dep_username, dep_napp_name)
 
         if not installed.is_dir():
             LOG.error("Failed to enable NApp %s. NApp not installed.", napp_id)
@@ -126,6 +127,8 @@ class NAppsManager:
                 # Create symlink
                 enabled.symlink_to(installed)
                 LOG.info("NApp enabled: %s", napp_id)
+                if self._controller is not None:
+                    self._controller.load_napp(username, napp_name)
             except FileExistsError:
                 pass  # OK, NApp was already enabled
             except PermissionError:
