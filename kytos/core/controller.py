@@ -289,6 +289,8 @@ class Controller:
             await self.start_controller()
         except (KytosDBInitException, KytosAPMInitException) as exc:
             message = f"Kytos couldn't start because of {str(exc)}"
+            self.log.error(message)
+            LogManager.drain_and_stop(self.options.logmanager_drain_timeout)
             sys.exit(message)
         except Exception as exc:
             exc_fmt = traceback.format_exc(chain=True)
