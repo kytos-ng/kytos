@@ -305,7 +305,7 @@ class TestController:
     @patch('kytos.core.controller.atexit')
     def test_create_pidfile_running_process(self, *args):
         """Test create_pidfile when another process still owns the pidfile."""
-        (_, mock_getpid, mock_kill) = args
+        (mock_atexit, mock_getpid, mock_kill) = args
         mock_getpid.return_value = 5
         # os.kill(old_pid, 0) not raising means the process is still alive
         mock_kill.return_value = None
@@ -321,6 +321,7 @@ class TestController:
             assert f"PID file {tmp_file.name} exists" in str(exc.value)
             # the pidfile of the running instance must be left untouched
             assert tmp_file.read() == b'4194305'
+        mock_atexit.register.assert_not_called()
 
     @patch('os.getpid')
     @patch('kytos.core.controller.atexit')
@@ -337,24 +338,6 @@ class TestController:
                     self.controller.create_pidfile()
 
             assert f"Failed to create pidfile {pidfile}" in str(exc.value)
-
-    @patch('os.kill')
-    @patch('os.getpid')
-    @patch('kytos.core.controller.atexit')
-    def test_create_pidfile_running_process_keeps_pidfile(self, *args):
-        """Test the pidfile of a running instance is kept."""
-        (mock_atexit, mock_getpid, mock_kill) = args
-        mock_getpid.return_value = 5
-        mock_kill.return_value = None
-        with tempfile.NamedTemporaryFile() as tmp_file:
-            tmp_file.write(b'4194305')
-            tmp_file.seek(0)
-            self.controller.options.pidfile = tmp_file.name
-
-            with pytest.raises(SystemExit):
-                self.controller.create_pidfile()
-
-        mock_atexit.register.assert_not_called()
 
     @patch('os.getpid')
     @patch('kytos.core.controller.atexit')
