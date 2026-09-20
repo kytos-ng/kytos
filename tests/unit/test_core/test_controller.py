@@ -6,6 +6,7 @@ import tempfile
 import warnings
 from collections import Counter
 from copy import copy
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 
 import pytest
@@ -19,7 +20,8 @@ from kytos.core.common import EntityStatus
 from kytos.core.config import KytosConfig
 from kytos.core.events import KytosEvent
 from kytos.core.exceptions import (KytosDuplicatedSwitch,
-                                   KytosNAppSetupException)
+                                   KytosNAppSetupException,
+                                   KytosPIDInitException)
 from kytos.core.interface import Interface
 from kytos.core.link import Link
 from kytos.core.logs import LogManager
@@ -234,6 +236,28 @@ class TestController:
         assert self.controller.apm is not None
 
     @patch('kytos.core.controller.sys.exit')
+    @patch('kytos.core.controller.init_apm')
+    @patch('kytos.core.controller.db_conn_wait')
+    @patch('kytos.core.controller.Controller.start_controller')
+    @patch('kytos.core.controller.Controller.create_pidfile')
+    @patch('kytos.core.controller.Controller.enable_logs')
+    async def test_start_error_pid_init_exception(self, *args):
+        """Test start error handling KytosPIDInitException."""
+        (mock_enable_logs, mock_create_pidfile,
+         mock_start_controller, _, _, mock_sys_exit) = args
+        mock_create_pidfile.side_effect = KytosPIDInitException("pidfile err")
+        await self.controller.start()
+
+        mock_enable_logs.assert_called()
+        mock_create_pidfile.assert_called()
+        mock_start_controller.assert_not_called()
+
+        expected_msg = ("Kytos couldn't start because of "
+                        "KytosPIDInitException: pidfile err")
+        self.controller.log.error.assert_called_with(expected_msg)
+        mock_sys_exit.assert_called_with(expected_msg)
+
+    @patch('kytos.core.controller.sys.exit')
     @patch('kytos.core.controller.Controller.create_pidfile')
     @patch('kytos.core.controller.Controller.enable_logs')
     async def test_start_with_invalid_database_backend(self, *args):
@@ -247,7 +271,7 @@ class TestController:
     @patch('os.getpid')
     @patch('kytos.core.controller.atexit')
     def test_create_pidfile(self, *args):
-        """Test activate method."""
+        """Test create_pidfile overwriting a stale pidfile."""
         (_, mock_getpid) = args
         mock_getpid.return_value = 2
         with tempfile.NamedTemporaryFile() as tmp_file:
@@ -259,6 +283,60 @@ class TestController:
 
             pid = tmp_file.read()
             assert pid == b'2'
+
+    @patch('os.getpid')
+    @patch('kytos.core.controller.atexit')
+    def test_create_pidfile_new_file(self, *args):
+        """Test create_pidfile when neither the folder nor the file exist."""
+        (_, mock_getpid) = args
+        mock_getpid.return_value = 3
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pid_folder = Path(tmp_dir) / "kytos"
+            pidfile = pid_folder / "kytosd.pid"
+            self.controller.options.pidfile = str(pidfile)
+
+            self.controller.create_pidfile()
+
+            assert pid_folder.is_dir()
+            assert pidfile.read_text(encoding="utf8") == "3"
+
+    @patch('os.kill')
+    @patch('os.getpid')
+    @patch('kytos.core.controller.atexit')
+    def test_create_pidfile_running_process(self, *args):
+        """Test create_pidfile when another process still owns the pidfile."""
+        (_, mock_getpid, mock_kill) = args
+        mock_getpid.return_value = 5
+        # os.kill(old_pid, 0) not raising means the process is still alive
+        mock_kill.return_value = None
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            tmp_file.write(b'4194305')
+            tmp_file.seek(0)
+            self.controller.options.pidfile = tmp_file.name
+
+            with pytest.raises(KytosPIDInitException) as exc:
+                self.controller.create_pidfile()
+
+            mock_kill.assert_called_with(4194305, 0)
+            assert f"PID file {tmp_file.name} exists" in str(exc.value)
+            # the pidfile of the running instance must be left untouched
+            assert tmp_file.read() == b'4194305'
+
+    @patch('os.getpid')
+    @patch('kytos.core.controller.atexit')
+    def test_create_pidfile_write_error(self, *args):
+        """Test create_pidfile when the pidfile can't be written."""
+        (_, mock_getpid) = args
+        mock_getpid.return_value = 6
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pidfile = str(Path(tmp_dir) / "kytosd.pid")
+            self.controller.options.pidfile = pidfile
+
+            with patch("builtins.open", side_effect=OSError("denied")):
+                with pytest.raises(KytosPIDInitException) as exc:
+                    self.controller.create_pidfile()
+
+            assert f"Failed to create pidfile {pidfile}" in str(exc.value)
 
     @patch('kytos.core.controller.Controller.__init__')
     @patch('kytos.core.controller.Controller.start')

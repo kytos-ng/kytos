@@ -6,6 +6,7 @@ import pytest
 from kytos.core.exceptions import (KytosCoreException, KytosEventException,
                                    KytosNAppException,
                                    KytosNoTagAvailableError,
+                                   KytosPIDInitException,
                                    KytosSwitchOfflineException)
 
 
@@ -58,3 +59,11 @@ class TestExceptions:
 
         expected_msg = 'KytosNApp exception'
         assert exc.match(expected_msg)
+
+    def test_kytos_pid_init_exception(self):
+        """Test KytosPIDInitException exception."""
+        with pytest.raises(Exception) as exc:
+            raise KytosPIDInitException('some pid msg')
+
+        assert exc.value.message == 'some pid msg'
+        assert str(exc.value) == 'KytosPIDInitException: some pid msg'
