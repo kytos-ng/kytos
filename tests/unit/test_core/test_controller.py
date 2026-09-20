@@ -338,6 +338,56 @@ class TestController:
 
             assert f"Failed to create pidfile {pidfile}" in str(exc.value)
 
+    @patch('os.kill')
+    @patch('os.getpid')
+    @patch('kytos.core.controller.atexit')
+    def test_create_pidfile_running_process_keeps_pidfile(self, *args):
+        """Test the pidfile of a running instance is kept."""
+        (mock_atexit, mock_getpid, mock_kill) = args
+        mock_getpid.return_value = 5
+        mock_kill.return_value = None
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            tmp_file.write(b'4194305')
+            tmp_file.seek(0)
+            self.controller.options.pidfile = tmp_file.name
+
+            with pytest.raises(SystemExit):
+                self.controller.create_pidfile()
+
+        mock_atexit.register.assert_not_called()
+
+    @patch('os.getpid')
+    @patch('kytos.core.controller.atexit')
+    def test_create_pidfile_cleanup_registered(self, *args):
+        """Test the pidfile is scheduled for deletion once owned."""
+        (mock_atexit, mock_getpid) = args
+        mock_getpid.return_value = 6
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pidfile = Path(tmp_dir) / "kytosd.pid"
+            self.controller.options.pidfile = str(pidfile)
+
+            self.controller.create_pidfile()
+
+            assert pidfile.read_text(encoding="utf8") == "6"
+        mock_atexit.register.assert_called_once()
+        assert mock_atexit.register.call_args[1] == {"missing_ok": True}
+
+    @patch('os.getpid')
+    @patch('kytos.core.controller.atexit')
+    def test_create_pidfile_missing_folder(self, *args):
+        """Test create_pidfile creating a missing pidfile folder."""
+        (_, mock_getpid) = args
+        mock_getpid.return_value = 7
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pid_folder = Path(tmp_dir) / "var" / "run" / "kytos"
+            pidfile = pid_folder / "kytosd.pid"
+            self.controller.options.pidfile = str(pidfile)
+
+            self.controller.create_pidfile()
+
+            assert pid_folder.is_dir()
+            assert pidfile.read_text(encoding="utf8") == "7"
+
     @patch('kytos.core.controller.Controller.__init__')
     @patch('kytos.core.controller.Controller.start')
     @patch('kytos.core.controller.Controller.stop')

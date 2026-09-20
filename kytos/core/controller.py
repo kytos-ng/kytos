@@ -337,12 +337,9 @@ class Controller:
         # https://github.com/PyCQA/pylint/issues/224
         # pylint: disable=no-member
         if not pid_folder.exists():
-            pid_folder.mkdir()
+            pid_folder.mkdir(parents=True, exist_ok=True)
             pid_folder.chmod(0o1777)
         # pylint: enable=no-member
-
-        # Make sure the file is deleted when controller stops
-        atexit.register(Path(self.options.pidfile).unlink)
 
         # Checks if a pidfile exists. Creates a new file.
         try:
@@ -372,6 +369,9 @@ class Controller:
                     error_msg = error_msg.format(self.options.pidfile,
                                                  exception)
                     raise KytosPIDInitException(error_msg)
+
+        # Make sure the file is deleted when controller stops
+        atexit.register(Path(self.options.pidfile).unlink, missing_ok=True)
 
         # Identifies the process that created the pidfile.
         pidfile.write(str(pid))
