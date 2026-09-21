@@ -1,9 +1,9 @@
 """Test kytos.core.kytosd module."""
 import signal
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 from kytos.core.kytosd import (_create_pid_dir, async_main, main, start_shell,
-                               stop_controller_sys_exit)
+                               stop_controller, stop_controller_sys_exit)
 
 
 class TestKytosd:
@@ -91,12 +91,44 @@ class TestKytosd:
 
         event_loop.run_until_complete.assert_called_with(controller.start())
 
-    @patch("builtins.open", create=True)
     @patch('kytos.core.kytosd.os')
-    def test_stop_controller_sys_exit(self, mock_os, _mock_open) -> None:
-        """Test stop the controller sys exit."""
+    def test_stop_controller_sys_exit(self, mock_os) -> None:
+        """Test stop the controller sys exit self signals SIGTERM."""
         controller, config = MagicMock(), MagicMock()
-        stop_controller_sys_exit(controller, config)
+        mock_os.getpid.return_value = 123
+        with patch("builtins.open", mock_open(read_data="123")):
+            stop_controller_sys_exit(controller, config)
         controller.stop.assert_called()
         mock_os.kill.assert_called()
+        assert mock_os.kill.call_args[0][0] == 123
         assert mock_os.kill.call_args[0][1] == signal.SIGTERM
+
+    @patch('kytos.core.kytosd.os')
+    def test_stop_controller_sys_exit_other_instance(self, mock_os) -> None:
+        """Test the pid of another running instance is never signaled."""
+        controller, config = MagicMock(), MagicMock()
+        mock_os.getpid.return_value = 123
+        with patch("builtins.open", mock_open(read_data="456")):
+            stop_controller_sys_exit(controller, config)
+        controller.stop.assert_called()
+        mock_os.kill.assert_not_called()
+
+    @patch('kytos.core.kytosd.os')
+    def test_stop_controller_sys_exit_bad_pidfile(self, mock_os) -> None:
+        """Test a pidfile that can't be parsed is tolerated."""
+        controller, config = MagicMock(), MagicMock()
+        mock_os.getpid.return_value = 123
+        with patch("builtins.open", mock_open(read_data="")):
+            stop_controller_sys_exit(controller, config)
+        controller.stop.assert_called()
+        mock_os.kill.assert_not_called()
+
+    def test_stop_controller_no_running_loop(self) -> None:
+        """Test stop_controller when the loop is already closed."""
+        controller = MagicMock()
+        shell_task = MagicMock()
+
+        stop_controller(controller, shell_task)
+
+        controller.stop.assert_called()
+        shell_task.cancel.assert_called()

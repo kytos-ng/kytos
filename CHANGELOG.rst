@@ -8,6 +8,8 @@ UNRELEASED - Under development
 
 Fixed
 =====
+- Fixed ``kytosd`` shutting down an already running instance. Starting a second ``kytosd`` correctly aborted on the existing pidfile, but still sent ``SIGTERM`` to the PID read from that pidfile and deleted the file when exiting, terminating the running controller. ``SIGTERM`` is now only sent to the process' own PID, and the pidfile removal is only registered once the process owns the file.
+- Fixed pidfile directory creation failures and log issues
 - Fixed links reordering its endpoints when created.
 - Fixed link detect_mismatched_link object comparison to be safer
 - Startup errors (e.g. a NApp failing to load) are now written to the logging system before ``kytosd`` exits, instead of only appearing on stdout, making failures traceable when running in the background (#611).

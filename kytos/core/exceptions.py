@@ -198,3 +198,15 @@ class KytosAPMInitException(Exception):
     def __str__(self):
         _class = f" {self._class.__class__.__name__}" if self._class else ""
         return f"KytosAPMInitException{_class}: {self.message}"
+
+
+class KytosPIDInitException(Exception):
+    """Exception raised on PID init issues."""
+
+    def __init__(self, message: str) -> None:
+        """KytosPIDInitException."""
+        super().__init__()
+        self.message = message
+
+    def __str__(self):
+        return f"KytosPIDInitException: {self.message}"

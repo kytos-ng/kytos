@@ -103,7 +103,10 @@ def main():
 
 def stop_controller(controller, shell_task=None):
     """Stop the controller before quitting."""
-    loop = asyncio.get_running_loop()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
 
     if loop:
         # If stop() hangs, old ctrl+c behaviour will be restored
@@ -129,8 +132,9 @@ def stop_controller_sys_exit(controller, config, shell_task=None):
     try:
         with open(config.pidfile, "r", encoding="utf8") as file:
             pid = int(file.read().strip())
+        if pid == os.getpid():
             os.kill(pid, signal.SIGTERM)
-    except (FileNotFoundError, OSError):
+    except (OSError, ValueError):
         pass
 
 
