@@ -176,6 +176,7 @@ class Controller:
                                          self.detect_mismatched_link)
         Link.register_status_func("controller_mismatched_status",
                                   self.link_status_mismatched)
+        self.api_task = None
 
     def start_auth(self):
         """Initialize Auth() and its services"""
@@ -404,8 +405,7 @@ class Controller:
                                   self.options.protocol_name)
 
         self.log.info("Starting API server")
-        task = self.loop.create_task(self.api_server.serve())
-        self._tasks.append(task)
+        self.api_task = self.loop.create_task(self.api_server.serve())
         await self._wait_api_server_started()
 
         self.log.info(f"Starting TCP server: {self.server}")
@@ -499,7 +499,7 @@ class Controller:
 
         self.start(restart=True)
 
-    def stop(self, graceful=True):
+    async def stop(self, graceful=True):
         """Shutdown all services used by kytos.
 
         This method should:
@@ -508,9 +508,9 @@ class Controller:
             - stop the Controller
         """
         if self.started_at:
-            self.stop_controller(graceful)
+            await self.stop_controller(graceful)
 
-    def stop_controller(self, graceful=True):
+    async def stop_controller(self, graceful=True):
         """Stop the controller.
 
         This method should:
@@ -540,7 +540,7 @@ class Controller:
         # self.server.socket.close()
 
         self.started_at = None
-        napps = self.unload_napps()
+        napps = await self.unload_napps()
         self.log.info(
             f"Waiting for {len(napps)} NApps shutdown confirmation..."
         )
@@ -549,9 +549,16 @@ class Controller:
             napp.__dict__['_KytosNApp__event'].wait()
             self.log.info(f"{napp} was shutdown")
 
+        self.log.info("Stopping API Server...")
+        self.api_server.stop()
+        if self.api_task:
+            await self.api_task
+        self.log.info("Stopped API Server")
+
         # Cancel all async tasks (event handlers and servers)
         for task in self._tasks:
             task.cancel()
+            await task
 
         # ASYNC TODO: close connections
         # self.server.server_close()
@@ -561,9 +568,6 @@ class Controller:
             self.log.info("Stopping APM server...")
             self.apm.close()
             self.log.info("Stopped APM Server")
-        self.log.info("Stopping API Server...")
-        self.api_server.stop()
-        self.log.info("Stopped API Server")
         self.log.info("Stopping TCP Server...")
         self.server.shutdown()
         self.log.info("Stopped TCP Server")
@@ -631,24 +635,28 @@ class Controller:
         """Default event handler that gets from an event buffer."""
         event_buffer = getattr(self.buffers, buffer_name)
         self.log.info(f"Event handler {buffer_name} started")
-        while True:
-            try:
-                # After hitting issues with a large amount of flows being
-                # installed (16k which sends 32k events), this task was
-                # hogging resources in the MainThread causing disconnections
-                # and socket exceptions. With the following sleep, this task
-                # yields to other loops mitigating the disconnection issues.
-                # Now the cap for flow installation at the same time is 50k.
-                await asyncio.sleep(0)
-                event = await event_buffer.aget()
-                self.notify_listeners(event)
+        try:
+            while True:
+                try:
+                    # After hitting issues with a large amount of flows being
+                    # installed (16k which sends 32k events), this task was
+                    # hogging resources in the MainThread causing
+                    # disconnections and socket exceptions. With the following
+                    # sleep, this task yields to other loops mitigating the
+                    # disconnection issues. Now the cap for flow installation
+                    # at the same time is 50k.
+                    await asyncio.sleep(0)
+                    event = await event_buffer.aget()
+                    self.notify_listeners(event)
 
-                if event.name == "kytos/core.shutdown":
-                    self.log.debug(f"Event handler {buffer_name} stopped")
-                    break
-            except Exception as exc:
-                self.log.exception(f"Unhandled exception on {buffer_name}",
-                                   exc_info=exc)
+                    if event.name == "kytos/core.shutdown":
+                        self.log.debug(f"Event handler {buffer_name} stopped")
+                        break
+                except Exception as exc:
+                    self.log.exception(f"Unhandled exception on {buffer_name}",
+                                       exc_info=exc)
+        except asyncio.CancelledError:
+            self.log.debug(f"Event handler {buffer_name} cancelled.")
 
     async def publish_connection_error(self, event):
         """Publish connection error event.
@@ -962,7 +970,7 @@ class Controller:
                 msg = f"NApp {napp.id} exception {str(exception)}"
                 raise KytosNAppSetupException(msg) from exception
 
-    def unload_napp(self, username, napp_name):
+    async def unload_napp(self, username, napp_name):
         """Unload a specific NApp.
 
         Args:
@@ -979,7 +987,7 @@ class Controller:
             event = KytosEvent(name='kytos/core.shutdown.' + napp_id)
             napp_shutdown_fn = self.events_listeners[event.name][0]
             # Call listener before removing it from events_listeners
-            napp_shutdown_fn(event)
+            await napp_shutdown_fn(event)
 
             # Remove rest endpoints from that napp
             self.api_server.remove_napp_endpoints(napp)
@@ -996,7 +1004,7 @@ class Controller:
 
         return napp
 
-    def unload_napps(self):
+    async def unload_napps(self):
         """Unload all loaded NApps that are not core NApps
 
         NApps are unloaded in the reverse order that they are enabled to
@@ -1004,7 +1012,7 @@ class Controller:
         """
         napps = []
         for napp in reversed(self.napps_manager.get_enabled_napps()):
-            if napp := self.unload_napp(napp.username, napp.name):
+            if napp := await self.unload_napp(napp.username, napp.name):
                 napps.append(napp)
         return napps
 
