@@ -21,7 +21,7 @@ Motivation
 ==========
 
 - As Kytos grows and the number of external applications consuming data from Kytos APIs increases, maintaining a high-performance system becomes critical. Relying on constant API requests and synchronous data retrieval can overwhelm the application, causing performance degradation and unnecessary operational load. A dedicated Kafka topic manager lets external applications consume only the events they need, reducing the pressure on Kytos while preserving real-time access to network state.
-- In a large deployment, a single shared Kafka stream becomes noisy and expensive. By allowing configurable topic filters and per-topic filters, operators can isolate the events relevant to each consumer, improve throughput, and avoid sending unnecessary data to broker consumers that do not need it.
+- In a large deployment, a single shared Kafka stream becomes noisy and expensive. By allowing configurable per topic filters, operators can isolate the events relevant to each consumer, improve throughput, and avoid sending unnecessary data to broker consumers that do not need it.
 - Event ordering and loss detection are essential for both production monitoring and debugging. By assigning a counter to each matched event before publishing, consumers can detect missing messages, identify out-of-order delivery, and reason about event continuity even when the broker is busy or temporarily unavailable.
 - Kafka reliability and performance require careful tuning. The configuration of request timeouts, retries, partition counts, and retention-related behavior must be aligned with Kytos workload so that Kafka traffic does not interfere with Kytos CPU usage or event processing.
 - Operational resilience is also important. When Kafka is temporarily unavailable, the system should buffer or prioritize events without losing data permanently, and operators should be able to monitor event volume, event size, and topic usage to validate that the pipeline remains healthy.
@@ -33,15 +33,15 @@ Requirements
 ============
 
 1. Enable the following API endpoints for topic management:
-    - ``GET /v1/filters`` to retrieve the list of topics and their filters.
-    - ``POST /v1/filters`` to add topics and filters to the Kafka broker. It will be verified that the topic name is unique and that the filters are string values.
-    - ``DELETE /v1/filters/{topic}`` to delete a specific topic.
-    - ``PATCH /v1/filters/{topic}`` to add more filters to a specific topic.
-    - ``PUT /v1/filters/{topic}`` to replace the list of filters for a specific topic.
+    - ``GET /v1/topics`` to retrieve the list of topics and their filters.
+    - ``POST /v1/topics`` to add topics and filters to the Kafka broker. It will be verified that the topic name is unique and that the filters are string values.
+    - ``DELETE /v1/topics/{topic}`` to delete a specific topic.
+    - ``POST /v1/topics/{topic}`` to add more filters to a specific topic.
+    - ``PUT /v1/topics/{topic}`` to replace the list of filters for a specific topic.
 2. To save the configuration of topics, a new document in the DB will be created. It will be called ``kafka_topics``.
 3. The producer must assign a monotonic counter to each matched event before serialization and publication. This counter acts as the event sequence number (SeqNum), allowing consumers to detect missing or out-of-order messages and reconstruct event continuity when needed.
-4. When the Kafka cluster is unavailable or there are not enough in-sync replicas to publish safely, the producer must buffer pending events locally in a bounded queue in CPU memory. The events should be replayed in the order they were received once the broker connection is restored, and the implementation must enforce an upper buffer limit so that event loss can still occur only after the configured threshold is reached.
-5. The Kafka broker configuration must be adjusted for the producer workload, including timeout and retry values such as ``request_timeout_ms``(``KAFKA_TIMELIMIT``), and ``retry_backoff_ms``.
+4. When the Kafka cluster is unavailable or there are not enough in-sync replicas to publish safely, the producer must buffer pending events locally in a bounded queue in disk storage. The events should be replayed in the order they were received once the broker connection is restored, and the implementation must enforce an upper buffer limit and enforce an upper buffer limit to prevent uncontrolled file growth.
+5. The Kafka broker configuration must be adjusted for the producer workload, including timeout and retry values such as ``request_timeout_ms`` (``KAFKA_TIMELIMIT``) and ``retry_backoff_ms``, which will ship with reasonable default values.
 6. The producer must also be evaluated for partition sizing and batching behavior so the publication flow can be tuned based on the expected event volume and latency requirements. Partition size is not considered configurable at this stage, but the performance impact of this setting must be investigated before a final decision is made.
 7. CPU usage must be considered when deciding whether Kafka publishing should be throttled or optimized to avoid negatively affecting Kytos performance.
 8. The producer should expose a minimal management interface for listing, deleting, and updating topics, while keeping the UI lightweight and focused on topic visibility and operational control. The UI will expose the relevant endpoints so topics can be configured dynamically and the per-event counter, used as the event sequence number, can be displayed to operators.
@@ -50,8 +50,8 @@ Requirements
 Specification
 =============
 
-I. Topic configuration model
-----------------------------
+I. Topic configuration design
+-----------------------------
 
 Each topic will have the following configuration fields:
 
@@ -67,6 +67,16 @@ Each topic will have the following configuration fields:
 - The key of the JSON object will be the name of the topic
 - The value of the object is the list of allowed filters to be matched with the incoming events.
 - The blocklist will be managed in ``settings.py`` by modifying ``BLOCKED_PATTERNS`` value. The blocklist can also be modified at run time by adding more filters to ``controller.napps[('kytos', 'kafka_events')]._blocked`` from kytos terminal (proceed with caution since it is a list of ``re.Pattern`` objects rather than ``str`` values).
+
+Endpoint further explanation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- When a topics is being created via the ``POST /v1/topics`` endpoint, the application will validate the topic name for uniqueness and ensure that the provided filters are string values. If the validation passes, the new topic will be added to the database and the in-memory representation of allowed filters will be updated accordingly. This endpoint is not idempotent and will throw an error when duplicates are being created.
+- When a topic is being deleted via the ``DELETE /v1/topics/{topic}`` endpoint, the application will remove the topic from the database and update the in-memory representation of allowed filters accordingly. This endpoint is not idempotent and will throw an error when a topic is not found. 
+- ``DELETE /v1/topics/{topic}`` can't remove the default topic currently named ``event_logs``.
+- ``POST /v1/topics/{topic}`` will allow duplicate filters from the request body and with the existing filters in memory/database. The back-end algorithm will remove any result duplicates. Thus this endpoint is idempotent and will not throw an error when duplicates are being added.
+- To replace entire list of filters ``PUT /v1/topics/{topic}`` can be used. No errors will be thrown when the topic exists, therefore this endpoint is idempotent.
+- Every endpoint will accept duplicated filters in the request body and the back-end implementation will be responsible to remove them.
+
 
 II. Database document naming
 ----------------------------
@@ -84,11 +94,15 @@ The database document will have the following structure:
                 "filters": [
                     "kytos/flow_manager.flow.added", 
                     "kytos.flow_manager.flows.single.install"
-                ]
+                ],
+                "updated_at": "2024-06-05T12:00:00Z",
+                "inserted_at": "2024-06-05T10:00:00Z",
             },
             {
                 "_id": "tags",
-                "filters": [ "kytos/core.interface_tags"]
+                "filters": [ "kytos/core.interface_tags"],
+                "updated_at": "2024-06-05T12:00:03Z",
+                "inserted_at": "2024-06-05T09:00:04Z",
             }
         ]
 
@@ -210,7 +224,7 @@ This section describes the runtime workflow of the Kafka producer and how topic-
 
 - Submit the serialized event to Kafka for asynchronous publication.
 - If the broker is reachable, publish the event normally.
-- If the broker is unavailable, store the event in a bounded in-memory queue in CPU memory.
+- If the broker is unavailable, store the event in a bounded in-memory queue so then is saved in physical storage.
 - Drain the queue when the broker is restored.
 
 5. Shutdown and recovery
@@ -219,7 +233,7 @@ This section describes the runtime workflow of the Kafka producer and how topic-
 - Flush any remaining queued data when the broker is available.
 - Close the Kafka connection cleanly.
 
-In summary, the workflow is: receive events, filter them by topic, serialize them with a counter, publish them to Kafka, and buffer them in CPU memory when the broker is unavailable.
+In summary, the workflow is: receive events, filter them by topic, serialize them with a counter, publish them to Kafka, and buffer them in physical storage when the broker is unavailable.
 
 VI. Tests done with Kafka
 -------------------------
@@ -252,7 +266,7 @@ EVCs created:
 - 2 flows for UNIs
 
 Settings for kafka:
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 - ``LINGER_MS``: 50 ms
 - ``BATCH_SIZE``: 64 kB
 - ``REQUEST_SIZE``: 5 MB
@@ -295,8 +309,8 @@ Relying solely on retries under burst load causes buffer saturation. To prevent 
 * **Bounded Application Backpressure:**
   Rather than submitting unbound async tasks during bursts, the NApp producer loop should use a bounded queue or semaphore (e.g., ``asyncio.Queue`` or ``asyncio.Semaphore``) to match event insertion rates with network delivery speeds.
 
-CPU Usage and Performance Considerations
-=========================================
+VIII. CPU Usage and Performance Considerations
+-----------------------------------------------
 
 The performance and CPU impact of introducing ``kafka_events`` to Kytos were evaluated by comparing three execution baselines under consistent workload conditions:
 
@@ -307,7 +321,7 @@ The performance and CPU impact of introducing ``kafka_events`` to Kytos were eva
 Test Workload Context
 ---------------------
 
-To evaluate these baselines, an EVC was installed every second and through 1 thread:
+To evaluate these baselines, an EVC was installed every second and through 1 thread 400 EVCs in total:
 - Each EVC had 20 flows to publish.
 - A single topic with 4 partitions.
 
@@ -873,8 +887,22 @@ This test was done to check if any event is generated when Kytos has no EVCs and
      - **16470**
      - 884
 
+XII. Blocked patterns configuration
+-----------------------------------
+There are events that are not necessary to be saved or processed and can be safely discarded. The current list is as follows:
 
-XII. Implementation details ``v1``
+    -"kytos/of_core.v0x04.messages.*",
+    -"kytos/flow_manager.messages.out.*",
+    -"kytos/of_lldp.messages.out.*",
+    -"kytos/core.openflow.raw.*",
+
+But more events can be added to this list:
+
+    -"kytos/topology.updated": Use when any topology component receives an update.
+    -"kytos/mef_eline.evcs_loaded": Sent when kytos starts, the EVCs are loaded from the database.
+    -"kytos/of_lldp.interface.is.nni": Sent a link is detected to be an NNI.
+
+XIII. Implementation details ``v1``
 -----------------------------------
 
 The scope of version 1 (``v1``) for the Kafka events NApp is focused strictly on core delivery, reliability, and management foundations. The following components are implemented in ``v1``:
@@ -884,4 +912,13 @@ The scope of version 1 (``v1``) for the Kafka events NApp is focused strictly on
 * **Database Integration**: Implements the necessary database structures to support state management and tracking within the NApp.
 * **Retries & Resilience**: Configures robust error handling and retry behaviors (leveraging client parameters like ``request_timeout_ms`` and ``retry_backoff_ms``) to manage transient broker issues.
 
-All other advanced features, secondary integrations, or expanded capabilities are deferred to subsequent versions and remain out of scope for ``v1``.
+
+XIV. Future Work
+-----------------
+
+The following capabilities are deferred to subsequent versions and remain out of scope for ``v1``:
+
+* **File-Based Fallback:** Saves pending events to a local file when no Kafka brokers are available, then replays the events after the broker connection is restored.
+* **Semaphore Configuration Testing:** Tests semaphore sizes and establishes practical limits for controlling event traffic without overloading the ``asyncio`` event loop or increasing event loss.
+* **User Interface:** Implements the UI for topic management, event counters, and operational visibility.
+* **Graceful shutdown:** This feature has a dependency on Kytos core shutdown mechanisms to ensure that all pending events are properly handled and that the NApp exits cleanly.
