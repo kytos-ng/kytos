@@ -1,0 +1,927 @@
+:EP: 42
+:Title: Kafka improvements
+:Authors:
+    - Aldo Ortega <aortegay AT fiu DOT edu>
+:Created: 2026-06-23
+:Kytos-Version: 2026.1
+:Status: In progress
+
+***************************************
+EP042 - Topic manager for Kafka events
+***************************************
+
+Abstract
+========
+
+This blueprint, EP 042, proposes a topic manager for Kafka events that allows Kytos to expose only the network events that each consumer needs while reducing the need for repeated API polling and log inspection. Without this structured event stream, external applications must repeatedly interact with Kytos APIs and parse logs to understand the network state, which adds delay, increases load on Kytos, and makes real-time integration harder to maintain. By adding configurable topic-to-pattern mappings, event timestamps, broker tuning guidance, and safeguards for Kafka outages, this design keeps Kafka traffic isolated from Kytos core processing while improving observability, reliability, and operational flexibility.
+
+The proposal emphasizes allow-list topic management, timestamp-based event tracking, and operational safeguards such as retry and timeout tuning, partition sizing, and a bounded in-memory queue when the broker is unavailable. It also refines blocked filters to limit noisy event streams, persists topic configuration in the database, and defines a lightweight interface for topic management and recent-event visibility. Performance tests indicate that serialization and Kafka publishing add only minimal CPU load under the evaluated EVC workload, supporting a scalable, fault-tolerant, and testable Kafka integration for real-time monitoring and downstream applications.
+
+Motivation
+==========
+
+- As Kytos grows and the number of external applications consuming data from Kytos APIs increases, maintaining a high-performance system becomes critical. Relying on constant API requests and synchronous data retrieval can overwhelm the application, causing performance degradation and unnecessary operational load. A dedicated Kafka topic manager lets external applications consume only the events they need, reducing the pressure on Kytos while preserving real-time access to network state.
+- In a large deployment, a single shared Kafka stream becomes noisy and expensive. By allowing configurable per topic filters, operators can isolate the events relevant to each consumer, improve throughput, and avoid sending unnecessary data to broker consumers that do not need it.
+- Event ordering and loss detection are essential for both production monitoring and debugging. By extracting the timestamp from each matched event before publishing, consumers can identify out-of-order delivery, and reason about event continuity even when the broker is busy or temporarily unavailable.
+- Kafka reliability and performance require careful tuning. The configuration of request timeouts, retries, partition counts, and retention-related behavior must be aligned with Kytos workload so that Kafka traffic does not interfere with Kytos CPU usage or event processing.
+- Operational resilience is also important. When Kafka is temporarily unavailable, the system should buffer or prioritize events without losing data permanently, and operators should be able to monitor event volume, event size, and topic usage to validate that the pipeline remains healthy.
+- Finally, configurable allow lists by topic name provide a clear operational benefit: operators can direct only the relevant events to each consumer, separating test traffic from production streams and making end-to-end debugging more deterministic. The topic-based model also makes it easier to inspect and adjust allowed filters without affecting unrelated data.
+- The block list also needs refinement because not every message currently allowed is necessary for downstream consumers. Reducing unnecessary traffic helps keep Kafka usage focused, lowers CPU and bandwidth overhead, and preserves the value of the allow-list-based topic design.
+
+
+Requirements
+============
+
+1. Enable the following API endpoints for topic management:
+    - ``GET /v1/topics`` to retrieve the list of topics and their filters.
+    - ``POST /v1/topics`` to add topics and filters to the Kafka broker. It will be verified that the topic name is unique and that the filters are string values.
+    - ``DELETE /v1/topics/{topic}`` to delete a specific topic.
+    - ``POST /v1/topics/{topic}`` to add more filters to a specific topic.
+    - ``PUT /v1/topics/{topic}`` to replace the list of filters for a specific topic.
+2. To save the configuration of topics, a new document in the DB will be created. It will be called ``kafka_topics``.
+4. When the Kafka cluster is unavailable or there are not enough in-sync replicas to publish safely, the producer must buffer pending events in a bounded in-memory queue. The queue must be limited to 0.5 GB or 30 seconds of buffered events, whichever limit is reached first, to prevent unbounded growth. Events should be replayed in the order they were received once the broker connection is restored.
+5. The Kafka broker configuration must be adjusted for the producer workload, including timeout and retry values such as ``request_timeout_ms`` (``KAFKA_TIMELIMIT``) and ``retry_backoff_ms``, which will ship with reasonable default values.
+6. The producer must also be evaluated for partition sizing and batching behavior so the publication flow can be tuned based on the expected event volume and latency requirements. Partition size is not considered configurable at this stage, but the performance impact of this setting must be investigated before a final decision is made.
+7. CPU usage must be considered when deciding whether Kafka publishing should be throttled or optimized to avoid negatively affecting Kytos performance.
+8. The producer should expose a minimal management interface for listing, deleting, and updating topics, while keeping the UI lightweight and focused on topic visibility and operational control. The UI will expose the relevant endpoints so topics can be configured dynamically and the last 5 events with their timestamp.
+9. The internal block list must be refined so that Kafka is not overwhelmed by noisy or unnecessary messages that are not relevant to downstream consumers. This keeps the allow-list design effective and reduces CPU, bandwidth, and storage overhead.
+
+Specification
+=============
+
+I. Topic configuration design
+-----------------------------
+
+Each topic will have the following configuration fields:
+
+    .. code:: json
+
+        {
+            "flows": [
+                "kytos/flow_manager.flow.added",
+                "kytos.flow_manager.flows.single.install"
+            ]
+        }
+
+- The key of the JSON object will be the name of the topic
+- The value of the object is the list of allowed filters to be matched with the incoming events.
+- The blocklist will be managed in ``settings.py`` by modifying ``BLOCKED_PATTERNS`` value. The blocklist can also be modified at run time by adding more filters to ``controller.napps[('kytos', 'kafka_events')]._blocked`` from kytos terminal (proceed with caution since it is a list of ``re.Pattern`` objects rather than ``str`` values).
+
+Endpoint further explanation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- When a topics is being created via the ``POST /v1/topics`` endpoint, the application will validate the topic name for uniqueness and ensure that the provided filters are string values. If the validation passes, the new topic will be added to the database and the in-memory representation of allowed filters will be updated accordingly. This endpoint is not idempotent and will throw an error when duplicates are being created.
+- When a topic is being deleted via the ``DELETE /v1/topics/{topic}`` endpoint, the application will remove the topic from the database and update the in-memory representation of allowed filters accordingly. This endpoint is not idempotent and will throw an error when a topic is not found. 
+- ``DELETE /v1/topics/{topic}`` can't remove the default topic currently named ``event_logs``.
+- ``POST /v1/topics/{topic}`` will allow duplicate filters from the request body and with the existing filters in memory/database. The back-end algorithm will remove any result duplicates. Thus this endpoint is idempotent and will not throw an error when duplicates are being added.
+- To replace entire list of filters ``PUT /v1/topics/{topic}`` can be used. No errors will be thrown when the topic exists, therefore this endpoint is idempotent.
+- Every endpoint will accept duplicated filters in the request body and the back-end implementation will be responsible to remove them.
+
+
+II. Database document naming
+----------------------------
+The database document used to persist the topic configuration will be named allowed_filters. This document will store only the allow-list entries and the topic-to-pattern mappings that are managed by the application at runtime. The blocklist will not be saved in the database because it is defined in settings.py and is intended to remain a static configuration.
+
+The values from the database will be loaded into the ``_allowed`` attribute of the ``KafkaEvents`` class when the NApp is initialized. This ensures that the allowed filters are available for matching incoming events as soon as the NApp starts.
+
+The database document will have the following structure:
+
+    .. code:: python
+
+        [
+            {
+                "_id": "flows",
+                "filters": [
+                    "kytos/flow_manager.flow.added", 
+                    "kytos.flow_manager.flows.single.install"
+                ],
+                "updated_at": "2024-06-05T12:00:00Z",
+                "inserted_at": "2024-06-05T10:00:00Z",
+            },
+            {
+                "_id": "tags",
+                "filters": [ "kytos/core.interface_tags"],
+                "updated_at": "2024-06-05T12:00:03Z",
+                "inserted_at": "2024-06-05T09:00:04Z",
+            }
+        ]
+
+The ``_id`` fields will have the topic name. The endpoint for adding topics already ensures unique topic names, so there is no need for additional validation in the database. The ``filters`` field will contain the list of filters associated with each topic.
+
+IV. Handle events when kafka is unavailable
+-------------------------------------------
+
+When Kafka is temporarily unavailable or when the cluster does not have enough in-sync replicas to publish safely, the producer should not silently drop the event. Instead, it should move the event into a bounded in-memory queue so the producer can continue accepting new data without losing the message permanently. The queue should preserve FIFO ordering so that pending events can be replayed when the broker connection is restored.
+
+The recommended behavior is:
+
+- detect that the broker is unreachable or publish is not possible;
+- enqueue the event in the local buffer using FIFO ordering;
+- enforce a maximum buffer size of 0.5 GB or a maximum buffering time of 30 seconds, whichever is reached first;
+- replay buffered events in the same order they were received once Kafka is healthy again;
+- if either limit is reached, start dropping the newest events according to the chosen policy.
+
+This mechanism makes the producer resilient to cluster outages and supports a recovery path without losing all events that were captured while the broker was unavailable. Once Kafka is healthy again, the producer drains the queue in order and resumes normal publishing. If either the 0.5 GB size limit or the 30-second time limit is reached, the selected overflow policy determines whether the oldest or newest events are dropped.
+
+
+V. Workflow for events and topics
+---------------------------------
+
+This section describes the runtime workflow of the Kafka producer and how topic-based filtering, message sequencing, and broker recovery are coordinated during normal operation.
+
+1. Startup and filter loading
+
+- Initialize the Kafka producer and load the configured topic filters (from the database) and blocklist (from ``settings.py``).
+
+2. Event listening and topic matching
+
+- Receive events from the Kytos event bus.
+- Check the blocklist and discard blocked events.
+- Match the remaining events against the allow-list for each topic.
+- Route matching events to the corresponding topic.
+- If not matched happened, send event to the default topic ``event_logs``.
+
+3. Sequence number and serialization
+
+- Serialize the event into JSON before publication.
+
+4. Broker publishing and outage handling
+
+- Submit the serialized event to Kafka for asynchronous publication.
+- If the broker is reachable, publish the event normally.
+- If the broker is unavailable, store the event in the bounded in-memory queue.
+- Drain the queue when the broker is restored.
+
+5. Shutdown and recovery
+
+- Stop accepting new events during shutdown.
+- Flush any remaining queued data when the broker is available.
+- Close the Kafka connection cleanly.
+
+In summary, the workflow is: receive events, filter them by topic, publish them to Kafka, and buffer them in memory when the broker is unavailable.
+
+VI. Tests done with Kafka
+-------------------------
+From now on some tests will be mentioned and discussed. So here is the environment in which the tests were conducted.
+
+Kafka configuration:
+~~~~~~~~~~~~~~~~~~~~
+- Linger: 50 ms (otherwise it will be specified in the test results)
+- Batch size: 64 kB
+- Request size: 5 MB
+- Kafka timeout: 50 s (otherwise also will be specified in the test results)
+
+Blocked list:
+~~~~~~~~~~~~~
+- "kytos/of_core.v0x04.messages.*",
+- "kytos/flow_manager.messages.out.*",
+- "kytos/of_lldp.messages.out.*",
+- "kytos/core.openflow.raw.*",
+
+Topology used:
+~~~~~~~~~~~~~~
+- 20 switches
+- 45 links
+- 33 unique links
+
+EVCs created:
+~~~~~~~~~~~~~
+- 8 flows for ``current_path``
+- 10 flows for ``failover_path``
+- 2 flows for UNIs
+
+Settings for kafka:
+~~~~~~~~~~~~~~~~~~~
+- ``LINGER_MS``: 50 ms
+- ``BATCH_SIZE``: 64 kB
+- ``REQUEST_SIZE``: 5 MB
+- ``KAFKA_TIMEOUT``: 40 s
+- ``ACKS``: "all"
+- ``KAFKA_NUM_PARTITIONS``: 4
+- ``KAFKA_AUTO_CREATE_TOPICS_ENABLE``: "true"
+
+
+VII. Evaluation of aiokafka Settings vs Application-Level Retries (Tenacity)
+-----------------------------------------------------------------------------
+
+Under high event throughput (e.g., bursts of 30,000+ events over a single partition), performance and error-handling behavior were compared between two approaches: internal ``aiokafka`` client configuration and application-level retry handling via ``tenacity``.
+
+In testing scenarios with 30k–34k events using ``acks="all"``, the application experienced transient dropped events during burst spikes:
+
+* **aiokafka Built-in Configuration:** 34,097 total events attempted, 9,132 events dropped.
+* **Application-Level Tenacity Retry:** 30,631 total events attempted, 5,575 events dropped (a ~39% reduction in dropped events).
+
+How each approach works
+~~~~~~~~~~~~~~~~~~~~~~~
+
+1. **aiokafka Internal Retry Scope:**
+   ``aiokafka`` internal retries (controlled by ``retry_backoff_ms``) only trigger for transient Kafka broker errors (such as ``NotEnoughReplicasError``, broker disconnects, or leadership re-elections). When a high-volume burst saturates the client's internal send buffer, messages sit queued waiting to be acknowledged by the broker. As a result, operations exceed ``request_timeout_ms`` and raise a local ``KafkaTimeoutError``. Because ``KafkaTimeoutError`` originates from the client-side buffer expiration rather than a retriable broker error, ``aiokafka`` bypasses its internal retry loop and raises the exception directly to the caller.
+
+2. **Application-Level Backpressure with Tenacity:**
+   When using ``tenacity`` to catch ``KafkaTimeoutError``, the application explicitly introduces a sleep/backoff interval between retries. This pause effectively acts as application-level backpressure: it temporarily halts new message insertion into the ``aiokafka`` send buffer, giving the underlying ``asyncio`` event loop and Kafka brokers time to flush queued requests. This explains why application-level retries successfully re-sent events and reduced overall loss.
+
+Recommended Producer Guidance for EP 042
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Relying solely on retries under burst load causes buffer saturation. To prevent ``KafkaTimeoutError`` drops during high-volume events, the producer configuration must apply the following tuning strategies:
+
+* **Enable Micro-Batching (``linger_ms``):**
+  Increase ``linger_ms`` from ``0`` to ``10–50 ms``. By default (``linger_ms=0``), bursts trigger thousands of individual network requests. Adding a small linger delay groups thousands of events into dense TCP payloads, vastly improving throughput and reducing buffer queue wait times.
+
+* **Partition Sizing & Key Distribution:**
+  Publishing high event volumes to a single partition creates sequential write bottlenecks on the broker. Distributing traffic across multiple partitions prevents single-partition lock contention.
+
+* **Bounded Application Backpressure:**
+  Rather than submitting unbound async tasks during bursts, the NApp producer loop should use a bounded queue or semaphore (e.g., ``asyncio.Queue`` or ``asyncio.Semaphore``) to match event insertion rates with network delivery speeds.
+
+VIII. CPU Usage and Performance Considerations
+-----------------------------------------------
+
+The performance and CPU impact of introducing ``kafka_events`` to Kytos were evaluated by comparing three execution baselines under consistent workload conditions:
+
+1. **No Kafka (Control Baseline)**: The Kytos core runtime processes incoming network messages and events directly without performing serialization or publishing operations.
+2. **Serializer (Serialization Overhead Baseline)**: The Kytos core processes events, converts them to JSON format via ``json.dumps`` (using ``JSONObjectEncoder``), and encodes them into standard UTF-8 byte arrays using ``serialize_and_encode()`` without transferring them over the network.
+3. **Kafka (End-to-End Delivery)**: The full pipeline execution where events are intercepted, serialized, encoded into byte arrays, and published asynchronously over the network to the Kafka broker via ``aiokafka``.
+
+Test 1: Only events
+~~~~~~~~~~~~~~~~~~~~
+The following code was added to `mef_eline`:
+
+.. code:: python
+    @rest("v1/work", methods=["GET"])
+    async def work(self, request: Request) -> JSONResponse:
+        n = 400
+        k = 1000
+        for k in range(k):
+            log.info(f"iter: {k}, will send n: {n}")
+            for i in range(n):
+
+                await self.controller.buffers.app.aput(
+                    KytosEvent("kytos/mef_eline.do_work", content={"value": i})
+                )
+            await asyncio.sleep(0.1)
+        return JSONResponse({"n": n, "k": k})
+
+This instance of kytos was running with nothing else (no topology, no flows, no EVCs). An asyncio sleep was applied to not utilize all the CPU power so 100% usage was not reached:
+
+Performance Metrics SummaryW
+###########################
+
+.. list-table:: Resource Usage Across Execution Baselines
+   :widths: 25 15 15 15 30
+   :header-rows: 1
+
+   * - Metric
+     - No Kafka
+     - Serializer
+     - Kafka
+     - Kafka impact vs Serializer
+   * - Average CPU
+     - 60.35%
+     - 64.51%
+     - 75.22%
+     - +10.70 percentage points
+   * - CPU p95
+     - 71.80%
+     - 77.60%
+     - 90.90%
+     - +13.30 percentage points
+   * - CPU p99
+     - 71.90%
+     - 82.24%
+     - 93.38%
+     - +11.14 percentage points
+   * - Max CPU
+     - 71.90%
+     - 84.00%
+     - 94.50%
+     - +10.50 percentage points
+   * - Min CPU
+     - 49.00%
+     - 55.80%
+     - 65.70%
+     - +9.90 percentage points
+
+Analysis of Results
+###################
+
+This test generated approximately 4,000 events per second and 4 million events in total. The results show a clear progression in CPU usage across the three execution baselines:
+
+1. **No Kafka** had the lowest CPU usage, with an average of 60.35%. This is the control case, where events were processed without serialization or Kafka publication.
+2. **Serializer** increased average CPU usage to 64.51%, or 4.16 percentage points above the no-Kafka baseline. Serialization also increased the CPU tail, with p99 rising from 71.90% to 82.24% and maximum usage rising from 71.90% to 84.00%. This isolates the cost of converting and encoding events before they are sent anywhere.
+3. **Kafka** reached an average CPU usage of 75.22%. Because this column includes both serialization and asynchronous publication to Kafka, it was 10.70 percentage points higher than **Serializer** and 14.87 percentage points higher than **No Kafka**. The same pattern appears in the peaks: Kafka reached 93.38% at p99 and 94.50% at maximum usage, compared with 82.24% and 84.00% for **Serializer**, and 71.90% for both measures in **No Kafka**.
+
+Overall, serialization accounts for a measurable but smaller portion of the overhead. Under this sustained 4k-events-per-second workload, the additional cost of Kafka publication is the dominant contributor to CPU usage, especially in the p95, p99, and maximum measurements. The Kafka results remain below 100%, but the peak values indicate that this workload leaves limited CPU headroom for additional Kytos activity.
+
+Test 2: EVCs per second
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+To evaluate these baselines, an EVC was installed every second and through 1 thread 400 EVCs in total:
+- Each EVC had 20 flows to publish.
+- A single topic with 4 partitions.
+- 35576 events in total
+- Test ran for 449 seconds
+
+Performance Metrics Summary
+###########################
+
+The table below outlines the resource consumption recorded across each execution baseline during the test:
+
+.. list-table:: Resource Usage Across Execution Baselines
+   :widths: 25 15 15 15 30
+   :header-rows: 1
+
+   * - Metric
+     - No Kafka
+     - Serializer
+     - Kafka
+     - Kafka impact vs Serializer
+   * - Average CPU
+     - 26.64%
+     - 27.65%
+     - 28.73%
+     - +1.07 percentage points
+   * - CPU p95
+     - 43.30%
+     - 47.40%
+     - 44.10%
+     - −3.30 points
+   * - CPU p99
+     - 57.10%
+     - 57.56%
+     - 55.82%
+     - −1.74 points
+   * - Max CPU
+     - 61.9%
+     - 69.9%
+     - 67.9%
+     - -2.0 percentage points
+   * - Min CPU
+     - 6.0%
+     - 8.0%
+     - 8.0%
+     - 0 percentage points
+
+Analysis of Results
+###################
+
+This test processed approximately 35,000 events in 449 seconds, or about 78 events per second. CPU usage increased only slightly across the baselines: the average rose from 26.64% with **No Kafka** to 27.65% with **Serializer** and 28.73% with **Kafka**. Thus, serialization added 1.01 percentage points, while Kafka with serialization added only 2.09 percentage points compared with the control baseline. The p95 and p99 values were also similar, with Kafka slightly below the Serializer baseline. Overall, the results indicate that serialization and Kafka publishing caused a minimal increase in CPU load for this workload.
+
+IX. Partition sizing
+---------------------
+
+Partition configuration in Kafka brokers directly influences the parallelism, throughput, and consumer scalability of event streams. For high-volume deployment scenarios, setting a baseline default of 4 partitions per topic (e.g., via ``DEFAULT_NUM_PARTITIONS = 4``) provides an optimal balance between performance and operational overhead for the following reasons:
+
+* **Parallelism and Scalability:** Partitions are the fundamental unit of parallelism in Kafka. Having 4 partitions allows up to 4 concurrent consumer instances within the same consumer group to process incoming network events in parallel without encountering partition contention.
+* **Balanced Cluster Load:** Distributing a topic across 4 partitions enables effective load balancing across multi-node Kafka broker clusters, preventing single-broker bottlenecks during event spikes.
+* **Low Metadata Overhead:** Keeping partition counts lightweight (such as 4 per topic) avoids excessive end-to-end latency, unnecessary memory consumption, and heavy file descriptor usage on both the broker and producer sides compared to over-partitioning.
+* **Sufficient Headroom for NApp Event Volume:** Based on expected event generation rates, 4 partitions offer more than enough throughput capacity for downstream consumers while maintaining sufficient headroom for scaling if topic splitting or additional partitioning is required in the future.
+
+X. UI for topic management and event monitoring
+-----------------------------------------------
+
+To provide operational visibility without adding unnecessary complexity, the UI interface for Kafka event management remains lightweight and focused strictly on dynamic topic control and real-time operational inspection:
+
+* **Events Table:** A table showing the last 5 events timestamp and name.
+* **Topic and Filter Management:** A unified view listing existing topics alongside their associated pattern filters, allowing operators to select and view specific topic configurations.
+* **Topic Action Controls:** Direct operational controls to act upon existing topics (updating pattern filters or removing topics) as well as an interface to define and create new topics.
+
+
+XI. Number of events and their sizes
+------------------------------------
+
+Different measurements were achieved from different types of tests.
+The event ``kytos/of_lldp.interface.is.nni`` is time sensitive, so the longer kytos runs, the more frequently it will be triggered.
+
+400 EVCs installed
+~~~~~~~~~~~~~~~~~~
+
+This is the result of installing 400 EVCs which took around 70 seconds.
+
+.. list-table:: Event Counts and Sizes per Test
+   :widths: 55 20 25
+   :header-rows: 1
+
+   * - Event Type
+     - Count
+     - Size (Bytes)
+   
+   * - **Turn on events**
+     - 
+     - 
+   * - ``amlight/sdntrace_cp.loaded``
+     - 1
+     - 66
+   * - ``amlight/sdntrace.loaded``
+     - 1
+     - 63
+   * - ``amlight/kytos_stats.loaded``
+     - 1
+     - 66
+   * - ``amlight/coloring.loaded``
+     - 1
+     - 63
+   * - ``kytos/of_lldp.enable_table``
+     - 1
+     - 94
+   * - ``kytos/of_core.loaded``
+     - 1
+     - 61
+   * - ``kytos/flow_manager.loaded``
+     - 1
+     - 66
+   * - ``kytos/of_lldp.loaded``
+     - 1
+     - 61
+   * - ``kytos/telemetry_int.loaded``
+     - 1
+     - 67
+   * - ``kytos/maintenance.loaded``
+     - 1
+     - 65
+   * - ``kytos/kafka_events.loaded``
+     - 1
+     - 66
+   * - ``kytos/of_multi_table.loaded``
+     - 1
+     - 68
+   * - ``kytos/topology.loaded``
+     - 1
+     - 62
+   * - ``kytos/pathfinder.loaded``
+     - 1
+     - 64
+   * - ``kytos/mef_eline.loaded``
+     - 1
+     - 63
+   * - ``kytos/topology.topology_loaded``
+     - 1
+     - 156
+   * - ``kytos/mef_eline.evcs_loaded``
+     - 2
+     - 68
+   * - ``kytos/of_multi_table.enable_table``
+     - 1
+     - 198
+   * - ``kytos/telemetry_int.enable_table``
+     - 1
+     - 133
+   * - ``kytos/mef_eline.enable_table``
+     - 1
+     - 107
+   * - ``kytos/coloring.enable_table``
+     - 1
+     - 95
+
+   * - **Topology events**
+     - 
+     - 
+   * - ``kytos/core.openflow.connection.new``
+     - 20
+     - 223
+   * - ``kytos/core.switch.new``
+     - 20
+     - 440
+   * - ``kytos/of_core.handshake.completed``
+     - 20
+     - 8999
+   * - ``kytos/of_core.switch.port.created``
+     - 268
+     - 212
+   * - ``kytos/of_core.switch.interfaces.created``
+     - 20
+     - 7887
+   * - ``kytos/topology.switch.enabled``
+     - 20
+     - 106
+   * - ``kytos/topology.switch.interface.created``
+     - 268
+     - 485
+   * - ``kytos/topology.notify_link_up_if_status``
+     - 15
+     - 1083
+   * - ``kytos/topology.link_up``
+     - 45
+     - 1064
+   * - ``kytos/topology.port.created``
+     - 268
+     - 207
+   * - ``kytos/topology.updated``
+     - 378
+     - **156253**
+
+   * - **EVC events**
+     - 
+     - 
+   * - ``kytos/flow_manager.flow.added``
+     - 8087
+     - 9509
+   * - ``kytos.flow_manager.flows.single.install``
+     - 66
+     - 372
+   * - ``kytos/flow_manager.flow.pending``
+     - 8322
+     - 9511
+   * - ``kytos/mef_eline.deployed``
+     - 400
+     - 385
+   * - ``kytos/mef_eline.created``
+     - 400
+     - 384
+   * - ``kytos/mef_eline.failover_deployed``
+     - 400
+     - 7171
+   * - ``kytos/mef_eline.need_failover``
+     - 30
+     - 390
+   * - ``kytos/core.interface_tags``
+     - 8268
+     - 472
+
+   * - **Raw in and NNI**
+     - 
+     - 
+   * - ``kytos/of_core.flow_stats.received``
+     - 40
+     - 692300
+   * - ``kytos/of_core.port_stats``
+     - 40
+     - 27880
+   * - ``kytos/of_core.table_stats.received``
+     - 40
+     - 37999
+   * - ``kytos/of_lldp.interface.is.nni``
+     - 3042
+     - 884
+
+Results
+#######
+- In total there were 45,512 events.
+- The total time was 566 seconds.
+- Total data volume was 406,280,094 bytes (387.47 MB).
+- The event rate was 80.41 events per second.
+- The data rate was 0.68 MB per second.
+
+In/Out EVCs
+~~~~~~~~~~~
+
+The following measurements detail the number of events and the size of each event type recorded during the test (*In/Out EVCs, autogen, 8:43 minutes*).
+
+.. list-table:: Event Counts and Sizes
+   :widths: 55 20 25
+   :header-rows: 1
+
+   * - Event Type
+     - Count
+     - Size (Bytes)
+   
+   * - **Turn on events**
+     - 
+     - 
+   * - ``amlight/sdntrace_cp.loaded``
+     - 1
+     - 66
+   * - ``amlight/sdntrace.loaded``
+     - 1
+     - 63
+   * - ``amlight/kytos_stats.loaded``
+     - 1
+     - 66
+   * - ``amlight/coloring.loaded``
+     - 1
+     - 63
+   * - ``kytos/of_lldp.enable_table``
+     - 1
+     - 94
+   * - ``kytos/of_core.loaded``
+     - 1
+     - 61
+   * - ``kytos/flow_manager.loaded``
+     - 1
+     - 66
+   * - ``kytos/of_lldp.loaded``
+     - 1
+     - 61
+   * - ``kytos/telemetry_int.loaded``
+     - 1
+     - 67
+   * - ``kytos/maintenance.loaded``
+     - 1
+     - 65
+   * - ``kytos/kafka_events.loaded``
+     - 1
+     - 66
+   * - ``kytos/of_multi_table.loaded``
+     - 1
+     - 68
+   * - ``kytos/topology.loaded``
+     - 1
+     - 62
+   * - ``kytos/pathfinder.loaded``
+     - 1
+     - 64
+   * - ``kytos/mef_eline.loaded``
+     - 1
+     - 63
+   * - ``kytos/topology.topology_loaded``
+     - 1
+     - 156
+   * - ``kytos/mef_eline.evcs_loaded``
+     - 2
+     - 68
+   * - ``kytos/of_multi_table.enable_table``
+     - 1
+     - 198
+   * - ``kytos/telemetry_int.enable_table``
+     - 1
+     - 133
+   * - ``kytos/mef_eline.enable_table``
+     - 1
+     - 107
+   * - ``kytos/coloring.enable_table``
+     - 1
+     - 95
+
+   * - **Topology events**
+     - 
+     - 
+   * - ``kytos/core.openflow.connection.new``
+     - 20
+     - 223
+   * - ``kytos/core.switch.new``
+     - 20
+     - 441
+   * - ``kytos/of_core.handshake.completed``
+     - 20
+     - 8998
+   * - ``kytos/of_core.switch.port.created``
+     - 268
+     - 212
+   * - ``kytos/of_core.switch.interfaces.created``
+     - 20
+     - 7887
+   * - ``kytos/topology.switch.enabled``
+     - 20
+     - 106
+   * - ``kytos/topology.switch.interface.created``
+     - 268
+     - 485
+   * - ``kytos/topology.notify_link_up_if_status``
+     - 15
+     - 1081
+   * - ``kytos/topology.link_up``
+     - 45
+     - 1064
+   * - ``kytos/topology.port.created``
+     - 268
+     - 206
+   * - ``kytos/topology.updated``
+     - 393
+     - **156163**
+
+   * - **EVC events**
+     - 
+     - 
+   * - ``kytos/flow_manager.flow.added``
+     - **14894**
+     - 9509
+   * - ``kytos.flow_manager.flows.single.install``
+     - 66
+     - 372
+   * - ``kytos/flow_manager.flow.pending``
+     - **18464**
+     - 9511
+   * - ``kytos/mef_eline.deployed``
+     - 761
+     - 385
+   * - ``kytos/mef_eline.created``
+     - 761
+     - 384
+   * - ``kytos/mef_eline.failover_deployed``
+     - 733
+     - 7171
+   * - ``kytos/mef_eline.need_failover``
+     - 141
+     - 390
+   * - ``kytos/core.interface_tags``
+     - **22808**
+     - 472
+
+   * - **Raw in and NNI / New Events**
+     - 
+     - 
+   * - ``kytos/of_core.flow_stats.received``
+     - 180
+     - **721835**
+   * - ``kytos/of_core.port_stats``
+     - 180
+     - 27948
+   * - ``kytos/of_core.table_stats.received``
+     - 180
+     - 38000
+   * - ``kytos/of_lldp.interface.is.nni``
+     - **14367**
+     - 884
+   * - ``kytos/mef_eline.deleted``
+     - 394
+     - 386
+   * - ``kytos/flow_manager.flow.removed``
+     - 7600
+     - 161
+
+Results
+#######
+- In total there were 82,908 events
+- Total time passed was 523 seconds
+- Total data volume was 551,834,750 bytes (~526 MB)
+- Event rate is 158.52 events per second (in production it was seen that the rate is ~70 events per second)
+- Size rate is 1.01 MB per second (in production it was seen that the rate is ~0.45 MB per second but this estimate was calculated with the maximum size of an event instance)
+
+Kytos at idle with no changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This test was done to check if any event is generated when Kytos has no EVCs and has not changes to the network topology. The test ran for 9 minutes and 43 seconds.
+
+.. list-table:: Event Counts and Sizes
+   :widths: 55 20 25
+   :header-rows: 1
+
+   * - Event Type
+     - Count
+     - Size (Bytes)
+   
+   * - **Turn on events**
+     - 
+     - 
+   * - ``amlight/sdntrace_cp.loaded``
+     - 1
+     - 66
+   * - ``amlight/sdntrace.loaded``
+     - 1
+     - 63
+   * - ``amlight/kytos_stats.loaded``
+     - 1
+     - 66
+   * - ``amlight/coloring.loaded``
+     - 1
+     - 63
+   * - ``kytos/of_lldp.enable_table``
+     - 1
+     - 94
+   * - ``kytos/of_core.loaded``
+     - 1
+     - 61
+   * - ``kytos/flow_manager.loaded``
+     - 1
+     - 66
+   * - ``kytos/of_lldp.loaded``
+     - 1
+     - 61
+   * - ``kytos/telemetry_int.loaded``
+     - 1
+     - 67
+   * - ``kytos/maintenance.loaded``
+     - 1
+     - 65
+   * - ``kytos/kafka_events.loaded``
+     - 1
+     - 66
+   * - ``kytos/of_multi_table.loaded``
+     - 1
+     - 68
+   * - ``kytos/topology.loaded``
+     - 1
+     - 62
+   * - ``kytos/pathfinder.loaded``
+     - 1
+     - 64
+   * - ``kytos/mef_eline.loaded``
+     - 1
+     - 63
+   * - ``kytos/topology.topology_loaded``
+     - 1
+     - 156
+   * - ``kytos/mef_eline.evcs_loaded``
+     - 2
+     - 68
+   * - ``kytos/of_multi_table.enable_table``
+     - 1
+     - 198
+   * - ``kytos/telemetry_int.enable_table``
+     - 1
+     - 133
+   * - ``kytos/mef_eline.enable_table``
+     - 1
+     - 107
+   * - ``kytos/coloring.enable_table``
+     - 1
+     - 95
+
+   * - **Topology events**
+     - 
+     - 
+   * - ``kytos/core.openflow.connection.new``
+     - 20
+     - 223
+   * - ``kytos/core.switch.new``
+     - 20
+     - 440
+   * - ``kytos/of_core.handshake.completed``
+     - 20
+     - 8998
+   * - ``kytos/of_core.switch.port.created``
+     - 268
+     - 212
+   * - ``kytos/of_core.switch.interfaces.created``
+     - 20
+     - 7887
+   * - ``kytos/topology.switch.enabled``
+     - 20
+     - 106
+   * - ``kytos/topology.switch.interface.created``
+     - 268
+     - 427
+   * - ``kytos/topology.link_up``
+     - 45
+     - 1064
+   * - ``kytos/topology.port.created``
+     - 268
+     - 206
+   * - ``kytos/topology.updated``
+     - 378
+     - **156163**
+
+   * - **EVC events**
+     - 
+     - 
+   * - ``kytos/flow_manager.flow.added``
+     - 86
+     - 9509
+   * - ``kytos.flow_manager.flows.single.install``
+     - 66
+     - 372
+   * - ``kytos/flow_manager.flow.pending``
+     - 89
+     - 9511
+   * - ``kytos/core.interface_tags``
+     - 268
+     - 412
+
+   * - **Raw in and NNI**
+     - 
+     - 
+   * - ``kytos/of_core.flow_stats.received``
+     - 200
+     - **11068**
+   * - ``kytos/of_core.port_stats``
+     - 200
+     - **27951**
+   * - ``kytos/of_core.table_stats.received``
+     - 200
+     - **38000**
+   * - ``kytos/of_lldp.interface.is.nni``
+     - **16470**
+     - 884
+
+Results
+#######
+- In total there were 18,928 events.
+- The total time was 583 seconds.
+- Total data volume was 91,421,355 bytes (87.19 MB).
+- The event rate was 32.47 events per second.
+- The data rate was 0.15 MB per second.
+
+XII. Blocked patterns configuration
+-----------------------------------
+There are events that are not necessary to be saved or processed and can be safely discarded. The current list is as follows:
+
+    -"kytos/of_core.v0x04.messages.*",
+    -"kytos/flow_manager.messages.out.*",
+    -"kytos/of_lldp.messages.out.*",
+    -"kytos/core.openflow.raw.*",
+
+But more events can be added to this list:
+
+    -"kytos/topology.updated": Use when any topology component receives an update.
+    -"kytos/mef_eline.evcs_loaded": Sent when kytos starts, the EVCs are loaded from the database.
+    -"kytos/of_lldp.interface.is.nni": Sent a link is detected to be an NNI.
+
+XIII. Implementation details ``v1``
+-----------------------------------
+
+The scope of version 1 (``v1``) for the Kafka events NApp is focused strictly on core delivery, reliability, and management foundations. The following components are implemented in ``v1``:
+
+* **API Endpoints**: Exposes required management and troubleshooting endpoints, including a GET endpoint to read topic management configurations and other endpoints that allow modifications.
+* **Block List Expansion**: Introduces a more complete ``BLOCKED_PATTERNS`` list to exclude frequent, unnecessary, or high-volume events out of the gate.
+* **Database Integration**: Implements the necessary database structures to support state management and tracking within the NApp.
+* **Retries & Resilience**: Configures robust error handling and retry behaviors (leveraging client parameters like ``request_timeout_ms`` and ``retry_backoff_ms``) to manage transient broker issues.
+
+
+XIV. Future Work
+-----------------
+
+The following capabilities are deferred to subsequent versions and remain out of scope for ``v1``:
+
+* **Persistent Fallback:** Saves pending events to memory when no Kafka brokers are available, then replays the events after the broker connection is restored.
+* **Semaphore Configuration Testing:** Tests semaphore sizes and establishes practical limits for controlling event traffic without overloading the ``asyncio`` event loop or increasing event loss.
+* **User Interface:** Implements the UI for topic management, event table, and operational visibility.
+* **Graceful shutdown:** This feature has a dependency on Kytos core shutdown mechanisms to ensure that all pending events are properly handled and that the NApp exits cleanly.
