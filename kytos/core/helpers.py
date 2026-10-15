@@ -422,6 +422,7 @@ async def avalidate_openapi_request(
         _request_validation_result_or_400(err)
     return body
 
+
 def avalidate_openapi(spec):
     """Decorator to validate async REST endpoint input."""
     def validate_decorator(func):
@@ -440,14 +441,11 @@ def avalidate_openapi(spec):
                 err = f"{func.__name__} args doesn't have a Request argument"
                 raise RuntimeError(err)
 
-            if not napp:
-                err = f"{func.__name__} should be a NApp method to get ev_loop"
-                raise RuntimeError(err)
-
             await avalidate_openapi_request(spec, request)
             return await func(*args, **kwargs)
         return wrapper_validate
     return validate_decorator
+
 
 def validate_openapi(spec):
     """Decorator to validate a REST endpoint input.
