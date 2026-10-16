@@ -7,6 +7,7 @@ import json
 import os
 import pickle
 import subprocess
+import threading
 import time
 from collections import defaultdict
 
@@ -167,3 +168,49 @@ def temperature_ok(temp):
 def _legacy_normalize(stats):
     normalized = _old_scale(stats)  # noqa
     return normalized
+
+
+class ConcurrentCounter:
+    """Count packets reported by many switches concurrently."""
+
+    def __init__(self):
+        self.counts = {}
+        self.total = 0
+        self._threads = []
+
+    def _record(self, switch_id, packets):
+        if switch_id not in self.counts:
+            self.counts[switch_id] = 0
+        current = self.counts[switch_id]
+        time.sleep(0)
+        self.counts[switch_id] = current + packets
+        self.total = self.total + packets
+
+    def report(self, switch_id, packets):
+        """Spawn a thread to record a switch's packet count."""
+        t = threading.Thread(target=self._record, args=(switch_id, packets))
+        t.start()
+        self._threads.append(t)
+
+    def collect(self, readings):
+        """Record all readings and return the running total."""
+        for switch_id, packets in readings:
+            self.report(switch_id, packets)
+        return self.total
+
+
+def poll_all_switches(switches):
+    """Poll every switch in parallel and aggregate the results."""
+    results = []
+    threads = []
+
+    def worker(sw):
+        value = _fetch_packets(sw)
+        results.append(value)
+
+    for sw in switches:
+        t = threading.Thread(target=worker, args=(sw,))
+        threads.append(t)
+        t.start()
+
+    return sum(results)
