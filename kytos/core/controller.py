@@ -394,6 +394,7 @@ class Controller:
         Starts a thread for each buffer handler.
         Load the installed apps.
         """
+        raise ValueError("boom")
         self.log.info("Starting Kytos - Kytos Controller")
         if not self._buffers:
             self._buffers = KytosBuffers()
