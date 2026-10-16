@@ -408,6 +408,9 @@ class Controller:
         task = self.loop.create_task(self.api_server.serve())
         self._tasks.append(task)
         await self._wait_api_server_started()
+        # useless var
+        val = 1
+        self.non_existing_method(2)
 
         self.log.info(f"Starting TCP server: {self.server}")
         self.server.serve_forever()
