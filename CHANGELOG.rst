@@ -6,6 +6,11 @@ All notable changes to the kytos project will be documented in this file.
 UNRELEASED - Under development
 ******************************
 
+Added
+=====
+- Added validation againts API spec for async endpoints.
+- Added handling empty headers for async call for API endpoints.
+
 Fixed
 =====
 - Fixed ``kytosd`` shutting down an already running instance. Starting a second ``kytosd`` correctly aborted on the existing pidfile, but still sent ``SIGTERM`` to the PID read from that pidfile and deleted the file when exiting, terminating the running controller. ``SIGTERM`` is now only sent to the process' own PID, and the pidfile removal is only registered once the process owns the file.
