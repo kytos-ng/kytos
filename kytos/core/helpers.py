@@ -429,13 +429,10 @@ def avalidate_openapi(spec):
         @functools.wraps(func)
         async def wrapper_validate(*args, **kwargs):
             request: Request = None
-            napp = None
             for arg in args:
                 if isinstance(arg, Request):
                     request = arg
-                if hasattr(arg, "controller"):
-                    napp = arg
-                if request and napp:
+                if request:
                     break
             if not request:
                 err = f"{func.__name__} args doesn't have a Request argument"
