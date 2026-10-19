@@ -943,15 +943,15 @@ XI. Blocked patterns configuration
 -----------------------------------
 There are events that are not necessary to be saved or processed and can be safely discarded. The current list is as follows:
 
-    -"kytos/of_core.v0x04.messages.*",
-    -"kytos/flow_manager.messages.out.*",
-    -"kytos/of_lldp.messages.out.*",
-    -"kytos/core.openflow.raw.*",
+    - "kytos/of_core.v0x04.messages.*",
+    - "kytos/flow_manager.messages.out.*",
+    - "kytos/of_lldp.messages.out.*",
+    - "kytos/core.openflow.raw.*",
 
 But more events can be added to this list:
 
-    -"kytos/core.interface_tags": Sent when an interface tag is added or removed.
-    -"kytos/of_lldp.interface.is.nni": Sent a link is detected to be an NNI.
+    - "kytos/core.interface_tags": Sent when an interface tag is added or removed.
+    - "kytos/of_lldp.interface.is.nni": Sent a link is detected to be an NNI.
 
 XII. Implementation details ``v1``
 -----------------------------------
