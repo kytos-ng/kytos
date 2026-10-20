@@ -136,6 +136,31 @@ The recommended behavior is:
 
 This mechanism makes the producer resilient to cluster outages and supports a recovery path without losing all events that were captured while the broker was unavailable. Once Kafka is healthy again, the producer drains the queue in order and resumes normal publishing. If either the 0.5 GB size limit or the 30-second time limit is reached, the selected overflow policy determines whether the oldest or newest events are dropped.
 
+Reconnect process when Kafka is unavailable
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reconnection steps
+##################
+
+1. At startup, attempt to connect to Kafka using the bounded retry sequence after sending the initial event to memory.
+2. If all startup attempts fail, continue startup without a Kafka connection.
+3. Run the NApp ``execute`` method periodically to perform one silent connection attempt.
+4. If the background attempt succeeds, resume normal event publishing and drain the queued events.
+5. If an established Kafka connection is lost, run the bounded retry sequence.
+6. If those attempts fail, wait for the next ``execute`` call to perform the next silent connection attempt.
+7. Continue the periodic checks until Kafka is available again.
+
+Clarifications
+##############
+
+- The bounded retry sequence uses three connection attempts waiting for ``RETRY_DELAY`` seconds (default value is 30 seconds) between each attempt.
+- Only a single retry sequence is allowed at a time. If the retry sequence is already running, another event sent will not trigger another retry sequence.
+- The retry count can be configured via the setting ``RETRIES_N``.
+- The ``execute`` method runs every 60 seconds (default value) and does not start another retry sequence during its background check.
+- The execute delay can be configured via the setting ``EXECUTE_DELAY``.
+- Before moving to background checks, log: ``giving up retry connect Kafka, continue to retry in background every 60 seconds``.
+- Log connection failures during the retry sequence subject to ``KAFKA_LOG_INTERVAL``. Keep background checks silent unless the connection is restored or an event is dropped because a buffer limit was reached.
+- ``execute`` method should be asynchronous.
 
 IV. Workflow for events and topics
 ---------------------------------
